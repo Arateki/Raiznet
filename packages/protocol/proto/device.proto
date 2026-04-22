@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package raiznet;
+
+enum PublishTo {
+  PUBLISH_TO_LOCAL_ONLY = 0;
+  PUBLISH_TO_PUBLIC     = 1;
+  PUBLISH_TO_BOTH       = 2;
+}
+
+enum Disposition {
+  DISPOSITION_OMIT      = 0;
+  DISPOSITION_PLAIN     = 1;
+  DISPOSITION_ENCRYPTED = 2;
+}
+
+enum DeviceType {
+  DEVICE_TYPE_SENSOR_MAINS   = 0; // always-on, acts as ESP-NOW relay
+  DEVICE_TYPE_SENSOR_BATTERY = 1; // sleeps, wakes on schedule
+  DEVICE_TYPE_GATEWAY        = 2; // relay only, no sensors
+}
+
+enum DeviceStatus {
+  DEVICE_STATUS_ACTIVE   = 0;
+  DEVICE_STATUS_INACTIVE = 1;
+  DEVICE_STATUS_LOST     = 2;
+}
+
+// Policy for a single sensor field.
+// default_disposition applies to any destination not listed in per_destination.
+// per_destination keys are server pubkeys (hex) for local servers or topic strings for public networks.
+// UI presents this as "same for all" / "public vs local" / "per destination (advanced)".
+message FieldPolicy {
+  Disposition             default_disposition = 1;
+  map<string, Disposition> per_destination    = 2;
+}
+
+message PrivacyPolicy {
+  FieldPolicy ph           = 1;
+  FieldPolicy ec           = 2;
+  FieldPolicy water_level  = 3;
+  FieldPolicy temp_water   = 4;
+  FieldPolicy temp_ambient = 5;
+  FieldPolicy humidity     = 6;
+}
+
+message Hardware {
+  string model            = 1;
+  string firmware_version = 2;
+}
+
+message Device {
+  bytes            id                     = 1;  // Ed25519 pubkey, 32 bytes
+  bytes            mac                    = 2;  // 6 bytes
+  bytes            owner_pubkey           = 3;  // 32 bytes
+  string           name                   = 4;
+  DeviceType       type                   = 5;
+  uint64           location               = 6;  // H3 cell (64-bit integer)
+  PublishTo        publish_to             = 7;
+  repeated string  networks               = 8;  // public network topics (Hyperswarm)
+  repeated string  local_servers          = 9;  // local server addresses, e.g. "192.168.1.10:3000"
+  uint32           encryption_key_version = 10;
+  PrivacyPolicy    privacy_policy         = 11;
+  Hardware         hardware               = 12;
+  DeviceStatus     status                 = 13;
+  uint64           created_at             = 14; // unix ms
+}

@@ -1,0 +1,8 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'docs'
+onlyBuiltDependencies:
+  - '@bufbuild/buf'
+  - better-sqlite3
+  - esbuild

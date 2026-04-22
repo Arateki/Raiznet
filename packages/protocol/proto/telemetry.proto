@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package raiznet;
+
+// A sensor field: present as plain float, present as encrypted blob, or absent (omitted)
+message SensorField {
+  oneof value {
+    float         plain     = 1;
+    EncryptedBlob encrypted = 2;
+  }
+}
+
+// AES-256-GCM encrypted value
+message EncryptedBlob {
+  bytes cipher = 1; // ciphertext
+  bytes nonce  = 2; // 12-byte nonce
+}
+
+// One telemetry reading from a device
+message TelemetryBlock {
+  bytes  device_id    = 1; // Ed25519 pubkey, 32 bytes
+  uint64 seq          = 2; // monotonic counter per device
+  uint64 timestamp    = 3; // unix ms, best-effort from device clock
+  uint64 received_at  = 4; // unix ms, filled by server on ingest
+  uint32 key_version  = 5; // symmetric key version used for any encrypted field
+
+  SensorField ph           = 10;
+  SensorField ec           = 11;
+  SensorField water_level  = 12;
+  SensorField temp_water   = 13;
+  SensorField temp_ambient = 14;
+  SensorField humidity     = 15;
+
+  bytes signature = 30; // Ed25519 signature over all fields except this one, 64 bytes
+}
+
+// Batch sent by ESP32 in a single HTTP POST /v1/telemetry
+message TelemetryBatch {
+  repeated TelemetryBlock blocks = 1;
+}

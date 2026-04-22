@@ -1,0 +1,25 @@
+{
+  "name": "@raiznet/server",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --env-file=.env dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@raiznet/crypto": "workspace:*",
+    "@raiznet/protocol": "workspace:*",
+    "@bufbuild/protobuf": "^2.6.0",
+    "better-sqlite3": "^11.10.0",
+    "fastify": "^5.3.2",
+    "pino": "^9.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.3"
+  }
+}

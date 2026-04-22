@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package raiznet;
+
+message UserContact {
+  string phone   = 1;
+  string email   = 2;
+  string website = 3;
+  string bio     = 4;
+}
+
+message User {
+  bytes       id         = 1; // Ed25519 pubkey, 32 bytes
+  string      name       = 2;
+  UserContact contact    = 3; // optional — all sub-fields are individually optional
+  uint64      created_at = 4; // unix ms
+}
