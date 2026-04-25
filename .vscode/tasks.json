@@ -1,0 +1,59 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "SafraSense: Build",
+      "type": "shell",
+      "command": "/home/yan/.platformio/penv/bin/pio",
+      "args": [
+        "run",
+        "--project-dir",
+        "${workspaceFolder}/firmware/safraSense"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "SafraSense: Upload",
+      "type": "shell",
+      "command": "/home/yan/.platformio/penv/bin/pio",
+      "args": [
+        "run",
+        "--project-dir",
+        "${workspaceFolder}/firmware/safraSense",
+        "--target",
+        "upload"
+      ],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "SafraSense: Monitor",
+      "type": "shell",
+      "command": "/home/yan/.platformio/penv/bin/pio",
+      "args": [
+        "device",
+        "monitor",
+        "--project-dir",
+        "${workspaceFolder}/firmware/safraSense"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "SafraSense: Clean",
+      "type": "shell",
+      "command": "/home/yan/.platformio/penv/bin/pio",
+      "args": [
+        "run",
+        "--project-dir",
+        "${workspaceFolder}/firmware/safraSense",
+        "--target",
+        "clean"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "folders": [
+    {
+      "name": "Raiznet",
+      "path": "."
+    },
+    {
+      "name": "SafraSense Firmware",
+      "path": "firmware/safraSense"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "firmware/safraSense": true,
+      "**/.pio": true,
+      "**/node_modules": true,
+      "**/dist": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "platformio.platformio-ide"
+    ]
+  }
+}
