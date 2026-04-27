@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type Database from 'better-sqlite3'
-import { ingestBlock } from '../../domain/telemetry.js'
+import { ingestBlock, type IngestDestination } from '../../domain/telemetry.js'
 import { InvalidSignatureError, DeviceNotFoundError } from '../../domain/errors.js'
 
 type SensorFieldInput = {
@@ -24,6 +24,11 @@ type BlockInput = {
   raw: string
 }
 
+type TelemetryRouteOptions = {
+  publicPort?: number
+  localPort?: number
+}
+
 type SensorField =
   | { case: 'plain'; value: number }
   | { case: 'encrypted'; cipher: Buffer; nonce: Buffer }
@@ -42,11 +47,17 @@ function parseField(f?: SensorFieldInput): SensorField {
   return { case: 'absent' }
 }
 
+function inferDestination(localPort: number | undefined, options: TelemetryRouteOptions): IngestDestination {
+  if (localPort !== undefined && localPort === options.localPort) return 'local'
+  return 'public'
+}
+
 export async function registerTelemetryRoutes(
   app: FastifyInstance,
   publicDb: Database.Database,
   privateDb: Database.Database,
   serverPubkeyHex: string,
+  options: TelemetryRouteOptions = {},
 ): Promise<void> {
   app.post<{ Body: { blocks: BlockInput[] } }>('/v1/telemetry', {
     schema: {
@@ -64,6 +75,7 @@ export async function registerTelemetryRoutes(
 
     for (const b of blocks) {
       try {
+        const destination = inferDestination(request.raw.socket.localPort, options)
         ingestBlock(
           {
             deviceId:    Buffer.from(b.deviceId, 'hex'),
@@ -82,6 +94,7 @@ export async function registerTelemetryRoutes(
           serverPubkeyHex,
           publicDb,
           privateDb,
+          destination,
         )
       } catch (err) {
         if (err instanceof DeviceNotFoundError || err instanceof InvalidSignatureError) {

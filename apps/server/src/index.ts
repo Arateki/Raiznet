@@ -17,11 +17,17 @@ const privateDb = openPrivateDb(config.DATA_DIR)
 
 const publicApp = Fastify({ logger: { level: config.LOG_LEVEL } })
 const localApp  = Fastify({ logger: { level: config.LOG_LEVEL } })
+const telemetryRouteOptions = {
+  publicPort: config.PUBLIC_PORT,
+  localPort:  config.LOCAL_PORT,
+}
 
 await registerHealthRoutes(publicApp)
 await registerHealthRoutes(localApp)
-await registerTelemetryRoutes(publicApp, publicDb, privateDb, serverPubkeyHex)
+await registerTelemetryRoutes(publicApp, publicDb, privateDb, serverPubkeyHex, telemetryRouteOptions)
+await registerTelemetryRoutes(localApp, publicDb, privateDb, serverPubkeyHex, telemetryRouteOptions)
 await registerDeviceRoutes(publicApp, publicDb)
+await registerDeviceRoutes(localApp, privateDb)
 
 await publicApp.listen({ port: config.PUBLIC_PORT, host: '0.0.0.0' })
 await localApp.listen({ port: config.LOCAL_PORT, host: '127.0.0.1' })

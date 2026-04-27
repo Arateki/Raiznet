@@ -92,7 +92,7 @@ describe('ingestBlock — publish_to routing', () => {
     cleanup()
   })
 
-  it('publish_to=local_only writes only to privateDb', () => {
+  it('publish_to=local_only writes only to privateDb for local ingest', () => {
     const { keyPair: owner } = generateKeyPair()
     const { keyPair: device } = generateKeyPair()
     insertDevice(privateDb, device.publicKey, owner.publicKey, 0, makePolicy(PLAIN))
@@ -105,7 +105,7 @@ describe('ingestBlock — publish_to routing', () => {
         waterLevel: { case: 'absent' }, tempWater: { case: 'absent' },
         tempAmbient: { case: 'absent' }, humidity: { case: 'absent' },
         signature: sign(raw, device.secretKey), raw },
-      serverPubkeyHex, publicDb, privateDb,
+      serverPubkeyHex, publicDb, privateDb, 'local',
     )
 
     expect(countRows(publicDb, device.publicKey)).toBe(0)
@@ -113,11 +113,10 @@ describe('ingestBlock — publish_to routing', () => {
     cleanup()
   })
 
-  it('publish_to=both writes to both databases', () => {
+  it('publish_to=both writes to publicDb for public ingest', () => {
     const { keyPair: owner } = generateKeyPair()
     const { keyPair: device } = generateKeyPair()
     insertDevice(publicDb, device.publicKey, owner.publicKey, 2, makePolicy(PLAIN))
-    insertDevice(privateDb, device.publicKey, owner.publicKey, 2, makePolicy(PLAIN))
 
     const seq = 1n; const ts = BigInt(Date.now())
     const raw = buildRaw(device.publicKey, seq, ts)
@@ -131,6 +130,27 @@ describe('ingestBlock — publish_to routing', () => {
     )
 
     expect(countRows(publicDb, device.publicKey)).toBe(1)
+    expect(countRows(privateDb, device.publicKey)).toBe(0)
+    cleanup()
+  })
+
+  it('publish_to=both writes to privateDb for local ingest', () => {
+    const { keyPair: owner } = generateKeyPair()
+    const { keyPair: device } = generateKeyPair()
+    insertDevice(privateDb, device.publicKey, owner.publicKey, 2, makePolicy(PLAIN))
+
+    const seq = 1n; const ts = BigInt(Date.now())
+    const raw = buildRaw(device.publicKey, seq, ts)
+    ingestBlock(
+      { deviceId: device.publicKey, seq, timestamp: ts, keyVersion: 0,
+        ph: { case: 'plain', value: 7.0 }, ec: { case: 'absent' },
+        waterLevel: { case: 'absent' }, tempWater: { case: 'absent' },
+        tempAmbient: { case: 'absent' }, humidity: { case: 'absent' },
+        signature: sign(raw, device.secretKey), raw },
+      serverPubkeyHex, publicDb, privateDb, 'local',
+    )
+
+    expect(countRows(publicDb, device.publicKey)).toBe(0)
     expect(countRows(privateDb, device.publicKey)).toBe(1)
     cleanup()
   })

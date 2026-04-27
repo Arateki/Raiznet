@@ -5,12 +5,19 @@
 
 static DeviceStatus gStatus = { false, false, "0.2.0", "SafraSense ESP32 v1" };
 
+static String normalizedMac(const String& mac) {
+  String out = mac;
+  out.replace(":", "");
+  out.toLowerCase();
+  return out;
+}
+
 static bool postRegistration(const String& baseUrl, const DeviceConfig& cfg, const DeviceIdentity& id) {
   if (baseUrl.isEmpty() || WiFi.status() != WL_CONNECTED) return false;
 
   JsonDocument doc;
   doc["id"] = id.public_key_hex;
-  doc["mac"] = id.mac;
+  doc["mac"] = normalizedMac(id.mac);
   doc["ownerPubkey"] = id.owner_public_key_hex;
   doc["name"] = cfg.device_name;
   doc["type"] = 0; // sensor_mains

@@ -22,6 +22,8 @@ type TelemetryBlock = {
   raw: Buffer
 }
 
+export type IngestDestination = 'public' | 'local'
+
 type DeviceRow = {
   pubkey: Buffer
   publish_to: number
@@ -71,20 +73,14 @@ export function ingestBlock(
   serverPubkeyHex: string,
   publicDb: Database.Database,
   privateDb: Database.Database,
+  destination: IngestDestination = 'public',
 ): void {
   const deviceIdHex = block.deviceId.toString('hex')
 
-  const device = publicDb
+  const targetDb = destination === 'public' ? publicDb : privateDb
+  const row = targetDb
     .prepare('SELECT pubkey, publish_to, privacy_policy FROM devices WHERE pubkey = ?')
     .get(block.deviceId) as DeviceRow | undefined
-
-  const localDevice = !device
-    ? (privateDb
-        .prepare('SELECT pubkey, publish_to, privacy_policy FROM devices WHERE pubkey = ?')
-        .get(block.deviceId) as DeviceRow | undefined)
-    : undefined
-
-  const row = device ?? localDevice
   if (!row) throw new DeviceNotFoundError(deviceIdHex)
 
   if (!verify(block.raw, block.signature, row.pubkey)) {
@@ -133,7 +129,13 @@ export function ingestBlock(
     fields.humidity.plain,    fields.humidity.cipher,     fields.humidity.nonce,
   )
 
-  // publish_to: 0 = local_only, 1 = public, 2 = both
-  if (publishTo === 1 || publishTo === 2) insert(publicDb)
+  // publish_to: 0 = local_only, 1 = public, 2 = both.
+  // The request destination determines the storage target. A "both" device
+  // sends separate HTTP requests to public and local destinations.
+  if (destination === 'public') {
+    if (publishTo === 1 || publishTo === 2) insert(publicDb)
+    return
+  }
+
   if (publishTo === 0 || publishTo === 2) insert(privateDb)
 }
