@@ -566,6 +566,18 @@ raiznet/
 ├── tsconfig.base.json
 │
 ├── apps/
+│   ├── prototype/                 # UI prototype — React + Vite design canvas
+│   │   ├── main.jsx               # entrypoint; mounts DesignCanvas with all sections
+│   │   ├── design-canvas.jsx      # DesignCanvas / DCSection / DCArtboard framework
+│   │   ├── tweaks-panel.jsx       # live tweak controls (theme, color, typography)
+│   │   ├── ios-frame.jsx          # iOS device frame wrapper
+│   │   ├── glyphs.jsx             # SVG icon / glyph components (GRoot, GSprout, etc.)
+│   │   ├── tokens.css             # design tokens (colors, typography, spacing)
+│   │   ├── screens-esp.jsx        # ESP32 captive portal + local dashboard screens
+│   │   ├── screens-server-1.jsx   # Server onboarding + dashboard (A/B variants)
+│   │   ├── screens-server-2.jsx   # Server map H3 (A/B) + device detail + provisioning
+│   │   └── screens-server-3.jsx   # Crops, Filters, Materials, Settings, Mobile views
+│   │
 │   ├── server/                    # full Fastify node
 │   │   ├── src/
 │   │   │   ├── index.ts           # entrypoint

@@ -1,0 +1,138 @@
+/* Raiznet design tokens — botanical/aquarela light + terminal/dark */
+
+:root {
+  /* Greens — slider 0..3 ; default = forest */
+  --g-forest: #1a3a28;
+  --g-leaf: #3a7d44;
+  --g-sage: #84a98c;
+  --g-tech: #65d46e;
+
+  --primary: var(--g-forest);
+  --primary-soft: color-mix(in oklab, var(--primary) 18%, transparent);
+  --primary-line: color-mix(in oklab, var(--primary) 35%, transparent);
+
+  /* Light mode (botanical/solarized) */
+  --bg: #f4f1ea;
+  --bg-2: #ede8dc;
+  --bg-card: #fbf8f1;
+  --bg-inset: #e8e2d2;
+  --fg: #1d231e;
+  --fg-2: #46493d;
+  --fg-3: #807d6e;
+  --fg-4: #b3ad9c;
+  --line: #d8d2bf;
+  --line-strong: #1d231e;
+  --paper-tint: #f7f1de;
+  --warn: #b8651e;
+  --bad: #a83a2a;
+  --good: var(--primary);
+
+  /* radius — mostly hard */
+  --r-1: 2px;
+  --r-2: 4px;
+  --r-3: 8px;
+
+  /* fonts */
+  --f-sans: "Montserrat", -apple-system, ui-sans-serif, system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --f-serif: "Cormorant Garamond", "Lora", Georgia, serif;
+
+  --shadow-1: 0 1px 0 rgba(29,35,30,0.04), 0 1px 2px rgba(29,35,30,0.06);
+  --shadow-2: 0 6px 24px -8px rgba(29,35,30,0.18);
+}
+
+[data-theme="dark"] {
+  --bg: #0d1310;
+  --bg-2: #121814;
+  --bg-card: #161d18;
+  --bg-inset: #0a0f0c;
+  --fg: #d8e3d4;
+  --fg-2: #9aa897;
+  --fg-3: #6c7869;
+  --fg-4: #3f4a3e;
+  --line: #20281f;
+  --line-strong: #d8e3d4;
+  --paper-tint: #14201a;
+  --warn: #d4933a;
+  --bad: #d36e63;
+  --good: var(--primary);
+  --shadow-1: 0 1px 0 rgba(0,0,0,0.3);
+  --shadow-2: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+/* Aquarela texture for light mode (subtle organic blobs via radial gradients) */
+.aquarela {
+  background:
+    radial-gradient(ellipse 60% 40% at 12% 18%, color-mix(in oklab, var(--primary) 8%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 85% 75%, color-mix(in oklab, var(--primary) 6%, transparent), transparent 60%),
+    radial-gradient(ellipse 30% 20% at 70% 25%, rgba(184, 101, 30, 0.06), transparent 60%),
+    var(--bg);
+}
+
+[data-theme="dark"] .aquarela {
+  background:
+    radial-gradient(ellipse 60% 40% at 12% 18%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 60%),
+    radial-gradient(ellipse 50% 35% at 85% 75%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 60%),
+    var(--bg);
+}
+
+/* generic chrome */
+.eyebrow {
+  font: 500 10px/1 var(--f-sans);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  white-space: pre;
+}
+.eyebrow-tight {
+  font: 500 9px/1 var(--f-sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  white-space: pre;
+}
+.h-rule {
+  height: 1px;
+  background: var(--line);
+}
+.h-rule-strong {
+  height: 1px;
+  background: var(--line-strong);
+}
+.btn {
+  font: 500 12px/1 var(--f-sans);
+  letter-spacing: 0.04em;
+  padding: 10px 16px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: var(--r-1);
+  transition: all .15s;
+}
+.btn:hover { background: var(--fg); color: var(--bg); }
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #f4f1ea;
+}
+.btn-primary:hover { opacity: 0.85; background: var(--primary); color: #f4f1ea; }
+.btn-ghost {
+  border-color: var(--line);
+  color: var(--fg-2);
+}
+
+.mono { font-family: var(--f-mono); }
+.serif { font-family: var(--f-serif); font-weight: 400; }
+.spaced { letter-spacing: 0.18em; white-space: pre; }
+
+/* sparkline-friendly svg */
+.spark { stroke: var(--primary); fill: none; stroke-width: 1.5; }
+.spark-area { fill: var(--primary-soft); stroke: none; }
+
+/* card variants — never combine border+shadow+radius */
+.card-rule { border-top: 1px solid var(--line-strong); padding-top: 16px; }
+.card-line { border: 1px solid var(--line); background: var(--bg-card); }
+.card-paper { background: var(--paper-tint); }
+
+/* botanical glyphs — inline svg helpers (use currentColor) */
