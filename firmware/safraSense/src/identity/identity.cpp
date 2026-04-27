@@ -73,7 +73,10 @@ static String generateMnemonicFromEntropy(const uint8_t* entropy, Language lang)
   }
 
   const char** list = (lang == LANG_PT) ? (const char**)BIP39_WORDLIST_PT : 
-                      (lang == LANG_ES) ? (const char**)BIP39_WORDLIST_ES : (const char**)BIP39_WORDLIST_EN;
+                      (lang == LANG_ES) ? (const char**)BIP39_WORDLIST_ES : 
+                      (lang == LANG_JA) ? (const char**)BIP39_WORDLIST_JA :
+                      (lang == LANG_ZH) ? (const char**)BIP39_WORDLIST_ZH :
+                      (const char**)BIP39_WORDLIST_EN;
   String res = "";
   for (int i = 0; i < 12; i++) {
     res += list[indices[i]];

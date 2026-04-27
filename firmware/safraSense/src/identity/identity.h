@@ -21,6 +21,8 @@ struct DeviceIdentity {
 extern const char* BIP39_WORDLIST_EN[2048];
 extern const char* BIP39_WORDLIST_PT[2048];
 extern const char* BIP39_WORDLIST_ES[2048];
+extern const char* BIP39_WORDLIST_JA[2048];
+extern const char* BIP39_WORDLIST_ZH[2048];
 
 DeviceIdentity loadOrCreateIdentity();
 void generateOwnerIdentity(DeviceIdentity& id, Language lang);

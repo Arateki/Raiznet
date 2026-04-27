@@ -51,7 +51,9 @@ void setupWifi(DeviceConfig& cfg) {
                          "<select name='lang' style='width:100%;padding:8px;margin:5px 0'>"
                          "<option value='1' selected>Português</option>"
                          "<option value='0'>English</option>"
-                         "<option value='2'>Español</option></select>";
+                         "<option value='2'>Español</option>"
+                         "<option value='3'>日本語</option>"
+                         "<option value='4'>简体中文</option></select>";
   WiFiManagerParameter p_lang_html(langHtml);
 
   // Hardware-generated mnemonic display.
