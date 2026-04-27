@@ -9,6 +9,7 @@
 #include "telemetry/telemetry.h"
 #include "wifi_setup/wifi_setup.h"
 #include "http_local/http_local.h"
+#include "device/device.h"
 
 static DeviceConfig   cfg;
 static DeviceIdentity identity;
@@ -27,6 +28,9 @@ void setup() {
 
   setLedState(LED_WIFI_CONNECTING);
   setupWifi(cfg);  // bloqueia até conectar ou o portal expirar
+
+  // Tenta registrar o dispositivo logo após o Wi-Fi conectar
+  syncDeviceRegistry(cfg, identity);
 
   initTelemetry(&cfg, &identity);
   initHttpServer(&cfg, &identity);

@@ -29,12 +29,12 @@ Beyond monitoring, Raiznet is designed as a research-grade data infrastructure: 
 
 All devices use the same base firmware. The difference is configuration:
 
-- **Mains-powered device**: stays on, listens to ESP-NOW from neighbors, keeps Wi-Fi active, sends telemetry to a server at high frequency. Acts as gateway/relay.
-- **Battery-powered device**: sleeps most of the time. Wakes in scheduled windows (e.g., 30 min), tries Wi-Fi first, ESP-NOW as fallback to find an awake neighbor.
+- **Identity & Sovereignty**: The ESP32 implements BIP-39 (12 words) to generate or import the Owner's Identity. It uses its internal hardware RNG (TRNG) for entropy. The Device Identity (hardware-bound) and Owner Identity (user-bound) are distinct Ed25519 keypairs.
+- **Modularity**: The firmware is divided into specialized modules: `identity` (keys/mnemonics), `device` (lifecycle/registry), `telemetry` (buffers/sending), and `i18n` (translations).
+- **Internationalization**: Full support for Portuguese (PT), English (EN), and Spanish (ES) in the captive portal and mnemonic generation.
+- **Flash & Partitioning**: Uses `min_spiffs.csv` providing 1.9MB for the application, ensuring enough space for 2048-word BIP-39 lists across multiple languages while preserving **OTA (Over-The-Air)** update capabilities.
 
-All have the same conceptual role: they are sensors. The mode changes the sync profile, not the identity.
-
-**Firmware is a separate product repo.** The production firmware for Arateki's SafraSense hardware lives in a dedicated repository outside Raiznet. The `firmware/` folder in this repo is a **reference implementation** — a minimal working ESP32 sensor that demonstrates how to speak the Raiznet protocol (nanopb with the shared `.proto` schemas, Ed25519 signing, HTTP POST to `/v1/telemetry`). It serves as a starting point for anyone building a Raiznet-compatible device without using Arateki hardware.
+**Firmware is a separate product repo.** The production firmware for Arateki's SafraSense hardware lives in a dedicated repository outside Raiznet. The `firmware/` folder in this repo is a **reference implementation** — a minimal working ESP32 sensor that demonstrates how to speak the Raiznet protocol (Ed25519 signing, HTTP POST to `/v1/telemetry`, automatic registration). It serves as a starting point for anyone building a Raiznet-compatible device without using Arateki hardware.
 
 ### Mesh layer — Node.js servers
 
@@ -267,6 +267,12 @@ Use flows:
 
 Each device generates a stream of telemetry readings that the server receives, validates, and processes according to the device's privacy policy.
 
+**Sequence Number (SEQ) and Persistence:**
+To prevent replay attacks and ensure order, each reading has a monotonic `seq`. To protect the ESP32's flash memory from wear, the device uses a **block reservation strategy**:
+- It reserves a block of 100 sequences (configurable via `TELEMETRY_SEQ_BLOCK_SIZE`) and saves the *next* block's start to NVS.
+- If the device reboots, it resumes from the start of the next reserved block, potentially leaving a small gap in the sequence but never duplicating a `seq`.
+- **Lazy Registration**: The device performs a `POST /v1/devices` automatically during setup or if a telemetry send fails with HTTP 404 (indicating the server does not recognize the device).
+
 **Packet sent by ESP32.** At each reading, the firmware assembles one packet per active destination, applying the policy:
 
 - To the local server (if `publish_to: local_only | both`): assembles a packet looking at the `in_local_network` column of the policy. For each field: if `plain`, includes clear value; if `encrypted`, encrypts with the device's symmetric key; if `omit`, doesn't include.
@@ -323,7 +329,10 @@ New sensor types require migration (addition of three columns). This is the trad
 
 This separation ensures *security by isolation*: local-only sensor data never appears in `raiznet_public.db` — the isolation is enforced at the database level, not the API layer. A poorly written query on the public endpoint cannot return data from `raiznet_private.db` because the database connection is not available to it.
 
-**Buffer on ESP32.** The ESP32's flash keeps the last N complete readings **in clear** in a circular binary buffer. This is the local source of truth of the sensor — accessible via local HTTP, BLE or serial by whoever has the device's private key (typically only the owner). The ESP32 doesn't store encrypted for itself (encrypting against oneself makes no sense). Encryption only occurs at the moment of assembling the packet for transmission to the server, according to policy.
+**Buffer on ESP32.** Currently, the reference implementation keeps the last N readings in a circular buffer in **RAM** (defined by `TELEMETRY_BUFFER_SIZE`). The architectural goal is to eventually migrate this to a circular binary buffer in **flash** to survive deep sleep and power loss.
+
+**Operational Parameters (Debug):**
+In the current development phase, the telemetry interval is set to **30 seconds** (defined in `config.h`) to facilitate real-time testing and debugging.
 
 **Reading by the owner.** The authenticated app consults the local endpoint and receives the UNION of `raiznet.db` + `raiznet_private.db` by `(device_pubkey, seq)`. For each field: if `_plain`, direct value; if `_cipher`, the app decrypts with the symmetric key (resolved by `key_version`); if both NULL, field absent in the reading. Field gaps in the graph are expected when the policy omitted them — they function as visual audit of the policy itself.
 
@@ -647,20 +656,17 @@ raiznet/
 5. Server starts announcing on the topic. Other users can discover and join.
 
 ### Device provisioning
-1. User opens "add sensor" screen in the app.
-2. Defines the `publish_to` of the device: `local_only`, `public` or `both`.
-3. If `public|both`, chooses which of their networks the device publishes to.
-4. Defines the privacy policy per sensor type.
-5. Chooses the location by tapping on a map — the app converts to H3 cell at the chosen resolution.
-6. ESP32 in setup mode creates a temporary Wi-Fi network or announces via BLE.
-7. App connects, sends to the device:
-   - Device's private key (to sign readings).
-   - Privacy policy.
-   - `publish_to` and list of networks.
-   - Local Wi-Fi and owner's server address configuration.
-8. ESP32 writes to flash, reboots in production mode.
-9. User signs `DeviceClaim` with their key, publishing in their own public core.
-10. The owner's server registers the device and begins indexing readings.
+1. User opens "add sensor" screen in the app (or accesses the ESP32 captive portal directly).
+2. ESP32 in setup mode creates a temporary Wi-Fi network.
+3. User connects to the network, and the captive portal opens an **Identity Setup** section:
+   - ESP32 generates a new BIP-39 mnemonic (12 words) using hardware entropy.
+   - User chooses language (PT, EN, ES).
+   - User notes down the mnemonic (master key).
+   - Alternatively, user can import an existing mnemonic.
+4. User defines the `publish_to` of the device, server addresses, and Wi-Fi credentials.
+5. ESP32 writes all identities and configs to NVS, reboots in production mode.
+6. Upon first connection (or on 404 error), the device performs a **Lazy Registration** (`POST /v1/devices`) sending its pubkey, MAC, owner pubkey, and initial privacy policy.
+7. User signs `DeviceClaim` with their key (app-side) to establish formal network ownership.
 
 ### Device sale (ownership transfer)
 1. Seller opens "transfer device" in the app, enters the buyer's User pubkey.

@@ -27,6 +27,13 @@
 // ── Operação ──────────────────────────────────────────────────────────────
 #define TELEMETRY_INTERVAL_MS   30000   // 30s (modo debug/teste)
 #define TELEMETRY_BUFFER_SIZE   50      // máx de leituras em RAM
+#define TELEMETRY_SEQ_BLOCK_SIZE 100    // reserva N seqs por gravação no NVS
+
+// ── Relógio ───────────────────────────────────────────────────────────────
+#define NTP_SERVER_1        "pool.ntp.org"
+#define NTP_SERVER_2        "time.google.com"
+#define NTP_GMT_OFFSET_SEC  0
+#define NTP_DAYLIGHT_SEC    0
 
 // ── Servidor externo padrão ───────────────────────────────────────────────
 // Estes valores são usados apenas como default na primeira configuração.
@@ -37,3 +44,4 @@
 // ── Namespaces do NVS (armazenamento persistente em flash) ─────────────────
 #define NVS_CONFIG_NS   "cfg"
 #define NVS_IDENTITY_NS "ident"
+#define NVS_TELEMETRY_NS "tel"

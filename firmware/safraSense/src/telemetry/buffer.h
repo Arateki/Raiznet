@@ -14,7 +14,7 @@
 // em buffer.cpp para que o buffer sobreviva ao ciclo de sleep.
 
 struct TelemetryEntry {
-  uint32_t seq;
+  uint64_t seq;
   uint64_t timestamp_ms;
   float    temp_ambient;
   float    humidity;
@@ -34,4 +34,4 @@ int             bufferTotal();
 TelemetryEntry* bufferNextPending(uint32_t current_target_mask);
 
 // Marca um servidor específico como confirmado para uma leitura.
-void            bufferConfirmServer(uint32_t seq, uint8_t server_bit);
+void            bufferConfirmServer(uint64_t seq, uint8_t server_bit);

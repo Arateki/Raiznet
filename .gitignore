@@ -3,3 +3,4 @@ apps/server/data
 **/**/dist
 docs/.vitepress
 .env
+.codex
