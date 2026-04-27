@@ -7,7 +7,7 @@ struct DeviceIdentity {
   uint8_t private_key[32];
   String  public_key_hex;
 
-  // Identidade do Proprietário (BIP-39)
+  // Owner identity (BIP-39)
   uint8_t owner_public_key[32];
   uint8_t owner_private_key[32];
   String  owner_public_key_hex;
@@ -17,7 +17,7 @@ struct DeviceIdentity {
   String  mac;
 };
 
-// Ajustando a declaração extern
+// Adjust external linkage declaration.
 extern const char* BIP39_WORDLIST_EN[2048];
 extern const char* BIP39_WORDLIST_PT[2048];
 extern const char* BIP39_WORDLIST_ES[2048];

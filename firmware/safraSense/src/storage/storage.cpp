@@ -4,19 +4,19 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 
-// Serializa toda a config como JSON e salva num único campo do NVS.
-// Isso permite adicionar/remover campos sem migração manual.
+// Serializes the whole config as JSON and stores it in a single NVS field.
+// This allows fields to be added or removed without a manual migration.
 
 DeviceConfig loadConfig() {
   Preferences p;
-  p.begin(NVS_CONFIG_NS, true);  // true = somente leitura
+  p.begin(NVS_CONFIG_NS, true);  // true = read-only
   String json = p.getString("json", "");
   p.end();
 
   DeviceConfig cfg;
 
   if (json.isEmpty()) {
-    // Primeiro boot: monta defaults com sufixo do MAC
+    // First boot: build defaults with the MAC suffix.
     String mac = WiFi.macAddress();
     mac.replace(":", "");
     cfg.device_name = "SafraSense-" + mac.substring(mac.length() - 4);
@@ -73,7 +73,7 @@ void saveConfig(const DeviceConfig& cfg) {
   serializeJson(doc, json);
 
   Preferences p;
-  p.begin(NVS_CONFIG_NS, false);  // false = leitura/escrita
+  p.begin(NVS_CONFIG_NS, false);  // false = read/write
   p.putString("json", json);
   p.end();
 }

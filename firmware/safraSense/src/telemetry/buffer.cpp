@@ -3,8 +3,8 @@
 #include <Preferences.h>
 #include <time.h>
 
-// TODO deep sleep: adicionar RTC_DATA_ATTR antes de "static" nas três
-// variáveis abaixo para que sobrevivam ao ciclo de sleep.
+// TODO deep sleep: add RTC_DATA_ATTR before "static" on the three variables
+// below so they survive the sleep cycle.
 static TelemetryEntry entries[TELEMETRY_BUFFER_SIZE];
 static int      head          = 0;
 static int      count         = 0;
@@ -65,10 +65,10 @@ void bufferAdd(const SensorData& d) {
   if (count < TELEMETRY_BUFFER_SIZE) count++;
 }
 
-// Entrada está completa quando todos os servidores atualmente configurados
-// confirmaram. Usar a máscara atual (não histórica) permite add/remove dinâmico.
+// An entry is complete when every currently configured server has confirmed it.
+// Using the current mask, not the historical one, allows dynamic add/remove.
 static bool isSent(const TelemetryEntry& e, uint32_t current_mask) {
-  if (current_mask == 0) return true;  // nenhum servidor configurado
+  if (current_mask == 0) return true;  // no configured servers
   return (e.confirmed_mask & current_mask) == current_mask;
 }
 

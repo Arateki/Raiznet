@@ -2,16 +2,16 @@
 #include <Arduino.h>
 #include "sensors/sensors.h"
 
-// Bitmask de servidores:
+// Server bitmask:
 //   bit  0-15 → servers_external[0-15]
 //   bit 16-31 → servers_local[0-15]
-// "Enviado" = (confirmed_mask & current_target_mask) == current_target_mask.
-// Usar a máscara atual (não a do momento da captura) permite que:
-//   - remover um servidor não deixe leituras presas esperando ele
-//   - adicionar um servidor não envie dados históricos para ele
+// "Sent" = (confirmed_mask & current_target_mask) == current_target_mask.
+// Using the current mask (not the capture-time mask) allows:
+//   - removing a server without leaving readings stuck waiting for it
+//   - adding a server without sending historical data to it
 
-// TODO deep sleep: adicionar RTC_DATA_ATTR antes das variáveis estáticas
-// em buffer.cpp para que o buffer sobreviva ao ciclo de sleep.
+// TODO deep sleep: add RTC_DATA_ATTR before the static variables in
+// buffer.cpp so the buffer survives the sleep cycle.
 
 struct TelemetryEntry {
   uint64_t seq;
@@ -22,7 +22,7 @@ struct TelemetryEntry {
   float    water_level;
   float    bat_volts;
   int8_t   bat_percent;
-  uint32_t confirmed_mask;  // bits dos servidores que já confirmaram
+  uint32_t confirmed_mask;  // bits for servers that have already confirmed
 };
 
 void            bufferInit();
@@ -30,8 +30,8 @@ void            bufferAdd(const SensorData& d);
 int             bufferPendingCount(uint32_t current_target_mask);
 int             bufferTotal();
 
-// Próxima entrada que ainda tem servidores pendentes na máscara atual.
+// Next entry that still has pending servers in the current mask.
 TelemetryEntry* bufferNextPending(uint32_t current_target_mask);
 
-// Marca um servidor específico como confirmado para uma leitura.
+// Marks a specific server as confirmed for a reading.
 void            bufferConfirmServer(uint64_t seq, uint8_t server_bit);

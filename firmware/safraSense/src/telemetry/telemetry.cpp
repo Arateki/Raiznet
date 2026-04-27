@@ -101,8 +101,8 @@ static bool postTelemetry(const String& url, const String& body) {
 
   if (code == 200) return true;
   
-  // Se o servidor retornar 404, significa que o dispositivo não está registrado.
-  // Invalidamos o registro local para que o módulo 'device' tente registrar de novo.
+  // A 404 means the server does not know this device.
+  // Invalidate local registry state so the device module can register again.
   if (code == 404) {
     Serial.printf("[telemetry] Servidor %s retornou 404. Invalidando registro.\n", url.c_str());
     invalidateDeviceRegistry();
@@ -114,7 +114,7 @@ static bool postTelemetry(const String& url, const String& body) {
 void sendPending() {
   if (!gCfg || !gId || WiFi.status() != WL_CONNECTED) return;
 
-  // Primeiro, garante que o registro básico está sincronizado (Lazy)
+  // First, make sure the basic registry is synchronized lazily.
   syncDeviceRegistry(*gCfg, *gId);
 
   uint32_t mask = targetMask();
@@ -125,7 +125,7 @@ void sendPending() {
     String sig  = signMessage(*gId, raw);
     String body = buildJson(*e, raw, sig);
 
-    // Servidores Externos
+    // External servers
     for (size_t i = 0; i < gCfg->servers_external.size() && i < 16; i++) {
       uint8_t bit = (uint8_t)i;
       if (e->confirmed_mask & (1u << bit)) continue;
@@ -135,7 +135,7 @@ void sendPending() {
       }
     }
 
-    // Servidores Locais
+    // Local servers
     for (size_t i = 0; i < gCfg->servers_local.size() && i < 16; i++) {
       uint8_t bit = (uint8_t)(16 + i);
       if (e->confirmed_mask & (1u << bit)) continue;

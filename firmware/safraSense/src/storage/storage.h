@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include <vector>
 
-// Par nome + URL. Nome vazio = entrada ignorada.
+// Name + URL pair. Empty name means the entry is ignored.
 struct ServerEntry {
   String name;
   String url;
@@ -10,8 +10,8 @@ struct ServerEntry {
 
 struct DeviceConfig {
   String device_name;
-  std::vector<ServerEntry> servers_external;  // servidores na internet
-  std::vector<ServerEntry> servers_local;     // servidores na rede LAN
+  std::vector<ServerEntry> servers_external;  // internet servers
+  std::vector<ServerEntry> servers_local;     // LAN servers
 };
 
 DeviceConfig loadConfig();

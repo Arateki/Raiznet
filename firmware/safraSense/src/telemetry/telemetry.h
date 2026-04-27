@@ -13,6 +13,6 @@ void           initTelemetry(const DeviceConfig* cfg, const DeviceIdentity* id);
 void           sendPending();
 TelemetryState getTelemetryState();
 
-// Leituras que ainda faltam ao menos um servidor confirmar.
-// Usado pelo dashboard sem precisar expor a lógica de bitmask.
+// Readings that still need confirmation from at least one server.
+// Used by the dashboard without exposing bitmask logic.
 int            pendingCount();

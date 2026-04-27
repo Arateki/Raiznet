@@ -27,9 +27,9 @@ void setup() {
   identity = loadOrCreateIdentity();
 
   setLedState(LED_WIFI_CONNECTING);
-  setupWifi(cfg);  // bloqueia até conectar ou o portal expirar
+  setupWifi(cfg);  // blocks until connected or the portal times out
 
-  // Tenta registrar o dispositivo logo após o Wi-Fi conectar
+  // Try to register the device right after Wi-Fi connects.
   syncDeviceRegistry(cfg, identity);
 
   initTelemetry(&cfg, &identity);
@@ -40,37 +40,37 @@ void setup() {
 }
 
 void loop() {
-  // ── 1. Botão BOOT ─────────────────────────────────────────────────────
+  // ── 1. BOOT button ────────────────────────────────────────────────────
   ButtonEvent evt = tickButtons();
 
   if (evt == BTN_SHORT_PRESS) {
-    // Reconecta Wi-Fi, mantém config e identidade intactos
+    // Reconnect Wi-Fi while keeping config and identity intact.
     setLedState(LED_RESET_SHORT);
     reconnectWifi();
 
   } else if (evt == BTN_LONG_PRESS) {
-    // Reset de configuração: apaga Wi-Fi + servidores + nome.
-    // NÃO apaga o keypair — device_id permanece o mesmo na rede.
+    // Config reset: clears Wi-Fi, servers, and name.
+    // Does NOT erase the keypair; device_id stays the same on the network.
     setLedState(LED_RESET_LONG);
     delay(1000);
     eraseConfig();
     ESP.restart();
   }
 
-  // ── 2. LEDs e requisições HTTP ────────────────────────────────────────
+  // ── 2. LEDs and HTTP requests ─────────────────────────────────────────
   tickLeds();
   handleHttpClients();
 
-  // ── 3. Ação pendente da interface web (factory reset) ─────────────────
+  // ── 3. Pending web UI action (factory reset) ──────────────────────────
   if (getPendingAction() == ACTION_FACTORY_RESET) {
     setLedState(LED_RESET_LONG);
     delay(1000);
     eraseConfig();
-    eraseIdentity();  // único ponto que apaga o keypair
+    eraseIdentity();  // the only place that erases the keypair
     ESP.restart();
   }
 
-  // ── 4. Ciclo de telemetria ────────────────────────────────────────────
+  // ── 4. Telemetry cycle ────────────────────────────────────────────────
   unsigned long now = millis();
   if (now - lastTelemetryMs >= TELEMETRY_INTERVAL_MS) {
     lastTelemetryMs = now;
@@ -81,7 +81,7 @@ void loop() {
 
     sendPending();
 
-    // Atualiza LEDs conforme estado atual
+    // Update LEDs according to the current state.
     TelemetryState ts     = getTelemetryState();
     bool sensorFail       = anySensorFailed(reading);
     bool serverOffline    = !ts.last_send_ok && ts.fail_streak > 0;

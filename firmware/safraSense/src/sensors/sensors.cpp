@@ -5,8 +5,8 @@
 #include <Wire.h>
 #include <math.h>
 
-// Instâncias ficam aqui dentro do módulo — invisíveis para fora.
-// Em Node.js seria equivalente a variáveis no topo do módulo sem export.
+// Instances stay inside this module and are invisible outside.
+// In Node.js this would be equivalent to top-level module variables without export.
 static DHT              dht(PIN_DHT, DHT22);
 static Adafruit_VL53L0X lox;
 static bool             laserReady = false;
@@ -33,8 +33,8 @@ void initSensors() {
 }
 
 static int batteryPercent(float v) {
-  // map() do Arduino faz interpolação linear entre dois intervalos.
-  // Bateria de lítio: 3.2V = 0%, 4.2V = 100%.
+  // Arduino map() performs linear interpolation between two intervals.
+  // Lithium battery: 3.2V = 0%, 4.2V = 100%.
   int p = map((int)(v * 100), 320, 420, 0, 100);
   return constrain(p, 0, 100);
 }
@@ -43,18 +43,18 @@ SensorData readSensors() {
   SensorData d;
   d.captured_at = millis();
 
-  // Liga os sensores que têm pino de energia
+  // Power up sensors that have a power control pin.
   digitalWrite(PIN_POWER_TDS, HIGH);
   digitalWrite(PIN_POWER_DHT, HIGH);
-  delay(2000);  // DHT22 precisa de estabilização
+  delay(2000);  // DHT22 needs stabilization time
 
-  // ── Bateria ──────────────────────────────────────────────────────────────
+  // ── Battery ─────────────────────────────────────────────────────────────
   int rawBat  = analogRead(PIN_BATTERY);
   d.bat_volts  = (rawBat / 4095.0f) * 3.3f * 2.27f;
   d.bat_percent = batteryPercent(d.bat_volts);
   d.status.battery_ok = true;
 
-  // ── Laser VL53L0X (nível de água) ────────────────────────────────────────
+  // ── VL53L0X laser (water level) ─────────────────────────────────────────
   if (laserReady) {
     VL53L0X_RangingMeasurementData_t m;
     lox.rangingTest(&m, false);
@@ -64,7 +64,7 @@ SensorData readSensors() {
     }
   }
 
-  // ── DHT22 (temperatura e umidade do ar) ───────────────────────────────────
+  // ── DHT22 (air temperature and humidity) ────────────────────────────────
   d.humidity     = dht.readHumidity();
   d.temp_ambient = dht.readTemperature();
   d.status.dht_ok = !isnan(d.temp_ambient) && !isnan(d.humidity);
@@ -72,7 +72,7 @@ SensorData readSensors() {
     Serial.println("[sensors] DHT22 falhou na leitura.");
   }
 
-  // ── TDS → EC (nutrientes) ─────────────────────────────────────────────────
+  // ── TDS -> EC (nutrients) ───────────────────────────────────────────────
   float tempRef = d.status.dht_ok ? d.temp_ambient : 25.0f;
   int   rawTds  = analogRead(PIN_TDS);
   float vTds    = rawTds * (3.3f / 4095.0f);
@@ -81,7 +81,7 @@ SensorData readSensors() {
   d.status.tds_ok = (tds >= 0);
   d.ec = d.status.tds_ok ? tds : NAN;
 
-  // Desliga para economizar energia
+  // Power down to save energy.
   digitalWrite(PIN_POWER_TDS, LOW);
   digitalWrite(PIN_POWER_DHT, LOW);
 

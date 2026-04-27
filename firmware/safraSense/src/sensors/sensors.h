@@ -1,24 +1,24 @@
 #pragma once
 #include <Arduino.h>
 
-// Qual sensor está funcionando. Cada campo é independente —
-// o sistema opera normalmente com qualquer combinação de falhas.
+// Which sensors are working. Each field is independent.
+// The system operates normally with any combination of failures.
 struct SensorStatus {
-  bool dht_ok     = false;  // temperatura + umidade do ar
-  bool tds_ok     = false;  // condutividade elétrica (nutrientes)
-  bool laser_ok   = false;  // distância / nível de água
-  bool battery_ok = true;   // leitura de bateria raramente falha
+  bool dht_ok     = false;  // air temperature + humidity
+  bool tds_ok     = false;  // electrical conductivity (nutrients)
+  bool laser_ok   = false;  // distance / water level
+  bool battery_ok = true;   // battery reading rarely fails
 };
 
 struct SensorData {
-  float temp_ambient = NAN;  // °C  — NAN quando DHT falhou
-  float humidity     = NAN;  // %   — NAN quando DHT falhou
-  float ec           = NAN;  // ppm — NAN quando TDS falhou
-  float water_level  = -1;   // mm  — -1 quando laser offline/fora de alcance
+  float temp_ambient = NAN;  // deg C — NAN when DHT failed
+  float humidity     = NAN;  // %     — NAN when DHT failed
+  float ec           = NAN;  // ppm   — NAN when TDS failed
+  float water_level  = -1;   // mm    — -1 when laser is offline/out of range
   float bat_volts    = 0;
   int   bat_percent  = 0;
   SensorStatus status;
-  unsigned long captured_at = 0;  // millis() no momento da leitura
+  unsigned long captured_at = 0;  // millis() at read time
 };
 
 void       initSensors();

@@ -2,11 +2,11 @@
 #include <Arduino.h>
 #include "storage/storage.h"
 
-// Conecta via WiFiManager. Abre portal de configuração se necessário.
-// Atualiza cfg com os valores que o usuário preencheu no portal.
+// Connects through WiFiManager. Opens the configuration portal when needed.
+// Updates cfg with the values the user entered in the portal.
 void setupWifi(DeviceConfig& cfg);
 
-// Reconecta sem abrir portal. Usa credenciais já salvas.
+// Reconnects without opening the portal. Uses already saved credentials.
 void reconnectWifi();
 
 String getMdnsName();

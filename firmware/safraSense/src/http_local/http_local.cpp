@@ -52,7 +52,7 @@ static void handleApiStatus() {
     rdg["bat_percent"] = gLastReading.bat_percent;
   }
 
-  // Lista de servidores com status de confirmação
+  // Server list with confirmation status.
   JsonArray ext = doc["servers_external"].to<JsonArray>();
   for (const auto& s : gCfg->servers_external) {
     JsonObject o = ext.add<JsonObject>();
@@ -346,7 +346,7 @@ static void handleResetWifi() {
   WiFi.begin();
 }
 
-// ── /reset/factory (GET — página de confirmação) ──────────────────────────
+// ── /reset/factory (GET - confirmation page) ──────────────────────────────
 
 static void handleResetFactoryPage() {
   server.send(200, "text/html", R"HTML(<!DOCTYPE html>
@@ -390,16 +390,16 @@ static void handleResetFactoryConfirm() {
     "<h2>Resetando...</h2><p>O dispositivo vai reiniciar e gerar uma nova identidade.</p>"
     "</body></html>");
   delay(500);
-  gPendingAction = ACTION_FACTORY_RESET;  // main.cpp executa no próximo loop
+  gPendingAction = ACTION_FACTORY_RESET;  // main.cpp executes it on the next loop
 }
 
-// ── Rota 404 ──────────────────────────────────────────────────────────────
+// ── 404 route ─────────────────────────────────────────────────────────────
 
 static void handleNotFound() {
   server.send(404, "text/plain", "Not found");
 }
 
-// ── Interface pública ─────────────────────────────────────────────────────
+// ── Public interface ──────────────────────────────────────────────────────
 
 void initHttpServer(DeviceConfig* cfg, const DeviceIdentity* id) {
   gCfg = cfg;

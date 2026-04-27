@@ -5,13 +5,13 @@ static unsigned long pressStart = 0;
 static bool          wasPressed = false;
 
 void initButtons() {
-  // INPUT_PULLUP = o pino lê HIGH quando solto e LOW quando pressionado.
-  // O resistor interno do ESP32 faz esse pull-up sem componente externo.
+  // INPUT_PULLUP = the pin reads HIGH when released and LOW when pressed.
+  // The ESP32 internal resistor provides this pull-up without an external component.
   pinMode(PIN_BOOT_BUTTON, INPUT_PULLUP);
 }
 
 ButtonEvent tickButtons() {
-  // LOW = pressionado (pull-up ativo)
+  // LOW = pressed (active pull-up).
   bool pressed = (digitalRead(PIN_BOOT_BUTTON) == LOW);
   unsigned long now = millis();
 

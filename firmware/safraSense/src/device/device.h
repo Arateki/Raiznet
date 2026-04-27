@@ -11,11 +11,11 @@ struct DeviceStatus {
   String model;
 };
 
-// Tenta registrar o dispositivo nos servidores configurados
-// Retorna true se conseguiu registrar em todos os servidores ativos
+// Attempts to register the device on configured servers.
+// Returns true when registration succeeded on every active server.
 bool syncDeviceRegistry(const DeviceConfig& cfg, const DeviceIdentity& id);
 
-// Força o reset do status de registro (para forçar um novo sync)
+// Resets registry status to force a new sync.
 void invalidateDeviceRegistry();
 
 DeviceStatus getDeviceStatus();

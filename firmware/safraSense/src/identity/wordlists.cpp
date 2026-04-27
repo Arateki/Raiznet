@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-// Removendo o segundo const para garantir linkagem externa correta
+// Remove the second const to ensure correct external linkage.
 const char* BIP39_WORDLIST_EN[2048] = {
     "abandon", "ability", "able", "about", "above", "absent", "absorb", "abstract", "absurd", "abuse"
 };

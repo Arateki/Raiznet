@@ -3,8 +3,8 @@
 
 enum Language { LANG_EN, LANG_PT, LANG_ES };
 
-// Retorna a tradução para uma chave específica no idioma escolhido
+// Returns the translation for a specific key in the selected language.
 String t(const char* key, Language lang);
 
-// Auxiliar para converter string de formulário ("0", "1", "2") em enum Language
+// Helper to convert form strings ("0", "1", "2") into the Language enum.
 Language docToLang(String val);

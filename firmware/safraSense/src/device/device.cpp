@@ -27,7 +27,7 @@ static bool postRegistration(const String& baseUrl, const DeviceConfig& cfg, con
   hw["model"] = gStatus.model;
   hw["firmware_version"] = gStatus.firmware_version;
 
-  // Política de privacidade padrão (tudo público na fase inicial)
+  // Default privacy policy: everything public in the initial phase.
   JsonObject pp = doc["privacyPolicy"].to<JsonObject>();
   const char* fields[] = {"ph", "ec", "water_level", "temp_water", "temp_ambient", "humidity"};
   for (const char* f : fields) {
@@ -49,14 +49,14 @@ static bool postRegistration(const String& baseUrl, const DeviceConfig& cfg, con
   int code = http.POST(body);
   http.end();
 
-  // 201 = Criado, 200 = OK, 409 = Já existe (sucesso para nós)
+  // 201 = created, 200 = OK, 409 = already exists (success for us).
   return (code == 201 || code == 200 || code == 409);
 }
 
 bool syncDeviceRegistry(const DeviceConfig& cfg, const DeviceIdentity& id) {
   bool allOk = true;
 
-  // Registrar em servidores externos
+  // Register on external servers.
   if (!gStatus.registered_ext) {
     for (const auto& s : cfg.servers_external) {
       String baseUrl = s.url;
@@ -66,7 +66,7 @@ bool syncDeviceRegistry(const DeviceConfig& cfg, const DeviceIdentity& id) {
     if (allOk && !cfg.servers_external.empty()) gStatus.registered_ext = true;
   }
 
-  // Registrar em servidores locais
+  // Register on local servers.
   if (!gStatus.registered_local) {
     bool localOk = true;
     for (const auto& s : cfg.servers_local) {

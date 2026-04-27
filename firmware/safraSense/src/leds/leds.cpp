@@ -21,12 +21,12 @@ static void rgb(bool r, bool y, bool g) {
 }
 
 void setLedState(LedState s) {
-  if (s == currentState) return;  // evita reset do timer se o estado não mudou
+  if (s == currentState) return;  // avoid resetting the timer if state did not change
   currentState = s;
   tickPhase    = 0;
   lastTick     = millis();
 
-  // Saída imediata para estados estáticos
+  // Immediate output for static states.
   switch (s) {
     case LED_BOOTING:         rgb(false, true,  false); break;
     case LED_WIFI_CONNECTING: rgb(false, false, false); break;
@@ -35,7 +35,7 @@ void setLedState(LedState s) {
   }
 }
 
-// Pisca verde rapidamente após envio — não muda o estado atual.
+// Quick green blink after sending; does not change the current state.
 void blinkOnSend() {
   digitalWrite(PIN_LED_GREEN, HIGH);
   delay(80);
@@ -48,7 +48,7 @@ void tickLeds() {
   switch (currentState) {
 
     case LED_PORTAL_OPEN:
-      // Amarelo e vermelho alternando a cada 300ms
+      // Yellow and red alternating every 300ms.
       if (now - lastTick >= 300) {
         lastTick = now;
         tickPhase = !tickPhase;
@@ -57,7 +57,7 @@ void tickLeds() {
       break;
 
     case LED_WIFI_CONNECTING:
-      // Amarelo piscando devagar (800ms)
+      // Slow yellow blink (800ms).
       if (now - lastTick >= 800) {
         lastTick = now;
         tickPhase = !tickPhase;
@@ -66,7 +66,7 @@ void tickLeds() {
       break;
 
     case LED_SERVER_OFFLINE:
-      // Amarelo: um pisca curto a cada 5s (pedido do usuário)
+      // Yellow: one short blink every 5s.
       if (now - lastTick >= 5000) {
         lastTick = now;
         rgb(false, true, false);
@@ -76,7 +76,7 @@ void tickLeds() {
       break;
 
     case LED_SENSOR_FAIL:
-      // Vermelho: um pisca curto a cada 5s
+      // Red: one short blink every 5s.
       if (now - lastTick >= 5000) {
         lastTick = now;
         rgb(true, false, false);
@@ -86,7 +86,7 @@ void tickLeds() {
       break;
 
     case LED_RESET_SHORT:
-      // Amarelo: 2 piscadas rápidas e para
+      // Yellow: two quick blinks, then stop.
       if (tickPhase < 4 && now - lastTick >= 150) {
         lastTick = now;
         rgb(false, (tickPhase % 2 == 0), false);
@@ -95,7 +95,7 @@ void tickLeds() {
       break;
 
     case LED_RESET_LONG:
-      // Todos: 3 piscadas rápidas (reboot acontece logo depois)
+      // All LEDs: three quick blinks; reboot happens right after.
       if (tickPhase < 6 && now - lastTick >= 150) {
         lastTick = now;
         bool on = (tickPhase % 2 == 0);
