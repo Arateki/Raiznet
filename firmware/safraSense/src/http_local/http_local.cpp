@@ -107,7 +107,7 @@ static void handleRoot() {
   server.send(200, "text/html", R"HTML(<!DOCTYPE html>
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SafraSense</title>
+<title>Safrasense Aqua</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,sans-serif;background:#0f1117;color:#e8e8e8;min-height:100vh}
@@ -200,8 +200,8 @@ static String serverRows(const std::vector<ServerEntry>& list, const char* prefi
   String html;
   for (size_t i = 0; i < list.size(); i++) {
     html += "<div class='srow' id='" + String(prefix) + String(i) + "'>";
-    html += "<input name='" + String(prefix) + "_name_" + String(i) + "' placeholder='Nome' value='" + list[i].name + "'>";
-    html += "<input name='" + String(prefix) + "_url_"  + String(i) + "' placeholder='URL ou IP:porta' value='" + list[i].url + "'>";
+    html += "<input type='text' name='" + String(prefix) + "_name_" + String(i) + "' placeholder='Nome' value='" + list[i].name + "'>";
+    html += "<input type='text' name='" + String(prefix) + "_url_"  + String(i) + "' placeholder='URL ou IP:porta' value='" + list[i].url + "'>";
     html += "<button type='button' onclick='removeRow(this)'>✕</button></div>";
   }
   return html;
@@ -214,62 +214,73 @@ static void handleConfig() {
   String html = R"HTML(<!DOCTYPE html>
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Configurações — SafraSense</title>
+<title>Configurações</title>
 <style>
+:root { --bg:#f4f1ea; --bg-card:#fbf8f1; --fg:#1d231e; --fg-2:#46493d; --fg-3:#807d6e; --pri:#1a3a28; --line:#d8d2bf; --pap:#f7f1de; --bad:#a83a2a; }
+[data-theme="dark"] { --bg:#0d1310; --bg-card:#161d18; --fg:#d8e3d4; --fg-2:#9aa897; --fg-3:#6c7869; --pri:#d8e3d4; --line:#20281f; --pap:#14201a; --bad:#d36e63; }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,sans-serif;background:#0f1117;color:#e8e8e8;padding:16px}
-a.back{color:#888;text-decoration:none;font-size:.85em;display:inline-block;margin-bottom:14px}
-h1{font-size:1.1em;margin-bottom:18px}
-label{display:block;font-size:.75em;color:#888;margin-bottom:4px}
-input[type=text]{width:100%;padding:9px 11px;background:#161820;border:1px solid #2a2d3e;border-radius:7px;color:#e8e8e8;font-size:.9em;margin-bottom:10px}
-.sec{font-size:.7em;color:#555;text-transform:uppercase;letter-spacing:.05em;margin:20px 0 10px;padding-top:14px;border-top:1px solid #1e2030}
-.srow{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg);padding:20px;transition:background .2s,color .2s}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+a.back{color:var(--fg-3);text-decoration:none;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+h1{font-family:Georgia,serif;font-size:24px;font-weight:normal}
+label{display:block;font-size:10px;color:var(--fg-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+input[type=text]{width:100%;padding:12px 14px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:13px;font-family:monospace;margin-bottom:16px}
+input:focus{border-color:var(--pri);outline:none}
+.eyebrow{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--fg-3);margin:24px 0 10px;font-weight:500}
+.srow{display:flex;gap:6px;margin-bottom:10px;align-items:center}
 .srow input{margin-bottom:0;flex:1}
-.srow button{padding:8px 10px;background:#2b0d0d;border:1px solid #f87171;border-radius:6px;color:#f87171;cursor:pointer;font-size:.85em;flex-shrink:0}
-.add-btn{padding:7px 13px;background:#0d2b1a;border:1px solid #4ade80;border-radius:7px;color:#4ade80;font-size:.8em;cursor:pointer;margin-bottom:8px}
-.preset{padding:5px 10px;background:#1e2030;border:1px solid #2a2d3e;border-radius:6px;color:#aaa;font-size:.78em;cursor:pointer;margin-bottom:10px}
-.btn-row{display:flex;gap:8px;margin-top:18px}
-button[type=submit]{padding:9px 18px;background:#2563eb;border:none;border-radius:7px;color:#fff;font-size:.9em;cursor:pointer}
-.danger-sec{margin-top:28px;padding-top:14px;border-top:1px solid #2b0d0d}
-.danger-title{font-size:.7em;color:#f87171;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-.btn-danger{padding:9px 15px;background:transparent;border:1px solid #f87171;border-radius:7px;color:#f87171;font-size:.85em;cursor:pointer}
+.srow button{padding:12px;background:var(--pap);border:1px solid var(--line);border-radius:2px;color:var(--bad);cursor:pointer;flex-shrink:0}
+.add-btn{padding:10px 14px;background:transparent;border:1px solid var(--line);color:var(--fg);font-size:11px;cursor:pointer;border-radius:2px}
+.btn-row{display:flex;gap:8px;margin-top:24px}
+button[type=submit]{padding:14px;background:var(--pri);border:1px solid var(--pri);border-radius:2px;color:var(--bg);font-size:13px;font-weight:500;cursor:pointer;width:100%;text-transform:uppercase;letter-spacing:.04em}
+.danger-sec{margin-top:30px;padding:16px;border:1px solid var(--bad);border-radius:2px;background:color-mix(in srgb, var(--bad) 5%, transparent)}
+.danger-title{font-size:10px;color:var(--bad);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;font-weight:600}
+.btn-danger{padding:12px;background:transparent;border:1px solid var(--bad);border-radius:2px;color:var(--bad);font-size:11px;cursor:pointer;width:100%;margin-bottom:8px}
+.theme-btn{background:none;border:none;color:var(--fg);font-size:16px;cursor:pointer}
 </style></head><body>
-<a href="/" class="back">← Voltar</a>
-<h1>⚙ Configurações</h1>
+<header>
+  <a href="/" class="back">← Voltar</a>
+  <button class="theme-btn" id="tb" type="button">◑</button>
+</header>
+<h1>Configurar Destinos</h1>
 <form method="POST" action="/config/save" id="f">
   <input type="hidden" id="ext_count" name="ext_count" value="0">
   <input type="hidden" id="loc_count" name="loc_count" value="0">
 
-  <label>Nome do sensor</label>
+  <label style="margin-top:20px">Nome do sensor</label>
   <input type="text" name="device_name" value=")HTML";
   html += gCfg->device_name;
   html += R"HTML(" maxlength="32">
 
-  <div class="sec">Servidores externos (internet)</div>
+  <div class="eyebrow" style="color:var(--pri)">Servidores Públicos</div>
   <div id="ext_list">)HTML";
   html += extRows;
   html += R"HTML(</div>
-  <button type="button" class="add-btn" onclick="addRow('ext')">+ Adicionar servidor externo</button>
-  <button type="button" class="preset" onclick="addArateki()">Usar Arateki</button>
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button type="button" class="add-btn" onclick="addRow('ext')">+ Outro</button>
+    <button type="button" class="add-btn" onclick="addArateki()">Usar Arateki</button>
+  </div>
 
-  <div class="sec">Servidores locais (rede LAN)</div>
+  <div class="eyebrow">Servidor Local</div>
   <div id="loc_list">)HTML";
   html += locRows;
   html += R"HTML(</div>
-  <button type="button" class="add-btn" onclick="addRow('loc')">+ Adicionar servidor local</button>
+  <button type="button" class="add-btn" onclick="addRow('loc')">+ Local</button>
 
   <div class="btn-row"><button type="submit">Salvar</button></div>
 </form>
 
 <div class="danger-sec">
   <div class="danger-title">Zona de perigo</div>
-  <div class="btn-row">
-    <button class="btn-danger" onclick="if(confirm('Reconectar Wi-Fi?'))location='/reset/wifi'">Reconectar Wi-Fi</button>
-    <button class="btn-danger" onclick="location='/reset/factory'">Reset de fábrica…</button>
-  </div>
+  <button class="btn-danger" onclick="if(confirm('Reconectar Wi-Fi?'))location='/reset/wifi'">Esquecer Wi-Fi atual</button>
+  <button class="btn-danger" onclick="location='/reset/factory'">Reset Completo (Apagar Chaves)</button>
 </div>
-
 <script>
+const tb=document.getElementById('tb'), doc=document.documentElement;
+const cur=localStorage.getItem('theme')||'light';
+doc.setAttribute('data-theme',cur);
+tb.onclick=()=>{const n=doc.getAttribute('data-theme')==='dark'?'light':'dark';doc.setAttribute('data-theme',n);localStorage.setItem('theme',n);};
+
 function countRows(pfx){return document.getElementById(pfx+'_list').querySelectorAll('.srow').length}
 function updateCounts(){
   document.getElementById('ext_count').value=countRows('ext');
@@ -279,8 +290,8 @@ function addRow(pfx){
   const list=document.getElementById(pfx+'_list');
   const i=list.querySelectorAll('.srow').length;
   const d=document.createElement('div');d.className='srow';d.id=pfx+i;
-  d.innerHTML=`<input name="${pfx}_name_${i}" placeholder="Nome">
-    <input name="${pfx}_url_${i}" placeholder="${pfx==='loc'?'IP:porta':'URL'}">
+  d.innerHTML=`<input type="text" name="${pfx}_name_${i}" placeholder="Nome">
+    <input type="text" name="${pfx}_url_${i}" placeholder="${pfx==='loc'?'IP:porta':'URL'}">
     <button type="button" onclick="removeRow(this)">✕</button>`;
   list.appendChild(d);updateCounts();
 }
@@ -289,9 +300,9 @@ function addArateki(){
   const list=document.getElementById('ext_list');
   const i=list.querySelectorAll('.srow').length;
   const d=document.createElement('div');d.className='srow';d.id='ext'+i;
-  d.innerHTML=`<input name="ext_name_${i}" value=")HTML";
+  d.innerHTML=`<input type="text" name="ext_name_${i}" value=")HTML";
   html += DEFAULT_SERVER_EXT_NAME;
-  html += R"HTML("><input name="ext_url_${i}" value=")HTML";
+  html += R"HTML("><input type="text" name="ext_url_${i}" value=")HTML";
   html += DEFAULT_SERVER_EXT_URL;
   html += R"HTML("><button type="button" onclick="removeRow(this)">✕</button>`;
   list.appendChild(d);updateCounts();
@@ -354,26 +365,29 @@ static void handleResetFactoryPage() {
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Reset de Fábrica</title>
 <style>
-body{font-family:-apple-system,sans-serif;background:#0f1117;color:#e8e8e8;padding:20px}
-a{color:#888;text-decoration:none;font-size:.85em}
-.box{background:#1a0808;border:1px solid #5a1010;border-radius:10px;padding:20px;margin:20px 0}
-h2{color:#f87171;margin-bottom:10px}p{color:#ccc;font-size:.9em;line-height:1.6;margin-bottom:10px}
-input{width:100%;padding:9px;background:#0f1117;border:1px solid #5a1010;border-radius:6px;color:#e8e8e8;font-size:.9em;margin-top:10px}
-button{margin-top:12px;padding:10px 20px;background:#7f1d1d;border:none;border-radius:7px;color:#fff;font-size:.9em;cursor:pointer;opacity:.4}
-button.active{opacity:1;background:#dc2626}
+:root { --bg:#f4f1ea; --fg:#1d231e; --line:#d8d2bf; --bad:#a83a2a; }
+[data-theme="dark"] { --bg:#0d1310; --fg:#d8e3d4; --line:#20281f; --bad:#d36e63; }
+body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg);padding:20px;transition:background .2s}
+a{color:var(--fg);text-decoration:none;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.box{border:1px solid var(--bad);border-radius:2px;padding:20px;margin-top:24px;background:color-mix(in srgb, var(--bad) 5%, transparent)}
+h2{color:var(--bad);font-family:Georgia,serif;font-weight:normal;margin-bottom:12px}
+p{font-size:13px;line-height:1.6;margin-bottom:12px}
+input{width:100%;padding:12px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-family:monospace;margin-top:10px}
+button{margin-top:16px;padding:14px;background:var(--bad);border:none;border-radius:2px;color:#fff;cursor:pointer;width:100%;opacity:.4;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+button.active{opacity:1}
 </style></head><body>
 <a href="/config">← Voltar</a>
 <div class="box">
-  <h2>⚠ Reset de fábrica</h2>
-  <p>Esta ação vai <strong>apagar permanentemente</strong> a identidade criptográfica do dispositivo (keypair Ed25519), todas as configurações e as credenciais de Wi-Fi.</p>
-  <p>O dispositivo vai gerar um <strong>novo Device ID</strong> no próximo boot e precisará ser registrado novamente na rede Raiznet.</p>
-  <p>Para confirmar, digite <strong>CONFIRMAR</strong> abaixo:</p>
-  <input type="text" id="pin" oninput="check()" placeholder="Digite CONFIRMAR">
+  <h2>Reset de fábrica</h2>
+  <p>Esta ação vai <strong>apagar permanentemente</strong> a identidade criptográfica e as configurações.</p>
+  <p>Para confirmar, digite <strong>CONFIRMAR</strong>:</p>
+  <input type="text" id="pin" oninput="check()" placeholder="CONFIRMAR">
   <form method="POST" action="/reset/factory/confirm" id="f">
-    <button type="submit" id="btn" disabled>Apagar tudo e reiniciar</button>
+    <button type="submit" id="btn" disabled>Apagar e reiniciar</button>
   </form>
 </div>
 <script>
+document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'light');
 function check(){
   const ok=document.getElementById('pin').value==='CONFIRMAR';
   document.getElementById('btn').disabled=!ok;

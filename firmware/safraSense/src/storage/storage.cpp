@@ -19,7 +19,7 @@ DeviceConfig loadConfig() {
     // First boot: build defaults with the MAC suffix.
     String mac = WiFi.macAddress();
     mac.replace(":", "");
-    cfg.device_name = "SafraSense-" + mac.substring(mac.length() - 4);
+    cfg.device_name = "Safrasense-aqua-" + mac.substring(mac.length() - 4);
     cfg.servers_external.push_back({ DEFAULT_SERVER_EXT_NAME, DEFAULT_SERVER_EXT_URL });
     return cfg;
   }
@@ -27,11 +27,11 @@ DeviceConfig loadConfig() {
   JsonDocument doc;
   if (deserializeJson(doc, json) != DeserializationError::Ok) {
     Serial.println("[storage] Config corrompida, usando defaults.");
-    cfg.device_name = "SafraSense";
+    cfg.device_name = "Safrasense-aqua";
     return cfg;
   }
 
-  cfg.device_name = doc["name"] | "SafraSense";
+  cfg.device_name = doc["name"] | "Safrasense-aqua";
 
   for (JsonObject s : doc["ext"].as<JsonArray>()) {
     String name = s["name"] | "";
@@ -83,4 +83,8 @@ void eraseConfig() {
   p.begin(NVS_CONFIG_NS, false);
   p.clear();
   p.end();
+
+  // Clear Wi-Fi credentials saved by the ESP32 hardware and WiFiManager.
+  // The second 'true' parameter erases the SSID/Password from flash.
+  WiFi.disconnect(true, true);
 }

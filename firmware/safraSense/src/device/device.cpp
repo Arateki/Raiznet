@@ -3,7 +3,7 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-static DeviceStatus gStatus = { false, false, "0.2.0", "SafraSense ESP32 v1" };
+static DeviceStatus gStatus = { false, false, "0.2.0", "Safrasense Aqua ESP32 v1" };
 
 static String normalizedMac(const String& mac) {
   String out = mac;
