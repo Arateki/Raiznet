@@ -6,6 +6,11 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "owner_id") == 0) return "ID do Proprietário (Público)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemônico (12 palavras)";
     if (strcmp(key, "master_key") == 0) return "Sua chave-mestre";
+    if (strcmp(key, "create_tab") == 0) return "Criar";
+    if (strcmp(key, "recover_tab") == 0) return "Recuperar";
+    if (strcmp(key, "recover_words") == 0) return "Digite as 12 palavras";
+    if (strcmp(key, "recover_qr") == 0) return "Enviar QR code";
+    if (strcmp(key, "recover_hint") == 0) return "Use as palavras ou uma imagem QR salva de outra configuração.";
     if (strcmp(key, "copy_code") == 0) return "Copiar palavras";
     if (strcmp(key, "copied_code") == 0) return "Copiado";
     if (strcmp(key, "save_qr") == 0) return "Salvar QR code";
@@ -15,13 +20,20 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "import_btn") == 0) return "Importar Identidade";
     if (strcmp(key, "security_warn") == 0) return "CUIDADO: Estas 12 palavras são sua chave mestra e funcionam como uma senha. Não será possível recuperar essa chave após a finalização dessa configuração, sendo possível apenas gerar uma nova opcionalmente ao resetar o dispositivo.";
     if (strcmp(key, "sensor_name") == 0) return "Nome do Sensor";
+    if (strcmp(key, "pub_server_name") == 0) return "Servidor Público — Nome";
     if (strcmp(key, "ext_server") == 0) return "Servidor Externo (URL)";
     if (strcmp(key, "loc_server") == 0) return "Servidor Local (IP:Porta)";
+    if (strcmp(key, "optional") == 0) return "Opcional";
   } else if (lang == LANG_ES) {
     if (strcmp(key, "setup_title") == 0) return "Identificación";
     if (strcmp(key, "owner_id") == 0) return "ID del Propietario (Público)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemónico (12 palabras)";
     if (strcmp(key, "master_key") == 0) return "Su llave maestra";
+    if (strcmp(key, "create_tab") == 0) return "Crear";
+    if (strcmp(key, "recover_tab") == 0) return "Recuperar";
+    if (strcmp(key, "recover_words") == 0) return "Escriba las 12 palabras";
+    if (strcmp(key, "recover_qr") == 0) return "Subir QR";
+    if (strcmp(key, "recover_hint") == 0) return "Use las palabras o una imagen QR guardada de otra configuración.";
     if (strcmp(key, "copy_code") == 0) return "Copiar palabras";
     if (strcmp(key, "copied_code") == 0) return "Copiado";
     if (strcmp(key, "save_qr") == 0) return "Guardar QR";
@@ -31,29 +43,43 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "import_btn") == 0) return "Importar Identidad";
     if (strcmp(key, "security_warn") == 0) return "CUIDADO: Estas 12 palabras son su llave maestra y funcionan como una contraseña. No será posible recuperar esta llave después de finalizar esta configuración; solo podrá generar una nueva opcionalmente al resetear el dispositivo.";
     if (strcmp(key, "sensor_name") == 0) return "Nombre del Sensor";
+    if (strcmp(key, "pub_server_name") == 0) return "Servidor Público — Nombre";
     if (strcmp(key, "ext_server") == 0) return "Servidor Externo (URL)";
-    if (strcmp(key, "loc_server") == 0) return "Servidor Local (IP:Porta)";
+    if (strcmp(key, "loc_server") == 0) return "Servidor Local (IP:Puerto)";
+    if (strcmp(key, "optional") == 0) return "Opcional";
   } else if (lang == LANG_JA) {
     if (strcmp(key, "setup_title") == 0) return "識別";
     if (strcmp(key, "owner_id") == 0) return "オーナーID (公開)";
     if (strcmp(key, "owner_secret") == 0) return "ニーモニック (12語)";
     if (strcmp(key, "master_key") == 0) return "マスターキー";
+    if (strcmp(key, "create_tab") == 0) return "作成";
+    if (strcmp(key, "recover_tab") == 0) return "復元";
+    if (strcmp(key, "recover_words") == 0) return "12語を入力";
+    if (strcmp(key, "recover_qr") == 0) return "QRをアップロード";
+    if (strcmp(key, "recover_hint") == 0) return "単語または保存済みQR画像を使用します。";
     if (strcmp(key, "copy_code") == 0) return "単語をコピー";
     if (strcmp(key, "copied_code") == 0) return "コピー済み";
     if (strcmp(key, "save_qr") == 0) return "QRを保存";
     if (strcmp(key, "reroll_seed") == 0) return "変更";
     if (strcmp(key, "backup_methods_hint") == 0) return "単語をコピーするかQRコードを保存してキーを保管できます。安全な場所にオフラインで保管してください。";
-    if (strcmp(key, "generate_btn") == 0) return "新しいアイデンティティを生成";
-    if (strcmp(key, "import_btn") == 0) return "アイデンティティをインポート";
+    if (strcmp(key, "generate_btn") == 0) return "新しいアイデンティティを生成";
+    if (strcmp(key, "import_btn") == 0) return "アイデンティティをインポート";
     if (strcmp(key, "security_warn") == 0) return "注意: この12語はマスターキーであり、パスワードとして機能します。この設定の完了後はキーを復元できません。新しいキーは、必要に応じてデバイスをリセットした場合にのみ生成できます。";
     if (strcmp(key, "sensor_name") == 0) return "センサー名";
-    if (strcmp(key, "ext_server") == 0) return "外部サーバー (URL)";
-    if (strcmp(key, "loc_server") == 0) return "ローカルサーバー (IP:ポート)";
+    if (strcmp(key, "pub_server_name") == 0) return "公開サーバー — 名前";
+    if (strcmp(key, "ext_server") == 0) return "外部サーバー (URL)";
+    if (strcmp(key, "loc_server") == 0) return "ローカルサーバー (IP:ポート)";
+    if (strcmp(key, "optional") == 0) return "任意";
   } else if (lang == LANG_ZH) {
     if (strcmp(key, "setup_title") == 0) return "身份识别";
     if (strcmp(key, "owner_id") == 0) return "所有者 ID (公开)";
     if (strcmp(key, "owner_secret") == 0) return "助记词 (12个单词)";
     if (strcmp(key, "master_key") == 0) return "您的主密钥";
+    if (strcmp(key, "create_tab") == 0) return "创建";
+    if (strcmp(key, "recover_tab") == 0) return "恢复";
+    if (strcmp(key, "recover_words") == 0) return "输入12个助记词";
+    if (strcmp(key, "recover_qr") == 0) return "上传二维码";
+    if (strcmp(key, "recover_hint") == 0) return "使用助记词或其他设置保存的二维码图片。";
     if (strcmp(key, "copy_code") == 0) return "复制助记词";
     if (strcmp(key, "copied_code") == 0) return "已复制";
     if (strcmp(key, "save_qr") == 0) return "保存二维码";
@@ -63,14 +89,21 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "import_btn") == 0) return "导入身份";
     if (strcmp(key, "security_warn") == 0) return "警告：这12个单词是您的主密钥，相当于密码。完成此配置后将无法恢复此密钥，只能在重置设备时选择生成新密钥。";
     if (strcmp(key, "sensor_name") == 0) return "传感器名称";
+    if (strcmp(key, "pub_server_name") == 0) return "公共服务器 — 名称";
     if (strcmp(key, "ext_server") == 0) return "外部服务器 (URL)";
     if (strcmp(key, "loc_server") == 0) return "本地服务器 (IP:端口)";
+    if (strcmp(key, "optional") == 0) return "可选";
   } else {
     // Default EN
     if (strcmp(key, "setup_title") == 0) return "Identification";
     if (strcmp(key, "owner_id") == 0) return "Owner ID (Public)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemonic (12 words)";
     if (strcmp(key, "master_key") == 0) return "Your master key";
+    if (strcmp(key, "create_tab") == 0) return "Create";
+    if (strcmp(key, "recover_tab") == 0) return "Recover";
+    if (strcmp(key, "recover_words") == 0) return "Type the 12 words";
+    if (strcmp(key, "recover_qr") == 0) return "Upload QR code";
+    if (strcmp(key, "recover_hint") == 0) return "Use the words or a QR image saved from another setup.";
     if (strcmp(key, "copy_code") == 0) return "Copy words";
     if (strcmp(key, "copied_code") == 0) return "Copied";
     if (strcmp(key, "save_qr") == 0) return "Save QR code";
@@ -80,8 +113,10 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "import_btn") == 0) return "Import Identity";
     if (strcmp(key, "security_warn") == 0) return "WARNING: These 12 words are your master key and work like a password. This key cannot be recovered after this setup is finished; a new one can only be generated optionally by resetting the device.";
     if (strcmp(key, "sensor_name") == 0) return "Sensor Name";
+    if (strcmp(key, "pub_server_name") == 0) return "Public Server — Name";
     if (strcmp(key, "ext_server") == 0) return "External Server (URL)";
     if (strcmp(key, "loc_server") == 0) return "Local Server (IP:Port)";
+    if (strcmp(key, "optional") == 0) return "Optional";
   }
   return String(key);
 }
