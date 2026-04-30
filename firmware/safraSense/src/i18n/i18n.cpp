@@ -5,7 +5,7 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "setup_title") == 0) return "Identificação";
     if (strcmp(key, "owner_id") == 0) return "ID do Proprietário (Público)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemônico (12 palavras)";
-    if (strcmp(key, "master_key") == 0) return "Sua chave-mestre";
+    if (strcmp(key, "master_key") == 0) return "Sua chave-mestra";
     if (strcmp(key, "create_tab") == 0) return "Criar";
     if (strcmp(key, "recover_tab") == 0) return "Recuperar";
     if (strcmp(key, "recover_words") == 0) return "Digite as 12 palavras";
@@ -18,7 +18,7 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "backup_methods_hint") == 0) return "Você pode guardar sua chave copiando as palavras ou salvando o QR code. Guarde uma cópia offline em local seguro.";
     if (strcmp(key, "generate_btn") == 0) return "Gerar Nova Identidade";
     if (strcmp(key, "import_btn") == 0) return "Importar Identidade";
-    if (strcmp(key, "security_warn") == 0) return "CUIDADO: Estas 12 palavras são sua chave mestra e funcionam como uma senha. Não será possível recuperar essa chave após a finalização dessa configuração, sendo possível apenas gerar uma nova opcionalmente ao resetar o dispositivo.";
+    if (strcmp(key, "security_warn") == 0) return "CUIDADO: Estas 12 palavras são sua chave-mestra e funcionam como uma senha. Não será possível recuperar essa chave após a finalização dessa configuração, sendo possível apenas gerar uma nova opcionalmente ao resetar o dispositivo.";
     if (strcmp(key, "sensor_name") == 0) return "Nome do Sensor";
     if (strcmp(key, "pub_server_name") == 0) return "Servidor Público — Nome";
     if (strcmp(key, "ext_server") == 0) return "Servidor Externo (URL)";
