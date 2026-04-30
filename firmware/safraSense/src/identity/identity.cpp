@@ -96,7 +96,6 @@ void generateOwnerIdentity(DeviceIdentity& id, Language lang) {
   sha.finalize(id.owner_private_key, 32);
   Ed25519::derivePublicKey(id.owner_public_key, id.owner_private_key);
   id.owner_public_key_hex = bytesToHex(id.owner_public_key, 32);
-  saveIdentity(id);
 }
 
 bool importOwnerIdentity(DeviceIdentity& id, String mnemonic) {
@@ -107,7 +106,6 @@ bool importOwnerIdentity(DeviceIdentity& id, String mnemonic) {
   sha.finalize(id.owner_private_key, 32);
   Ed25519::derivePublicKey(id.owner_public_key, id.owner_private_key);
   id.owner_public_key_hex = bytesToHex(id.owner_public_key, 32);
-  saveIdentity(id);
   return true;
 }
 

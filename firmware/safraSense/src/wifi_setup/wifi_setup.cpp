@@ -6,9 +6,59 @@
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <ESPmDNS.h>
+#include <qrcode.h>
 #include <time.h>
 
 static String mdnsName;
+
+static String htmlEscape(const String& value) {
+  String out;
+  out.reserve(value.length());
+  for (size_t i = 0; i < value.length(); i++) {
+    char c = value[i];
+    if (c == '&') out += F("&amp;");
+    else if (c == '<') out += F("&lt;");
+    else if (c == '>') out += F("&gt;");
+    else if (c == '"') out += F("&quot;");
+    else if (c == '\'') out += F("&#39;");
+    else out += c;
+  }
+  return out;
+}
+
+static String jsonEscape(const String& value) {
+  String out;
+  out.reserve(value.length());
+  for (size_t i = 0; i < value.length(); i++) {
+    char c = value[i];
+    if (c == '\\') out += F("\\\\");
+    else if (c == '"') out += F("\\\"");
+    else if (c == '\n') out += F("\\n");
+    else if (c == '\r') out += F("\\r");
+    else out += c;
+  }
+  return out;
+}
+
+static String renderMnemonicQrBits(const String& mnemonic, uint8_t& qrSize) {
+  const uint8_t qrVersion = 15;
+  QRCode qrcode;
+  uint8_t qrcodeData[qrcode_getBufferSize(qrVersion)];
+  if (qrcode_initText(&qrcode, qrcodeData, qrVersion, ECC_LOW, mnemonic.c_str()) != 0) {
+    qrSize = 0;
+    return "";
+  }
+  qrSize = qrcode.size;
+
+  String bits;
+  bits.reserve(qrcode.size * qrcode.size);
+  for (uint8_t y = 0; y < qrcode.size; y++) {
+    for (uint8_t x = 0; x < qrcode.size; x++) {
+      bits += qrcode_getModule(&qrcode, x, y) ? '1' : '0';
+    }
+  }
+  return bits;
+}
 
 // HTML/JS for displaying seed words and safety instructions.
 const char* IDENTITY_CSS = R"rawliteral(
@@ -16,17 +66,19 @@ const char* IDENTITY_CSS = R"rawliteral(
   :root { --bg:#f4f1ea; --fg:#1d231e; --fg-2:#46493d; --fg-3:#6d6a5f; --pri:#1a3a28; --line:#d8d2bf; --input-line:#d8d2bf; --pap:#f7f1de; --bad:#a83a2a; --btn-fg:#f4f1ea; --aqua:#9ed8ff; --mnemonic:#1a3a28; }
   [data-theme="dark"] { --bg:#0d1310; --fg:#d8e3d4; --fg-2:#b3c2af; --fg-3:#9ead99; --pri:#1a3a28; --line:#20281f; --input-line:#9ead99; --pap:#14201a; --bad:#d36e63; --btn-fg:#f4f1ea; --aqua:#a8dcff; --mnemonic:#c7efd5; }
   body { background:var(--bg); color:var(--fg); font-family:-apple-system,system-ui,sans-serif; text-align:left; padding:20px; margin:0; transition: background 0.2s, color 0.2s; display:flex; justify-content:center; }
-  .wrap { width:100%; max-width:400px; margin:0 auto; text-align:left; position:relative; padding-top:44px; }
+  .wrap { width:100%; max-width:400px; margin:0 auto; text-align:left; position:relative; padding-top:54px; }
   h1 { font-family:Georgia,serif; font-size:24px; font-weight:normal; margin:0 0 20px; color:var(--fg); line-height:1.2; text-align:left; }
   .eyebrow { font-size:10px; letter-spacing:0.18em; text-transform:uppercase; color:var(--fg-3); margin-bottom:8px; font-weight:650; display:block; }
   .brand-aqua { color:var(--aqua); }
-  .portal-brand { position:absolute; top:0; left:0; height:32px; max-width:calc(100% - 48px); display:flex; align-items:center; white-space:nowrap; overflow:hidden; }
-  .portal-brand .eyebrow { margin:0; }
+  .portal-brand { position:absolute; top:0; left:0; height:42px; max-width:calc(100% - 48px); display:flex; align-items:center; white-space:nowrap; overflow:hidden; }
+  .portal-brand .eyebrow { margin:0; font-size:12px; font-weight:800; letter-spacing:.16em; }
   input, select { width:100%; box-sizing:border-box; padding:14px; border:1px solid var(--input-line); background:transparent; font-family:monospace; font-size:14px; margin-bottom:16px; color:var(--fg); border-radius:4px; appearance:none; }
-  input[type="checkbox"] { appearance:auto; -webkit-appearance:checkbox; width:auto; padding:0; margin:0 8px 16px 0; accent-color:var(--pri); vertical-align:middle; }
+  input[type="checkbox"] { appearance:auto; -webkit-appearance:checkbox; width:18px; height:18px; padding:0; margin:0 8px 0 0; accent-color:var(--pri); vertical-align:middle; }
+  input[type="checkbox"] + label, input[type="checkbox"] + span { display:inline-block; vertical-align:middle; margin:0 0 16px 0; }
   input:focus, select:focus { border-color:var(--pri); outline:none; }
-  button, input[type="submit"], input[type="button"], .btn { position:relative; display:block; background:var(--pri); color:var(--btn-fg) !important; border:1px solid var(--pri); font-family:-apple-system,sans-serif; font-size:13px; font-weight:500; letter-spacing:0.04em; padding:16px; cursor:pointer; width:100%; margin-bottom:12px; border-radius:4px; text-transform:uppercase; text-decoration:none; text-align:center; box-sizing:border-box; overflow:hidden; }
+  button, input[type="submit"], input[type="button"], .btn { position:relative; display:block; background:var(--pri); color:var(--btn-fg) !important; border:1px solid var(--pri); font-family:-apple-system,sans-serif; font-size:13px; font-weight:500; letter-spacing:0.04em; padding:16px; cursor:pointer; width:100%; margin-bottom:12px; border-radius:4px; text-transform:uppercase; text-decoration:none; text-align:center; box-sizing:border-box; overflow:hidden; transition:transform .08s ease; }
   button:hover, input[type="submit"]:hover, input[type="button"]:hover, .btn:hover { opacity:0.9; }
+  button:active, input[type="submit"]:active, input[type="button"]:active, .btn:active { transform:scale(.96); opacity:1; }
   #loader-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); opacity:0.85; z-index:9999; }
   #loader-overlay::after { content:"•••"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:var(--fg); font-size:32px; letter-spacing:4px; animation:blink 1.4s infinite both; }
   @keyframes blink { 0% { opacity:.2; } 20% { opacity:1; } 100% { opacity:.2; } }
@@ -40,16 +92,25 @@ const char* IDENTITY_CSS = R"rawliteral(
   a:hover { text-decoration:underline; }
   .msg { padding:14px; background:var(--pap); border:1px solid var(--line); border-radius:4px; margin-bottom:16px; font-size:12px; color:var(--fg-2); line-height:1.5; }
   /* Ident section */
-  .ident-section { border:1px solid var(--line); background:var(--pap); padding:16px; margin:20px 0; border-radius:4px; }
+  .ident-section { border:1px solid var(--line); background:var(--pap); padding:16px; margin:20px 0; border-radius:4px; position:relative; }
   .mnemonic-box { font-family:monospace; font-size:14px; line-height:1.6; word-spacing:6px; color:var(--mnemonic); margin-top:8px; font-weight:650; }
+  .identity-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+  .identity-actions .btn { margin:0; padding:12px; font-size:11px; }
+  .identity-actions .btn:hover { opacity:1; }
+  .reroll-seed { position:absolute; top:10px; right:10px; width:auto; margin:0; padding:5px 9px; font-size:10px; }
+  .reroll-seed:hover { opacity:.9; }
+  .qr-panel { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,.28); }
+  [data-theme="dark"] .qr-panel { background:rgba(255,255,255,.04); }
+  .qr-canvas { display:block; width:260px; height:260px; max-width:100%; margin:0 auto 12px; image-rendering:pixelated; border:4px solid #fff; box-sizing:border-box; background:#fff; }
   .warn-box { font-size:11px; color:var(--bad); margin-top:12px; line-height:1.4; border-left:2px solid var(--bad); padding-left:10px; }
+  .backup-hint { font-size:11px; color:var(--fg-2); margin-top:12px; line-height:1.4; }
   label { font-size:10px; color:var(--fg-3); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:0.05em; font-weight:650; }
   .theme-btn { position:absolute; top:0; right:0; background:none !important; border:none !important; color:var(--fg) !important; font-size:22px; cursor:pointer; width:auto; padding:5px; margin:0; z-index:100; letter-spacing:0; text-transform:none; pointer-events:auto; }
   .lang-sel { margin-bottom:20px; }
   dt { font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:var(--fg-3); margin-top:12px; font-weight:650; }
   dd { font-family:monospace; font-size:14px; margin-left:0; margin-bottom:8px; word-break:break-all; }
-  #exit-confirm { display:none; position:fixed; inset:0; z-index:10000; background:rgba(5,8,6,.55); align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
-  #exit-confirm.is-open { display:flex; }
+  #exit-confirm, #save-confirm { display:none; position:fixed; inset:0; z-index:10000; background:rgba(5,8,6,.55); align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
+  #exit-confirm.is-open, #save-confirm.is-open { display:flex; }
   .exit-card { width:100%; max-width:360px; background:var(--bg); color:var(--fg); border:1px solid var(--line); padding:18px; border-radius:4px; box-shadow:0 8px 30px rgba(0,0,0,.28); }
   .exit-card p { margin:0 0 14px; color:var(--fg-2); font-size:13px; line-height:1.5; }
   .exit-actions { display:flex; gap:8px; }
@@ -60,11 +121,11 @@ const char* IDENTITY_CSS = R"rawliteral(
 </style>
 <script>
 const dict = {
-  '0': { conf:'Configure WiFi', info:'Info', exit:'Exit', upd:'Update', erase:'Erase WiFi config', setup:'Initial Setup', portal:'Configuration Portal', credit:'Developed by Arateki', lang:'Language', net:'-- Select Network --', other:'Other (Type SSID)', title_info:'Device Info', title_upd:'Update Firmware', noap:'No AP set', chip:'Chip ID', fsize:'Flash Size', exit_conf:'Close the configuration portal? You will need to restart the device to open it again.', exit_cancel:'Cancel', exit_confirm:'Close portal', exiting:'Closing...', exiting_msg:'The configuration portal has been closed. The device will now start.', firmware:'Firmware', upload_fw:'Upload new firmware', update_hint:'May not function inside captive portal, open in browser http://192.168.4.1', save:'Save', back:'Back', refresh:'Refresh Wi-Fi List', password:'Password', showpass:'Show Password', wmode:'WiFi mode', mac:'MAC Address', stip:'Station IP', stmac:'Station MAC', bssid:'BSSID', apip:'Access point IP', apmac:'Access point MAC', ap_ssid:'Access point SSID', uptime:'Uptime', chip_rev:'Chip Rev', last_reset:'Last reset reason', psram:'PSRAM Size', cpu:'CPU Frequency', heap:'Free Heap', sketch:'Sketch Size', sdk:'SDK version', temp:'Temperature', wifi:'WiFi', conn:'Connected', autoconx:'Autoconnect', st_ssid:'Station SSID', st_gw:'Station Gateway', st_sub:'Station Subnet', dns:'DNS Server', host:'Hostname', ap_host:'Access point hostname', about:'About', wm:'WiFiManager', ard:'Arduino', build:'Build Date' },
-  '1': { conf:'Configurar Wi-Fi', info:'Informações', exit:'Sair', upd:'Atualizar', erase:'Apagar Wi-Fi salvo', setup:'Configuração Inicial', portal:'Portal de configuração', credit:'Desenvolvido por Arateki', lang:'Idioma / Language', net:'-- Selecionar Rede --', other:'Outra (Digitar SSID)', title_info:'Informações', title_upd:'Atualizar Firmware', noap:'Nenhuma rede configurada', chip:'ID do Chip', fsize:'Tamanho da Flash', exit_conf:'Deseja fechar o portal de configuração? Você precisará reiniciar o dispositivo para abrir novamente', exit_cancel:'Cancelar', exit_confirm:'Fechar portal', exiting:'Encerrando...', exiting_msg:'O portal foi encerrado e o sensor começará a operar.', firmware:'Firmware', upload_fw:'Enviar novo firmware', update_hint:'Pode não funcionar dentro do portal cativo. Abra no navegador: http://192.168.4.1', save:'Salvar', back:'Voltar', refresh:'Atualizar Lista Wi-Fi', password:'Senha', showpass:'Mostrar senha', wmode:'Modo Wi-Fi', mac:'Endereço MAC', stip:'IP da Estação', stmac:'MAC da Estação', bssid:'BSSID', apip:'IP do AP', apmac:'MAC do AP', ap_ssid:'SSID do AP', uptime:'Tempo Ligado', chip_rev:'Revisão do Chip', last_reset:'Motivo do último reset', psram:'Tamanho da PSRAM', cpu:'Frequência CPU', heap:'Memória Livre', sketch:'Tamanho do Código', sdk:'Versão SDK', temp:'Temperatura', wifi:'Wi-Fi', conn:'Conectado', autoconx:'Conexão automática', st_ssid:'SSID da Estação', st_gw:'Gateway da Estação', st_sub:'Sub-rede da Estação', dns:'Servidor DNS', host:'Nome do Dispositivo', ap_host:'Nome do Portal', about:'Sobre', wm:'Versão WiFiManager', ard:'Versão Arduino', build:'Data de Build' },
-  '2': { conf:'Configurar Wi-Fi', info:'Información', exit:'Salir', upd:'Actualizar', erase:'Borrar Wi-Fi guardado', setup:'Configuración Inicial', portal:'Portal de configuración', credit:'Desarrollado por Arateki', lang:'Idioma / Language', net:'-- Seleccionar Red --', other:'Otra (Escribir SSID)', title_info:'Información', title_upd:'Actualizar Firmware', noap:'Ninguna red configurada', chip:'ID del Chip', fsize:'Tamaño de Flash', exit_conf:'¿Desea cerrar el portal de configuración? Tendrá que reiniciar el dispositivo para abrirlo de nuevo.', exit_cancel:'Cancelar', exit_confirm:'Cerrar portal', exiting:'Cerrando...', exiting_msg:'El portal se ha cerrado. El sensor comenzará a operar.', firmware:'Firmware', upload_fw:'Subir nuevo firmware', update_hint:'Puede no funcionar dentro del portal cautivo. Abra en el navegador: http://192.168.4.1', save:'Guardar', back:'Volver', refresh:'Actualizar lista Wi-Fi', password:'Contraseña', showpass:'Mostrar contraseña', wmode:'Modo Wi-Fi', mac:'Dirección MAC', stip:'IP de la Estación', stmac:'MAC de la Estación', bssid:'BSSID', apip:'IP del AP', apmac:'MAC del AP', ap_ssid:'SSID del AP', uptime:'Tiempo Encendido', chip_rev:'Revisión del Chip', last_reset:'Motivo del último reset', psram:'Tamaño de PSRAM', cpu:'Frecuencia CPU', heap:'Memoria Libre', sketch:'Tamaño del Código', sdk:'Versión SDK', temp:'Temperatura', wifi:'Wi-Fi', conn:'Conectado', autoconx:'Autoconexión', st_ssid:'SSID de Estación', st_gw:'Puerta de Enlace', st_sub:'Subred', dns:'Servidor DNS', host:'Nombre de Dispositivo', ap_host:'Nombre del Portal', about:'Acerca de', wm:'Versión WiFiManager', ard:'Versión Arduino', build:'Fecha de Build' },
-  '3': { conf:'Wi-Fi設定', info:'情報', exit:'終了', upd:'更新', erase:'Wi-Fi設定を消去', setup:'初期設定', portal:'設定ポータル', credit:'Arateki 開発', lang:'言語', net:'-- ネットワーク選択 --', other:'その他 (SSID入力)', title_info:'情報', title_upd:'ファームウェア更新', noap:'未設定', chip:'チップID', fsize:'フラッシュサイズ', exit_conf:'設定ポータルを閉じますか？再度開くにはデバイスを再起動する必要があります。', exit_cancel:'キャンセル', exit_confirm:'ポータルを閉じる', exiting:'終了しています...', exiting_msg:'ポータルを閉じました。デバイスが起動します。', firmware:'ファームウェア', upload_fw:'新しいファームウェアをアップロード', update_hint:'キャプティブポータル内では動作しない場合があります。ブラウザで http://192.168.4.1 を開いてください', save:'保存', back:'戻る', refresh:'Wi-Fiリストを更新', password:'パスワード', showpass:'パスワードを表示', wmode:'WiFiモード', mac:'MACアドレス', stip:'ステーションIP', stmac:'ステーションMAC', bssid:'BSSID', apip:'AP IP', apmac:'AP MAC', ap_ssid:'AP SSID', uptime:'起動時間', chip_rev:'チップリビジョン', last_reset:'最終リセット理由', psram:'PSRAMサイズ', cpu:'CPU周波数', heap:'空きメモリ', sketch:'スケッチサイズ', sdk:'SDKバージョン', temp:'温度', wifi:'Wi-Fi', conn:'接続状態', autoconx:'自動接続', st_ssid:'ステーションSSID', st_gw:'ゲートウェイ', st_sub:'サブネット', dns:'DNS', host:'ホスト名', ap_host:'APホスト名', about:'情報', wm:'WiFiManagerバージョン', ard:'Arduinoバージョン', build:'ビルド日' },
-  '4': { conf:'配置 Wi-Fi', info:'信息', exit:'退出', upd:'更新', erase:'清除 Wi-Fi 配置', setup:'初始设置', portal:'配置门户', credit:'由 Arateki 开发', lang:'语言', net:'-- 选择网络 --', other:'其他 (输入 SSID)', title_info:'设备信息', title_upd:'更新固件', noap:'未设置网络', chip:'芯片ID', fsize:'闪存大小', exit_conf:'关闭配置门户？如需再次打开，您需要重启设备。', exit_cancel:'取消', exit_confirm:'关闭门户', exiting:'正在关闭...', exiting_msg:'配置页已关闭，设备即将启动。', firmware:'固件', upload_fw:'上传新固件', update_hint:'在强制门户中可能无法工作。请在浏览器打开 http://192.168.4.1', save:'保存', back:'返回', refresh:'刷新 Wi-Fi 列表', password:'密码', showpass:'显示密码', wmode:'WiFi模式', mac:'MAC地址', stip:'站IP', stmac:'站MAC', bssid:'BSSID', apip:'AP IP', apmac:'AP MAC', ap_ssid:'AP SSID', uptime:'运行时间', chip_rev:'芯片版本', last_reset:'上次重置原因', psram:'PSRAM大小', cpu:'CPU频率', heap:'可用内存', sketch:'代码大小', sdk:'SDK版本', temp:'温度', wifi:'Wi-Fi', conn:'已连接', autoconx:'自动连接', st_ssid:'站 SSID', st_gw:'网关', st_sub:'子网掩码', dns:'DNS', host:'主机名', ap_host:'AP 主机名', about:'关于', wm:'WiFiManager版本', ard:'Arduino版本', build:'构建日期' }
+  '0': { conf:'Configure', info:'Info', exit:'Exit', upd:'Update', erase:'Erase WiFi config', setup:'Initial Setup', identity_title:'Identification', portal:'Configuration Portal', credit:'Developed by Arateki', lang:'Language', net:'-- Select Network --', other:'Other (Type SSID)', title_info:'Device Info', title_upd:'Update Firmware', noap:'No AP set', chip:'Chip ID', fsize:'Flash Size', exit_conf:'Close the configuration portal? You will need to restart the device to open it again.', exit_cancel:'Cancel', exit_confirm:'Close portal', exiting:'Closing...', exiting_msg:'The configuration portal has been closed. The device will now start.', firmware:'Firmware', upload_fw:'Upload new firmware', update_hint:'May not function inside captive portal, open in browser http://192.168.4.1', save:'Save', back:'Back', refresh:'Refresh Wi-Fi List', password:'Password', showpass:'Show Password', wmode:'WiFi mode', mac:'MAC Address', stip:'Station IP', stmac:'Station MAC', bssid:'BSSID', apip:'Access point IP', apmac:'Access point MAC', ap_ssid:'Access point SSID', uptime:'Uptime', chip_rev:'Chip Rev', last_reset:'Last reset reason', psram:'PSRAM Size', cpu:'CPU Frequency', heap:'Free Heap', sketch:'Sketch Size', sdk:'SDK version', temp:'Temperature', wifi:'WiFi', conn:'Connected', autoconx:'Autoconnect', st_ssid:'Station SSID', st_gw:'Station Gateway', st_sub:'Station Subnet', dns:'DNS Server', host:'Hostname', ap_host:'Access point hostname', about:'About', wm:'WiFiManager', ard:'Arduino', build:'Build Date' },
+  '1': { conf:'Configurar', info:'Informações', exit:'Sair', upd:'Atualizar', erase:'Apagar Wi-Fi salvo', setup:'Configuração Inicial', identity_title:'Identificação', portal:'Portal de configuração', credit:'Desenvolvido por Arateki', lang:'Idioma / Language', net:'-- Selecionar Rede --', other:'Outra (Digitar SSID)', title_info:'Informações', title_upd:'Atualizar Firmware', noap:'Nenhuma rede configurada', chip:'ID do Chip', fsize:'Tamanho da Flash', exit_conf:'Deseja fechar o portal de configuração? Você precisará reiniciar o dispositivo para abrir novamente', exit_cancel:'Cancelar', exit_confirm:'Fechar portal', exiting:'Encerrando...', exiting_msg:'O portal foi encerrado e o sensor começará a operar.', firmware:'Firmware', upload_fw:'Enviar novo firmware', update_hint:'Pode não funcionar dentro do portal cativo. Abra no navegador: http://192.168.4.1', save:'Salvar', back:'Voltar', refresh:'Atualizar Lista Wi-Fi', password:'Senha', showpass:'Mostrar senha', wmode:'Modo Wi-Fi', mac:'Endereço MAC', stip:'IP da Estação', stmac:'MAC da Estação', bssid:'BSSID', apip:'IP do AP', apmac:'MAC do AP', ap_ssid:'SSID do AP', uptime:'Tempo Ligado', chip_rev:'Revisão do Chip', last_reset:'Motivo do último reset', psram:'Tamanho da PSRAM', cpu:'Frequência CPU', heap:'Memória Livre', sketch:'Tamanho do Código', sdk:'Versão SDK', temp:'Temperatura', wifi:'Wi-Fi', conn:'Conectado', autoconx:'Conexão automática', st_ssid:'SSID da Estação', st_gw:'Gateway da Estação', st_sub:'Sub-rede da Estação', dns:'Servidor DNS', host:'Nome do Dispositivo', ap_host:'Nome do Portal', about:'Sobre', wm:'Versão WiFiManager', ard:'Versão Arduino', build:'Data de Build' },
+  '2': { conf:'Configurar', info:'Información', exit:'Salir', upd:'Actualizar', erase:'Borrar Wi-Fi guardado', setup:'Configuración Inicial', identity_title:'Identificación', portal:'Portal de configuración', credit:'Desarrollado por Arateki', lang:'Idioma / Language', net:'-- Seleccionar Red --', other:'Otra (Escribir SSID)', title_info:'Información', title_upd:'Actualizar Firmware', noap:'Ninguna red configurada', chip:'ID del Chip', fsize:'Tamaño de Flash', exit_conf:'¿Desea cerrar el portal de configuración? Tendrá que reiniciar el dispositivo para abrirlo de nuevo.', exit_cancel:'Cancelar', exit_confirm:'Cerrar portal', exiting:'Cerrando...', exiting_msg:'El portal se ha cerrado. El sensor comenzará a operar.', firmware:'Firmware', upload_fw:'Subir nuevo firmware', update_hint:'Puede no funcionar dentro del portal cautivo. Abra en el navegador: http://192.168.4.1', save:'Guardar', back:'Volver', refresh:'Actualizar lista Wi-Fi', password:'Contraseña', showpass:'Mostrar contraseña', wmode:'Modo Wi-Fi', mac:'Dirección MAC', stip:'IP de la Estación', stmac:'MAC de la Estación', bssid:'BSSID', apip:'IP del AP', apmac:'MAC del AP', ap_ssid:'SSID del AP', uptime:'Tiempo Encendido', chip_rev:'Revisión del Chip', last_reset:'Motivo del último reset', psram:'Tamaño de PSRAM', cpu:'Frecuencia CPU', heap:'Memoria Libre', sketch:'Tamaño del Código', sdk:'Versión SDK', temp:'Temperatura', wifi:'Wi-Fi', conn:'Conectado', autoconx:'Autoconexión', st_ssid:'SSID de Estación', st_gw:'Puerta de Enlace', st_sub:'Subred', dns:'Servidor DNS', host:'Nombre de Dispositivo', ap_host:'Nombre del Portal', about:'Acerca de', wm:'Versión WiFiManager', ard:'Versión Arduino', build:'Fecha de Build' },
+  '3': { conf:'設定', info:'情報', exit:'終了', upd:'更新', erase:'Wi-Fi設定を消去', setup:'初期設定', identity_title:'識別', portal:'設定ポータル', credit:'Arateki 開発', lang:'言語', net:'-- ネットワーク選択 --', other:'その他 (SSID入力)', title_info:'情報', title_upd:'ファームウェア更新', noap:'未設定', chip:'チップID', fsize:'フラッシュサイズ', exit_conf:'設定ポータルを閉じますか？再度開くにはデバイスを再起動する必要があります。', exit_cancel:'キャンセル', exit_confirm:'ポータルを閉じる', exiting:'終了しています...', exiting_msg:'ポータルを閉じました。デバイスが起動します。', firmware:'ファームウェア', upload_fw:'新しいファームウェアをアップロード', update_hint:'キャプティブポータル内では動作しない場合があります。ブラウザで http://192.168.4.1 を開いてください', save:'保存', back:'戻る', refresh:'Wi-Fiリストを更新', password:'パスワード', showpass:'パスワードを表示', wmode:'WiFiモード', mac:'MACアドレス', stip:'ステーションIP', stmac:'ステーションMAC', bssid:'BSSID', apip:'AP IP', apmac:'AP MAC', ap_ssid:'AP SSID', uptime:'起動時間', chip_rev:'チップリビジョン', last_reset:'最終リセット理由', psram:'PSRAMサイズ', cpu:'CPU周波数', heap:'空きメモリ', sketch:'スケッチサイズ', sdk:'SDKバージョン', temp:'温度', wifi:'Wi-Fi', conn:'接続状態', autoconx:'自動接続', st_ssid:'ステーションSSID', st_gw:'ゲートウェイ', st_sub:'サブネット', dns:'DNS', host:'ホスト名', ap_host:'APホスト名', about:'情報', wm:'WiFiManagerバージョン', ard:'Arduinoバージョン', build:'ビルド日' },
+  '4': { conf:'配置', info:'信息', exit:'退出', upd:'更新', erase:'清除 Wi-Fi 配置', setup:'初始设置', identity_title:'身份识别', portal:'配置门户', credit:'由 Arateki 开发', lang:'语言', net:'-- 选择网络 --', other:'其他 (输入 SSID)', title_info:'设备信息', title_upd:'更新固件', noap:'未设置网络', chip:'芯片ID', fsize:'闪存大小', exit_conf:'关闭配置门户？如需再次打开，您需要重启设备。', exit_cancel:'取消', exit_confirm:'关闭门户', exiting:'正在关闭...', exiting_msg:'配置页已关闭，设备即将启动。', firmware:'固件', upload_fw:'上传新固件', update_hint:'在强制门户中可能无法工作。请在浏览器打开 http://192.168.4.1', save:'保存', back:'返回', refresh:'刷新 Wi-Fi 列表', password:'密码', showpass:'显示密码', wmode:'WiFi模式', mac:'MAC地址', stip:'站IP', stmac:'站MAC', bssid:'BSSID', apip:'AP IP', apmac:'AP MAC', ap_ssid:'AP SSID', uptime:'运行时间', chip_rev:'芯片版本', last_reset:'上次重置原因', psram:'PSRAM大小', cpu:'CPU频率', heap:'可用内存', sketch:'代码大小', sdk:'SDK版本', temp:'温度', wifi:'Wi-Fi', conn:'已连接', autoconx:'自动连接', st_ssid:'站 SSID', st_gw:'网关', st_sub:'子网掩码', dns:'DNS', host:'主机名', ap_host:'AP 主机名', about:'关于', wm:'WiFiManager版本', ard:'Arduino版本', build:'构建日期' }
 };
 
 const extraText = {
@@ -76,6 +137,14 @@ const extraText = {
 };
 
 const textFor = (lang) => Object.assign({}, dict[lang] || dict['1'], extraText[lang] || extraText['1']);
+const saveConfirmText = {
+  '0': { msg:'Save this configuration? Your master key cannot be recovered after saving. Keep the words or QR code in a safe offline place before continuing.', cancel:'Review', ok:'Save' },
+  '1': { msg:'Salvar esta configuração? A chave mestra não poderá ser recuperada depois de salvar. Guarde as palavras ou o QR code em local seguro e offline antes de continuar.', cancel:'Revisar', ok:'Salvar' },
+  '2': { msg:'¿Guardar esta configuración? La llave maestra no podrá recuperarse después de guardar. Conserve las palabras o el código QR en un lugar seguro y offline antes de continuar.', cancel:'Revisar', ok:'Guardar' },
+  '3': { msg:'この設定を保存しますか？保存後はマスターキーを復元できません。続行する前に単語またはQRコードを安全な場所にオフラインで保管してください。', cancel:'確認する', ok:'保存' },
+  '4': { msg:'保存此配置？保存后将无法恢复主密钥。继续前请将助记词或二维码离线保存在安全位置。', cancel:'检查', ok:'保存' }
+};
+const saveTextFor = (lang) => saveConfirmText[lang] || saveConfirmText['1'];
 
 const labelKeys = {
   'configure wifi':'conf', 'info':'info', 'exit':'exit', 'update':'upd', 'erase wifi config':'erase', 'save':'save', 'back':'back', 'refresh':'refresh',
@@ -115,6 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
   exitModal.innerHTML = "<div class='exit-card'><p id='exit-confirm-text'></p><div class='exit-actions'><button type='button' class='exit-cancel' id='exit-cancel'></button><button type='button' id='exit-ok'></button></div></div>";
   document.body.appendChild(exitModal);
 
+  const saveModal = document.createElement('div');
+  saveModal.id = 'save-confirm';
+  saveModal.innerHTML = "<div class='exit-card'><p id='save-confirm-text'></p><div class='exit-actions'><button type='button' class='exit-cancel' id='save-cancel'></button><button type='button' id='save-ok'></button></div></div>";
+  document.body.appendChild(saveModal);
+
   // Wrap content for max-width and center alignment
   const wrap = document.createElement('div');
   wrap.className = 'wrap';
@@ -148,6 +222,9 @@ document.addEventListener('DOMContentLoaded', () => {
     catch (_) { return ''; }
   };
   const isExitForm = (form) => form && actionPath(form) === '/exit';
+  const isSaveForm = (form) => form && actionPath(form) === '/wifisave';
+  let pendingSaveForm = null;
+  let saveConfirmed = false;
   const showExitConfirm = () => {
     const lang = readPref('lang', '1');
     const t = textFor(lang);
@@ -164,11 +241,39 @@ document.addEventListener('DOMContentLoaded', () => {
     showExitConfirm();
     return false;
   };
+  const showSaveConfirm = (form) => {
+    const lang = readPref('lang', '1');
+    const t = saveTextFor(lang);
+    pendingSaveForm = form;
+    document.getElementById('save-confirm-text').innerText = t.msg;
+    document.getElementById('save-cancel').innerText = t.cancel;
+    document.getElementById('save-ok').innerText = t.ok;
+    saveModal.classList.add('is-open');
+  };
+  const goSave = (e, form) => {
+    if (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+    }
+    showSaveConfirm(form);
+    return false;
+  };
   document.getElementById('exit-cancel').onclick = () => exitModal.classList.remove('is-open');
   document.getElementById('exit-ok').onclick = () => {
     exitModal.classList.remove('is-open');
     startLoading();
     window.location.href = '/exit';
+  };
+  document.getElementById('save-cancel').onclick = () => {
+    pendingSaveForm = null;
+    saveModal.classList.remove('is-open');
+  };
+  document.getElementById('save-ok').onclick = () => {
+    if (!pendingSaveForm) return;
+    saveConfirmed = true;
+    saveModal.classList.remove('is-open');
+    startLoading();
+    pendingSaveForm.submit();
   };
 
   document.addEventListener('click', (e) => {
@@ -182,6 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = trigger ? trigger.closest('form') : null;
     if (isExitForm(form)) {
       goExit(e);
+    } else if (isSaveForm(form) && !saveConfirmed && trigger && trigger.type !== 'button') {
+      goSave(e, form);
     }
   }, true);
 
@@ -190,6 +297,10 @@ document.addEventListener('DOMContentLoaded', () => {
     f.addEventListener('submit', (e) => {
       if (isExitForm(f)) {
         goExit(e);
+        return;
+      }
+      if (isSaveForm(f) && !saveConfirmed) {
+        goSave(e, f);
         return;
       }
       startLoading();
@@ -211,6 +322,113 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) stopLoading();
   });
+
+  const setupIdentityBackupActions = () => {
+    const copyBtn = document.getElementById('copy-mnemonic');
+    const saveBtn = document.getElementById('save-mnemonic-qr');
+    const rerollBtn = document.getElementById('reroll-mnemonic');
+    const mnemonicBox = document.getElementById('mnemonic-code');
+    const qrCanvas = document.getElementById('mnemonic-qr');
+    if (!copyBtn || !saveBtn || !rerollBtn || !mnemonicBox || !qrCanvas) return;
+
+    const getMnemonic = () => mnemonicBox.getAttribute('data-mnemonic') || mnemonicBox.textContent.trim();
+    const applyIdentityData = (data) => {
+      mnemonicBox.textContent = data.mnemonic;
+      mnemonicBox.setAttribute('data-mnemonic', data.mnemonic);
+      qrCanvas.setAttribute('data-size', String(data.qrSize));
+      qrCanvas.setAttribute('data-bits', data.qrBits);
+      copyBtn.innerText = copyBtn.getAttribute('data-label');
+      drawQr();
+    };
+    const fetchIdentityData = async (url) => {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('identity fetch failed');
+      applyIdentityData(await res.json());
+    };
+    const drawQr = () => {
+      const size = parseInt(qrCanvas.getAttribute('data-size') || '0', 10);
+      const bits = qrCanvas.getAttribute('data-bits') || '';
+      if (!size || bits.length !== size * size) return;
+      const pad = 2;
+      const scale = Math.floor(qrCanvas.width / (size + pad * 2));
+      const offset = Math.floor((qrCanvas.width - (size + pad * 2) * scale) / 2);
+      const ctx = qrCanvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, qrCanvas.width, qrCanvas.height);
+      ctx.fillStyle = '#111';
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          if (bits[y * size + x] === '1') ctx.fillRect(offset + (x + pad) * scale, offset + (y + pad) * scale, scale, scale);
+        }
+      }
+    };
+    const copyFallback = (value) => {
+      const area = document.createElement('textarea');
+      area.value = value;
+      area.setAttribute('readonly', '');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      area.remove();
+    };
+    copyBtn.onclick = async () => {
+      const value = getMnemonic();
+      try {
+        if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(value);
+        else copyFallback(value);
+        copyBtn.innerText = copyBtn.getAttribute('data-done');
+        setTimeout(() => copyBtn.innerText = copyBtn.getAttribute('data-label'), 1400);
+      } catch (_) {
+        copyFallback(value);
+      }
+    };
+    saveBtn.onclick = () => {
+      startLoading();
+      qrCanvas.toBlob(async (blob) => {
+        if (!blob) {
+          stopLoading();
+          return;
+        }
+        const file = new File([blob], 'safrasense-owner-key-qr.png', { type: 'image/png' });
+        try {
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'SafraSense QR code' });
+          } else {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = file.name;
+            document.body.appendChild(link);
+            link.click();
+            setTimeout(() => {
+              URL.revokeObjectURL(link.href);
+              link.remove();
+            }, 0);
+          }
+        } finally {
+          stopLoading();
+        }
+      }, 'image/png');
+    };
+    rerollBtn.onclick = async () => {
+      startLoading();
+      try {
+        const lang = readPref('lang', '1');
+        await fetchIdentityData('/identity/reroll?lang=' + encodeURIComponent(lang));
+      } catch (_) {
+      } finally {
+        stopLoading();
+      }
+    };
+    fetchIdentityData('/identity/current?lang=' + encodeURIComponent(langVal)).catch(() => drawQr());
+  };
+  const setIdentityTitle = (t) => {
+    document.querySelectorAll('.ident-section').forEach(section => {
+      const title = section.previousElementSibling;
+      if (title && title.tagName === 'H1') title.innerText = t.identity_title || t.setup;
+    });
+  };
 
   const path = window.location.pathname;
   let langVal = readPref('lang', '1');
@@ -317,6 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         h1.innerText = t.cred_saved;
       }
     }
+    setIdentityTitle(t);
     
     if (path === '/') {
       document.querySelectorAll('form[action="/wifi"] button').forEach(b => b.innerText = t.conf);
@@ -377,6 +596,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   
   applyTranslations(langVal);
+  setupIdentityBackupActions();
 
   // Custom Wi-Fi Select on /wifi
   if (path === '/wifi') {
@@ -434,11 +654,10 @@ void setupWifi(DeviceConfig& cfg) {
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
 
   DeviceIdentity id = loadOrCreateIdentity();
-  
-  // If there is no mnemonic, generate one now with hardware entropy for portal display.
-  if (id.mnemonic.length() == 0) {
-    generateOwnerIdentity(id, LANG_PT); 
-  }
+  // Owner identity shown in the captive portal is a draft until the user saves.
+  // Keep it empty until the portal page requests it, after the AP/RF is active.
+  id.lang = LANG_PT;
+  id.mnemonic = "";
 
   String mac = WiFi.macAddress();
   mac.replace(":", "");
@@ -457,12 +676,21 @@ void setupWifi(DeviceConfig& cfg) {
 
   // ── Identity section ─────────────────────────────────────────────────────
   WiFiManagerParameter p_css(IDENTITY_CSS);
-  
+
   String headerHtml = 
     "<h1>" + t("setup_title", id.lang) + "</h1>"
     "<div class='ident-section'>"
-      "<div class='eyebrow'>Sua Chave-mestre</div>"
-      "<div class='mnemonic-box'>" + id.mnemonic + "</div>"
+      "<button type='button' id='reroll-mnemonic' class='reroll-seed'>" + htmlEscape(t("reroll_seed", id.lang)) + "</button>"
+      "<div class='eyebrow'>" + t("master_key", id.lang) + "</div>"
+      "<div id='mnemonic-code' class='mnemonic-box' data-mnemonic='" + htmlEscape(id.mnemonic) + "'>" + htmlEscape(id.mnemonic) + "</div>"
+      "<div class='identity-actions'>"
+        "<button type='button' id='copy-mnemonic' class='btn' data-label='" + htmlEscape(t("copy_code", id.lang)) + "' data-done='" + htmlEscape(t("copied_code", id.lang)) + "'>" + htmlEscape(t("copy_code", id.lang)) + "</button>"
+        "<button type='button' id='save-mnemonic-qr' class='btn'>" + htmlEscape(t("save_qr", id.lang)) + "</button>"
+      "</div>"
+      "<div class='qr-panel'>"
+        "<canvas id='mnemonic-qr' class='qr-canvas' width='330' height='330' data-size='0' data-bits='' aria-label='QR code'></canvas>"
+        "<div class='backup-hint'>" + htmlEscape(t("backup_methods_hint", id.lang)) + "</div>"
+      "</div>"
       "<div class='warn-box'>" + t("security_warn", id.lang) + "</div>"
     "</div>";
   WiFiManagerParameter p_header(headerHtml.c_str());
@@ -519,13 +747,28 @@ void setupWifi(DeviceConfig& cfg) {
     setLedState(LED_PORTAL_OPEN);
   });
 
-  // Keep LEDs ticking while the portal is active.
-  wm.setWebServerCallback([]() {
-    // This runs when the web server is processing, but we need something 
-    // that runs every loop. WiFiManager has setConfigPortalBlocking(false) 
-    // but that complicates the flow. 
-    // The best way for blocking mode is setProcessWebClientCallback or similar if available,
-    // or simply using the portal in non-blocking mode.
+  wm.setWebServerCallback([&wm, &id]() {
+    wm.server->on("/identity/current", HTTP_GET, [&wm, &id]() {
+      Language lang = id.lang;
+      if (wm.server->hasArg("lang")) {
+        lang = docToLang(wm.server->arg("lang"));
+      }
+      if (id.mnemonic.length() == 0 || lang != id.lang) {
+        generateOwnerIdentity(id, lang);
+      }
+      uint8_t newQrSize = 0;
+      String newQrBits = renderMnemonicQrBits(id.mnemonic, newQrSize);
+      String body = "{\"mnemonic\":\"" + jsonEscape(id.mnemonic) + "\",\"qrSize\":" + String(newQrSize) + ",\"qrBits\":\"" + newQrBits + "\"}";
+      wm.server->send(200, "application/json", body);
+    });
+    wm.server->on("/identity/reroll", HTTP_GET, [&wm, &id]() {
+      Language lang = docToLang(wm.server->arg("lang"));
+      generateOwnerIdentity(id, lang);
+      uint8_t newQrSize = 0;
+      String newQrBits = renderMnemonicQrBits(id.mnemonic, newQrSize);
+      String body = "{\"mnemonic\":\"" + jsonEscape(id.mnemonic) + "\",\"qrSize\":" + String(newQrSize) + ",\"qrBits\":\"" + newQrBits + "\"}";
+      wm.server->send(200, "application/json", body);
+    });
   });
 
   // Let's use the non-blocking approach to keep the main loop running.
@@ -553,10 +796,10 @@ void setupWifi(DeviceConfig& cfg) {
     imported.trim();
     if (imported.length() > 0) {
       importOwnerIdentity(id, imported);
-    } else {
-      // Otherwise, save the mnemonic generated at the start of this function.
-      saveIdentity(id);
+    } else if (id.mnemonic.length() == 0) {
+      generateOwnerIdentity(id, id.lang);
     }
+    saveIdentity(id);
 
     // 3. Settings
     cfg.device_name = String(p_name.getValue());
