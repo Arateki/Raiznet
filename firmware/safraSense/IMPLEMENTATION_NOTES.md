@@ -16,10 +16,17 @@ directly in the page:
 
 - Inline SVG QR code made the page too large.
 - Inline QR bit strings in `data-*` attributes also made the page fragile.
+- Large identity HTML inside a `WiFiManagerParameter` made the section vanish.
+- Large inline JavaScript in `setCustomHeadElement()` also made the page fragile.
 
 Keep the initial HTML small. The current pattern is:
 
-- Render an empty QR `<canvas>` in `src/wifi_setup/wifi_setup.cpp`.
+- Put only a small `<div id="identity-root"></div>` placeholder in
+  `headerHtml`.
+- Serve the full identity section from `/identity/section?lang=...`.
+- Keep the custom head to CSS plus `<script src="/portal.js"></script>`.
+- Serve the large portal JavaScript from `/portal.js`.
+- Render an empty QR `<canvas>` in the endpoint-rendered identity section.
 - Fetch `/identity/current?lang=...` after the page loads.
 - Return only JSON with `mnemonic`, `qrSize`, and compact `qrBits`.
 - Draw the QR in browser JavaScript.
@@ -27,8 +34,9 @@ Keep the initial HTML small. The current pattern is:
   through 12 with low error correction and explicit byte-capacity checks before
   calling the QR library.
 
-Do not move the QR matrix back into `headerHtml` unless the whole portal size is
-re-tested on the ESP.
+Do not move the QR matrix, full identity section, or large JavaScript back into
+`headerHtml` or `setCustomHeadElement()` unless the whole portal is re-tested on
+the ESP.
 
 ## Seed generation timing
 
@@ -101,6 +109,39 @@ default. Set `SAFRASENSE_LOG_LEVEL` at build time to enable them: `1` for errors
 `2` for warnings, `3` for info, and `4` for debug details such as payload size,
 heap, and decoder state. Log tags are module names such as `qr`. Do not log
 mnemonic words or QR payload contents.
+
+## Recovery word validation and suggestions
+
+Manual identity recovery is intentionally endpoint-driven. Do not load BIP-39
+wordlists into the portal HTML or browser JavaScript; keep the wordlists in
+firmware and query them from `src/identity/identity.cpp`.
+
+Current behavior:
+
+- `/identity/validate` returns `complete`, `partial`, word count, missing count,
+  and up to 6 `suggestions` for the current prefix.
+- Validation is case-insensitive; imported mnemonics are normalized to lowercase
+  before saving.
+- Empty import text is allowed because identity import is optional.
+- Compatible but incomplete input is yellow and keeps save disabled until 12
+  words are complete.
+- A word or prefix outside the selected language wordlist is red and blocks
+  save.
+- The browser currently autocompletes the active word only when the endpoint has
+  exactly one suggestion.
+
+Known continuation work:
+
+- The endpoint already returns `suggestions`/`suggestionTotal`, but the UI does
+  not yet render selectable suggestion chips/dropdowns.
+- A good mobile UX would show 4 to 6 small chips under the textarea for the
+  active word. Tapping a chip should replace only the active word and append a
+  trailing space.
+- Keep suggestion requests debounced; the current validation debounce is in
+  `/portal.js` inside `setupIdentityBackupActions()`.
+- Re-test Japanese and Chinese carefully before changing tokenization. The
+  current implementation assumes words are separated by spaces, matching the QR
+  and displayed mnemonic format used by this portal.
 
 ## BIP-39 scope
 

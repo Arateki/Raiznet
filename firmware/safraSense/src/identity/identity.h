@@ -17,6 +17,16 @@ struct DeviceIdentity {
   String  mac;
 };
 
+struct MnemonicValidationResult {
+  bool complete;
+  bool partial;
+  int wordCount;
+  int missingWords;
+  int suggestionCount;
+  String suggestions[6];
+  String error;
+};
+
 extern const char* const BIP39_WORDLIST_EN[2048];
 extern const char* const BIP39_WORDLIST_PT[2048];
 extern const char* const BIP39_WORDLIST_ES[2048];
@@ -26,6 +36,8 @@ extern const char* const BIP39_WORDLIST_ZH[2048];
 DeviceIdentity loadOrCreateIdentity();
 void generateOwnerIdentity(DeviceIdentity& id, Language lang);
 bool importOwnerIdentity(DeviceIdentity& id, String mnemonic);
+bool validateMnemonicForLanguage(String mnemonic, Language lang, String& error);
+MnemonicValidationResult analyzeMnemonicForLanguage(String mnemonic, Language lang);
 String signMessage(const DeviceIdentity& id, const String& msg);
 void eraseIdentity();
 void saveIdentity(const DeviceIdentity& id);
