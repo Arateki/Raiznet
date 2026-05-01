@@ -4,6 +4,7 @@
 #include "identity/identity.h"
 #include "identity/qr_decode.h"
 #include "i18n/i18n.h"
+#include "logging/logging.h"
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <ESPmDNS.h>
@@ -69,7 +70,7 @@ static String renderMnemonicQrBits(const String& mnemonic, uint8_t& qrSize) {
     return "";
   }
 
-  Serial.printf("[qr] generated mnemonic QR version=%u size=%u payload_len=%u\n", selectedVersion, qrcode.size, (unsigned)mnemonic.length());
+  LOG_INFOF("qr", "generated mnemonic QR version=%u size=%u payload_len=%u\n", selectedVersion, qrcode.size, (unsigned)mnemonic.length());
   qrSize = qrcode.size;
 
   String bits;
@@ -959,14 +960,14 @@ void setupWifi(DeviceConfig& cfg) {
       const int width = wm.server->arg("w").toInt();
       const int height = wm.server->arg("h").toInt();
       const String body = wm.server->arg("plain");
-      Serial.printf("[qr] request width=%d height=%d b64_len=%u heap=%u\n", width, height, (unsigned)body.length(), (unsigned)ESP.getFreeHeap());
+      LOG_DEBUGF("qr", "request width=%d height=%d b64_len=%u heap=%u\n", width, height, (unsigned)body.length(), (unsigned)ESP.getFreeHeap());
       String payload;
       String error;
       if (decodeQrBase64PackedBitmap(body, width, height, payload, error)) {
-        Serial.printf("[qr] response ok payload_len=%u heap=%u\n", (unsigned)payload.length(), (unsigned)ESP.getFreeHeap());
+        LOG_INFOF("qr", "response ok payload_len=%u heap=%u\n", (unsigned)payload.length(), (unsigned)ESP.getFreeHeap());
         wm.server->send(200, "application/json", "{\"mnemonic\":\"" + jsonEscape(payload) + "\"}");
       } else {
-        Serial.printf("[qr] response fail error=%s heap=%u\n", error.length() ? error.c_str() : "qr_not_found", (unsigned)ESP.getFreeHeap());
+        LOG_INFOF("qr", "response fail error=%s heap=%u\n", error.length() ? error.c_str() : "qr_not_found", (unsigned)ESP.getFreeHeap());
         wm.server->send(400, "application/json", "{\"error\":\"" + jsonEscape(error.length() ? error : String("qr_not_found")) + "\"}");
       }
     });

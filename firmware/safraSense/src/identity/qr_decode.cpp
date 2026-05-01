@@ -1,4 +1,5 @@
 #include "qr_decode.h"
+#include "logging/logging.h"
 
 #include <quirc.h>
 #include <mbedtls/base64.h>
@@ -8,7 +9,7 @@ static bool decodePreparedQuirc(struct quirc* qr, String& payload, String& error
   bool ok = false;
 
   const int count = quirc_count(qr);
-  Serial.printf("[qr] quirc candidates=%d\n", count);
+  LOG_DEBUGF("qr", "quirc candidates=%d\n", count);
   if (count <= 0) {
     error = "qr_not_found";
   }
@@ -17,7 +18,7 @@ static bool decodePreparedQuirc(struct quirc* qr, String& payload, String& error
   struct quirc_data* data = (struct quirc_data*)malloc(sizeof(struct quirc_data));
   if (!code || !data) {
     error = "decoder_work_alloc_failed";
-    Serial.printf("[qr] work alloc failed code=%u data=%u heap=%u\n", code ? 1 : 0, data ? 1 : 0, (unsigned)ESP.getFreeHeap());
+    LOG_ERRORF("qr", "work alloc failed code=%u data=%u heap=%u\n", code ? 1 : 0, data ? 1 : 0, (unsigned)ESP.getFreeHeap());
   }
 
   for (int i = 0; code && data && i < count && !ok; i++) {
@@ -33,11 +34,11 @@ static bool decodePreparedQuirc(struct quirc* qr, String& payload, String& error
         payload += (char)data->payload[j];
       }
       ok = payload.length() > 0;
-      Serial.printf("[qr] candidate=%d success payload_len=%u\n", i, (unsigned)payload.length());
+      LOG_DEBUGF("qr", "candidate=%d success payload_len=%u\n", i, (unsigned)payload.length());
       if (!ok) error = "empty_payload";
     } else {
       error = quirc_strerror(err);
-      Serial.printf("[qr] candidate=%d error=%s\n", i, error.c_str());
+      LOG_DEBUGF("qr", "candidate=%d error=%s\n", i, error.c_str());
     }
   }
 
@@ -68,17 +69,17 @@ bool decodeQrGrayscale(const uint8_t* pixels, size_t length, int width, int heig
   payload = "";
   error = "";
 
-  Serial.printf("[qr] decode start width=%d height=%d bytes=%u\n", width, height, (unsigned)length);
+  LOG_DEBUGF("qr", "decode start width=%d height=%d bytes=%u\n", width, height, (unsigned)length);
 
   if (!pixels || !validateQrSize(width, height, length, error)) {
-    Serial.printf("[qr] decode fail error=%s\n", error.c_str());
+    LOG_DEBUGF("qr", "decode fail error=%s\n", error.c_str());
     return false;
   }
 
   struct quirc* qr = quirc_new();
   if (!qr) {
     error = "decoder_alloc_failed";
-    Serial.printf("[qr] decode fail error=%s\n", error.c_str());
+    LOG_ERRORF("qr", "decode fail error=%s\n", error.c_str());
     return false;
   }
 
@@ -100,7 +101,7 @@ bool decodeQrGrayscale(const uint8_t* pixels, size_t length, int width, int heig
 
   quirc_destroy(qr);
   if (!ok) {
-    Serial.printf("[qr] decode fail error=%s\n", error.length() ? error.c_str() : "unknown");
+    LOG_DEBUGF("qr", "decode fail error=%s\n", error.length() ? error.c_str() : "unknown");
   }
   return ok;
 }
@@ -111,16 +112,16 @@ bool decodeQrBase64PackedBitmap(const String& encodedPixels, int width, int heig
 
   const size_t imageBytes = (size_t)width * (size_t)height;
   const size_t packedBytes = (imageBytes + 7) / 8;
-  Serial.printf("[qr] decode packed b64 start width=%d height=%d image_bytes=%u packed_expected=%u heap=%u\n", width, height, (unsigned)imageBytes, (unsigned)packedBytes, (unsigned)ESP.getFreeHeap());
+  LOG_DEBUGF("qr", "decode packed b64 start width=%d height=%d image_bytes=%u packed_expected=%u heap=%u\n", width, height, (unsigned)imageBytes, (unsigned)packedBytes, (unsigned)ESP.getFreeHeap());
   if (!validateQrSize(width, height, imageBytes, error)) {
-    Serial.printf("[qr] decode fail error=%s\n", error.c_str());
+    LOG_DEBUGF("qr", "decode fail error=%s\n", error.c_str());
     return false;
   }
 
   struct quirc* qr = quirc_new();
   if (!qr) {
     error = "decoder_alloc_failed";
-    Serial.printf("[qr] decode fail error=%s heap=%u\n", error.c_str(), (unsigned)ESP.getFreeHeap());
+    LOG_ERRORF("qr", "decode fail error=%s heap=%u\n", error.c_str(), (unsigned)ESP.getFreeHeap());
     return false;
   }
 
@@ -137,12 +138,12 @@ bool decodeQrBase64PackedBitmap(const String& encodedPixels, int width, int heig
       uint8_t* packed = (uint8_t*)malloc(packedBytes);
       if (!packed) {
         error = "packed_alloc_failed";
-        Serial.printf("[qr] packed alloc failed bytes=%u heap=%u\n", (unsigned)packedBytes, (unsigned)ESP.getFreeHeap());
+        LOG_ERRORF("qr", "packed alloc failed bytes=%u heap=%u\n", (unsigned)packedBytes, (unsigned)ESP.getFreeHeap());
       } else {
         size_t decodedLength = 0;
         const int b64Result = mbedtls_base64_decode(packed, packedBytes, &decodedLength, (const unsigned char*)encodedPixels.c_str(), encodedPixels.length());
         const bool decoded = b64Result == 0 && decodedLength == packedBytes;
-        Serial.printf("[qr] packed b64 result=%d decoded=%u expected=%u ok=%d heap=%u\n", b64Result, (unsigned)decodedLength, (unsigned)packedBytes, decoded, (unsigned)ESP.getFreeHeap());
+        LOG_DEBUGF("qr", "packed b64 result=%d decoded=%u expected=%u ok=%d heap=%u\n", b64Result, (unsigned)decodedLength, (unsigned)packedBytes, decoded, (unsigned)ESP.getFreeHeap());
         if (decoded) {
           for (size_t i = 0; i < imageBytes; i++) {
             const bool dark = (packed[i >> 3] & (1 << (7 - (i & 7)))) != 0;
@@ -160,7 +161,7 @@ bool decodeQrBase64PackedBitmap(const String& encodedPixels, int width, int heig
 
   quirc_destroy(qr);
   if (!ok) {
-    Serial.printf("[qr] decode fail error=%s\n", error.length() ? error.c_str() : "unknown");
+    LOG_DEBUGF("qr", "decode fail error=%s\n", error.length() ? error.c_str() : "unknown");
   }
   return ok;
 }

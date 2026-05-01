@@ -1,7 +1,12 @@
-# SafraSense Portal Identity Notes
+# SafraSense Implementation Notes
 
-This file records implementation details that are easy to break when changing
-the captive portal identity screen.
+This file records implementation details, fragile constraints, and debugging
+patterns that are easy to miss when changing SafraSense firmware behavior. Keep
+new notes here when a feature has non-obvious memory, timing, browser, protocol,
+or hardware constraints that future agents should not rediscover from scratch.
+
+When adding a note, prefer concrete symptoms, causes, safe patterns, and exact
+files or commands over broad advice.
 
 ## Captive portal HTML size
 
@@ -90,6 +95,12 @@ vendored `quirc` decoder buffer through `src/identity/qr_decode.cpp`, and then
 runs QR detection. Keep the 240 px limit unless RAM usage is re-tested on the
 ESP32. The `WebServer` plain body path stores request data as a `String`, so do
 not send raw binary bitmap bytes directly; `0x00` bytes can truncate the body.
+
+Firmware logs are controlled by `src/logging/logging.h` and are disabled by
+default. Set `SAFRASENSE_LOG_LEVEL` at build time to enable them: `1` for errors,
+`2` for warnings, `3` for info, and `4` for debug details such as payload size,
+heap, and decoder state. Log tags are module names such as `qr`. Do not log
+mnemonic words or QR payload contents.
 
 ## BIP-39 scope
 
