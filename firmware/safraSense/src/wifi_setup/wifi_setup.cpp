@@ -96,10 +96,10 @@ const char* IDENTITY_CSS = R"rawliteral(
   .brand-aqua { color:var(--aqua); }
   .portal-brand { position:fixed; top:20px; left:50%; transform:translateX(-50%); width:calc(100% - 40px); max-width:400px; height:42px; display:flex; align-items:center; white-space:nowrap; overflow:hidden; z-index:90; background:var(--bg); }
   .portal-brand .eyebrow { margin:0; font-size:12px; font-weight:800; letter-spacing:.16em; }
-  input, select { width:100%; box-sizing:border-box; padding:14px; border:1px solid var(--input-line); background:transparent; font-family:monospace; font-size:14px; margin-bottom:16px; color:var(--fg); border-radius:4px; appearance:none; }
+  input, select, textarea { display:block; width:100%; box-sizing:border-box; padding:14px; border:1px solid var(--input-line); background:transparent; font-family:monospace; font-size:14px; margin-bottom:16px; color:var(--fg); border-radius:4px; appearance:none; }
   input[type="checkbox"] { appearance:auto; -webkit-appearance:checkbox; width:18px; height:18px; padding:0; margin:0 8px 0 0; accent-color:var(--pri); vertical-align:middle; }
   input[type="checkbox"] + label, input[type="checkbox"] + span { display:inline-block; vertical-align:middle; margin:0; }
-  input:focus, select:focus { border-color:var(--pri); outline:none; }
+  input:focus, select:focus, textarea:focus { border-color:var(--pri); outline:none; }
   button, input[type="submit"], input[type="button"], .btn { position:relative; display:block; background:var(--pri); color:var(--btn-fg) !important; border:1px solid var(--pri); font-family:-apple-system,sans-serif; font-size:13px; font-weight:500; letter-spacing:0.04em; padding:8px 16px; cursor:pointer; width:100%; margin-bottom:12px; border-radius:4px; text-transform:uppercase; text-decoration:none; text-align:center; box-sizing:border-box; overflow:hidden; transition:transform .08s ease; }
   button:hover, input[type="submit"]:hover, input[type="button"]:hover, .btn:hover { opacity:0.9; }
   button:active, input[type="submit"]:active, input[type="button"]:active, .btn:active { transform:scale(.96); opacity:1; }
@@ -129,7 +129,7 @@ const char* IDENTITY_CSS = R"rawliteral(
   .identity-actions .btn:hover { opacity:1; }
   .reroll-seed { position:absolute; top:10px; right:10px; width:auto; margin:0; padding:3px 9px; font-size:10px; }
   .reroll-seed:hover { opacity:.9; }
-  .identity-recover textarea { min-height:84px; resize:vertical; overflow:hidden; line-height:1.45; }
+  .identity-recover textarea { min-height:84px; max-width:100%; resize:vertical; overflow:hidden; line-height:1.45; white-space:pre-wrap; }
   .identity-recover input[type="file"] { display:none; }
   .identity-recover .btn { padding:8px 10px; font-size:11px; margin-bottom:8px; }
   .qr-panel { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,.28); }
