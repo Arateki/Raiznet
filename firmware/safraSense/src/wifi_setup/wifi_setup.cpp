@@ -2,11 +2,13 @@
 #include "config.h"
 #include "leds/leds.h"
 #include "identity/identity.h"
+#include "identity/qr_decode.h"
 #include "i18n/i18n.h"
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <ESPmDNS.h>
 #include <qrcode.h>
+#include <string.h>
 #include <time.h>
 
 static String mdnsName;
@@ -41,13 +43,33 @@ static String jsonEscape(const String& value) {
 }
 
 static String renderMnemonicQrBits(const String& mnemonic, uint8_t& qrSize) {
-  const uint8_t qrVersion = 15;
+  static const uint8_t minQrVersion = 6;
+  static const uint8_t maxQrVersion = 12;
+  static const uint16_t byteCapacityByVersion[] = {
+    0, 17, 32, 53, 78, 106, 134, 154, 192, 230, 271, 321, 367
+  };
   QRCode qrcode;
-  uint8_t qrcodeData[qrcode_getBufferSize(qrVersion)];
-  if (qrcode_initText(&qrcode, qrcodeData, qrVersion, ECC_LOW, mnemonic.c_str()) != 0) {
+  uint8_t qrcodeData[qrcode_getBufferSize(maxQrVersion)];
+  uint8_t selectedVersion = 0;
+  const uint16_t payloadLength = mnemonic.length();
+
+  for (uint8_t version = minQrVersion; version <= maxQrVersion; version++) {
+    if (payloadLength > byteCapacityByVersion[version]) {
+      continue;
+    }
+    memset(qrcodeData, 0, sizeof(qrcodeData));
+    if (qrcode_initText(&qrcode, qrcodeData, version, ECC_LOW, mnemonic.c_str()) == 0) {
+      selectedVersion = version;
+      break;
+    }
+  }
+
+  if (selectedVersion == 0) {
     qrSize = 0;
     return "";
   }
+
+  Serial.printf("[qr] generated mnemonic QR version=%u size=%u payload_len=%u\n", selectedVersion, qrcode.size, (unsigned)mnemonic.length());
   qrSize = qrcode.size;
 
   String bits;
@@ -106,6 +128,7 @@ const char* IDENTITY_CSS = R"rawliteral(
   .identity-actions .btn:hover { opacity:1; }
   .reroll-seed { position:absolute; top:10px; right:10px; width:auto; margin:0; padding:3px 9px; font-size:10px; }
   .reroll-seed:hover { opacity:.9; }
+  .identity-recover textarea { min-height:84px; resize:vertical; overflow:hidden; line-height:1.45; }
   .identity-recover input[type="file"] { display:none; }
   .identity-recover .btn { padding:8px 10px; font-size:11px; margin-bottom:8px; }
   .qr-panel { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:4px; background:rgba(255,255,255,.28); }
@@ -482,22 +505,70 @@ document.addEventListener('DOMContentLoaded', () => {
     const importQr = document.getElementById('import-qr');
     const importStatus = document.getElementById('qr-import-status');
     if (importInput && importQr && importStatus) {
+      const resizeImportInput = () => {
+        importInput.style.height = 'auto';
+        importInput.style.height = Math.max(importInput.scrollHeight, 84) + 'px';
+      };
+      importInput.addEventListener('input', resizeImportInput);
+      resizeImportInput();
+      const loadImage = (file) => new Promise((resolve, reject) => {
+        if ('createImageBitmap' in window) {
+          createImageBitmap(file).then(resolve).catch(reject);
+          return;
+        }
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+      const imageSize = (image) => ({
+        w: image.width || image.videoWidth || image.naturalWidth,
+        h: image.height || image.videoHeight || image.naturalHeight
+      });
+      const bytesToBase64 = (bytes) => {
+        let binary = '';
+        const chunk = 4096;
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+      };
+      const packQrBitmap = (rgba, w, h) => {
+        const packed = new Uint8Array(Math.ceil(w * h / 8));
+        for (let i = 0, j = 0; i < rgba.length; i += 4, j++) {
+          const gray = (rgba[i] * 30 + rgba[i + 1] * 59 + rgba[i + 2] * 11) / 100;
+          if (gray < 128) packed[j >> 3] |= 1 << (7 - (j & 7));
+        }
+        return packed;
+      };
       importQr.onchange = async () => {
         const file = importQr.files && importQr.files[0];
         const t = textFor(readPref('lang', '1'));
         if (!file) return;
-        if (!('BarcodeDetector' in window)) {
-          importStatus.innerText = t.qr_unsupported;
-          return;
-        }
         importStatus.innerText = t.qr_reading;
         try {
-          const bitmap = await createImageBitmap(file);
-          const detector = new BarcodeDetector({ formats: ['qr_code'] });
-          const codes = await detector.detect(bitmap);
-          const value = codes && codes[0] && codes[0].rawValue ? codes[0].rawValue.trim() : '';
+          const image = await loadImage(file);
+          const size = imageSize(image);
+          const maxSide = 240;
+          const scale = Math.min(1, maxSide / Math.max(size.w, size.h));
+          const w = Math.max(1, Math.round(size.w * scale));
+          const h = Math.max(1, Math.round(size.h * scale));
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(image, 0, 0, w, h);
+          const rgba = ctx.getImageData(0, 0, w, h).data;
+          const res = await fetch('/identity/decode-qr?w=' + w + '&h=' + h, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: bytesToBase64(packQrBitmap(rgba, w, h))
+          });
+          const data = await res.json();
+          const value = data && data.mnemonic ? data.mnemonic.trim() : '';
           if (value) {
             importInput.value = value;
+            resizeImportInput();
             importStatus.innerText = t.qr_loaded;
           } else {
             importStatus.innerText = t.qr_not_found;
@@ -808,7 +879,7 @@ void setupWifi(DeviceConfig& cfg) {
       "</div>"
       "<div class='identity-pane identity-recover' data-pane='recover'>"
         "<label for='import_mnemonic' data-i18n='recover_words'>" + htmlEscape(t("recover_words", id.lang)) + "</label>"
-        "<input id='import_mnemonic' name='import_mnemonic' maxlength='256' autocomplete='off'>"
+        "<textarea id='import_mnemonic' name='import_mnemonic' maxlength='512' autocomplete='off' rows='3'></textarea>"
         "<label class='btn' for='import-qr' data-i18n='recover_qr'>" + htmlEscape(t("recover_qr", id.lang)) + "</label>"
         "<input id='import-qr' type='file' accept='image/*'>"
         "<div id='qr-import-status' class='backup-hint' data-i18n='recover_hint'>" + htmlEscape(t("recover_hint", id.lang)) + "</div>"
@@ -883,6 +954,21 @@ void setupWifi(DeviceConfig& cfg) {
       String newQrBits = renderMnemonicQrBits(id.mnemonic, newQrSize);
       String body = "{\"mnemonic\":\"" + jsonEscape(id.mnemonic) + "\",\"qrSize\":" + String(newQrSize) + ",\"qrBits\":\"" + newQrBits + "\"}";
       wm.server->send(200, "application/json", body);
+    });
+    wm.server->on("/identity/decode-qr", HTTP_POST, [&wm]() {
+      const int width = wm.server->arg("w").toInt();
+      const int height = wm.server->arg("h").toInt();
+      const String body = wm.server->arg("plain");
+      Serial.printf("[qr] request width=%d height=%d b64_len=%u heap=%u\n", width, height, (unsigned)body.length(), (unsigned)ESP.getFreeHeap());
+      String payload;
+      String error;
+      if (decodeQrBase64PackedBitmap(body, width, height, payload, error)) {
+        Serial.printf("[qr] response ok payload_len=%u heap=%u\n", (unsigned)payload.length(), (unsigned)ESP.getFreeHeap());
+        wm.server->send(200, "application/json", "{\"mnemonic\":\"" + jsonEscape(payload) + "\"}");
+      } else {
+        Serial.printf("[qr] response fail error=%s heap=%u\n", error.length() ? error.c_str() : "qr_not_found", (unsigned)ESP.getFreeHeap());
+        wm.server->send(400, "application/json", "{\"error\":\"" + jsonEscape(error.length() ? error : String("qr_not_found")) + "\"}");
+      }
     });
   });
 

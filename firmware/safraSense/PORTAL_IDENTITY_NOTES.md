@@ -18,6 +18,9 @@ Keep the initial HTML small. The current pattern is:
 - Fetch `/identity/current?lang=...` after the page loads.
 - Return only JSON with `mnemonic`, `qrSize`, and compact `qrBits`.
 - Draw the QR in browser JavaScript.
+- Generate the smallest QR version that fits, currently trying versions 6
+  through 12 with low error correction and explicit byte-capacity checks before
+  calling the QR library.
 
 Do not move the QR matrix back into `headerHtml` unless the whole portal size is
 re-tested on the ESP.
@@ -75,6 +78,19 @@ usually opens the generated image in a new tab; the user can then long-press and
 save it. This is expected browser behavior for the current no-backend-download
 approach.
 
+## QR recovery import
+
+The recovery tab keeps QR decoding out of the initial HTML. The browser loads the
+chosen image, draws it to a temporary canvas, resizes it to at most 240 px on the
+longest side, thresholds it to a 1-bit bitmap, Base64-encodes the packed bitmap,
+and posts it to `/identity/decode-qr?w=...&h=...`.
+
+The firmware decodes the Base64 body, expands the packed bitmap into the
+vendored `quirc` decoder buffer through `src/identity/qr_decode.cpp`, and then
+runs QR detection. Keep the 240 px limit unless RAM usage is re-tested on the
+ESP32. The `WebServer` plain body path stores request data as a `String`, so do
+not send raw binary bitmap bytes directly; `0x00` bytes can truncate the body.
+
 ## BIP-39 scope
 
 The current mnemonic generation uses:
@@ -107,4 +123,3 @@ Upload from this folder and let PlatformIO detect the port:
 ```sh
 /home/yan/.platformio/penv/bin/pio run -t upload
 ```
-

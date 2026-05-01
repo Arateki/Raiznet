@@ -11,6 +11,8 @@
 #include "http_local/http_local.h"
 #include "device/device.h"
 
+SET_LOOP_TASK_STACK_SIZE(16384);
+
 static DeviceConfig   cfg;
 static DeviceIdentity identity;
 static unsigned long  lastTelemetryMs = 0;
