@@ -8,6 +8,7 @@
 enum PendingAction {
   ACTION_NONE,
   ACTION_FACTORY_RESET,  // clears config + identity and restarts
+  ACTION_FORCE_READ,      // trigger immediate sensor read and send
 };
 
 // Starts the HTTP server on port 80.

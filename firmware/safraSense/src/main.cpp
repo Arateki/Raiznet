@@ -38,6 +38,7 @@ void setup() {
   initHttpServer(&cfg, &identity);
 
   setLedState(LED_NORMAL);
+  lastTelemetryMs = millis();
   Serial.println("[main] Iniciado.");
 }
 
@@ -63,13 +64,16 @@ void loop() {
   tickLeds();
   handleHttpClients();
 
-  // ── 3. Pending web UI action (factory reset) ──────────────────────────
-  if (getPendingAction() == ACTION_FACTORY_RESET) {
+  // ── 3. Pending web UI action ─────────────────────────────────────────
+  PendingAction pending = getPendingAction();
+  if (pending == ACTION_FACTORY_RESET) {
     setLedState(LED_RESET_LONG);
     delay(1000);
     eraseConfig();
     eraseIdentity();  // the only place that erases the keypair
     ESP.restart();
+  } else if (pending == ACTION_FORCE_READ) {
+    lastTelemetryMs = millis() - TELEMETRY_INTERVAL_MS;
   }
 
   // ── 4. Telemetry cycle ────────────────────────────────────────────────

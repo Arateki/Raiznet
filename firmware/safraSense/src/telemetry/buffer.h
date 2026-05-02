@@ -19,6 +19,7 @@ struct TelemetryEntry {
   float    temp_ambient;
   float    humidity;
   float    ec;
+  float    ph;
   float    water_level;
   float    bat_volts;
   int8_t   bat_percent;

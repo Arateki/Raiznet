@@ -47,17 +47,18 @@ button{font:inherit}
 .eyebrow{font-size:11px;line-height:1}.eyebrow-tight{font-size:10px;line-height:1;letter-spacing:.14em}
 .local-header{position:fixed;top:0;left:0;right:0;height:68px;background:var(--bg);border-bottom:1px solid var(--line);z-index:50;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 24px}
 .header-actions{justify-self:end;display:flex;align-items:center;gap:4px}
-.lang-select{background:transparent;border:none;color:var(--fg);font-size:12px;font-weight:750;text-transform:uppercase;cursor:pointer;padding:8px;appearance:none;text-align:center}
+.lang-select{background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--fg);font-size:12px;font-weight:750;text-transform:uppercase;cursor:pointer;padding:7px 8px;appearance:none;text-align:center}
 .lang-select:focus{outline:none}
 .lang-select option{background:var(--bg);color:var(--fg)}
 .local-brand{justify-self:start;min-width:0;color:var(--fg);overflow:hidden;white-space:nowrap}
 .local-brand-title{display:block;font-size:12px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis}
 .local-brand-title .brand-aqua{color:var(--aqua)}
 .local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:0;background:transparent;padding:0}
-.local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase}
+.local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;transition:transform .12s ease-out}
+.local-tab:hover{transform:scale(1.04);color:var(--fg)}
+.local-tab:active{transform:scale(.96)}
 .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
 .theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px;transition:transform .08s ease}
-.theme-btn.local-theme:hover{background:var(--bg);color:var(--fg)}
 .theme-btn.local-theme:active{transform:scale(.88)}
 .theme-btn.local-theme svg{width:20px;height:20px;display:block}
 #loader-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);opacity:.85;z-index:9999}
@@ -74,16 +75,17 @@ body.is-loading #loader-overlay{display:block}
 .copy-btn:hover{color:var(--fg)}
 .copy-btn.copied{color:var(--good)}
 .copy-btn svg{width:14px;height:14px}
-.btn,.theme-btn{border:1px solid var(--line-strong);background:transparent;color:var(--fg);border-radius:2px;padding:9px 13px;font-size:12px;font-weight:750;letter-spacing:.04em;cursor:pointer;text-transform:uppercase}
-.btn:hover:not(:disabled),.theme-btn:hover:not(:disabled){background:var(--fg);color:var(--bg)}
-.btn:active:not(:disabled),.theme-btn:active:not(:disabled){transform:scale(.98)}
+.btn,.theme-btn{border:1px solid var(--line-strong);background:transparent;color:var(--fg);border-radius:2px;padding:9px 13px;font-size:12px;font-weight:750;letter-spacing:.04em;cursor:pointer;text-transform:uppercase;transition:transform .12s ease-out}
+.btn:hover:not(:disabled),.theme-btn:hover:not(:disabled){transform:scale(1.04)}
+.btn:active:not(:disabled),.theme-btn:active:not(:disabled){transform:scale(.96)}
 .btn:disabled{cursor:not-allowed;opacity:0.5}
 .btn-primary{background:var(--primary);border-color:var(--primary);color:#f4f1ea}
 .status-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:26px;text-align:center}
 .status-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--bg-card);padding:7px 10px;font-size:12px;font-weight:650;color:var(--fg-2)}
 .status-light{width:7px;height:7px;background:var(--fg-4)}
 .status-pill.ok .status-light{background:var(--good)}.status-pill.warn .status-light{background:var(--warn)}.status-pill.bad .status-light{background:var(--bad)}
-.metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:34px}
+.metric-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:34px}
+@media(max-width:1100px){.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .metric-card{min-width:0;background:var(--bg-card);padding:18px 18px 16px;position:relative;cursor:pointer}
 .metric-card:focus{outline:2px solid var(--primary);outline-offset:-2px}
 .metric-value{font-family:var(--f-serif);font-size:34px;line-height:1;margin-top:12px;white-space:nowrap}
@@ -129,7 +131,6 @@ body.is-loading #loader-overlay{display:block}
   .portal-shell{display:block;padding:96px 20px 28px}.topbar{display:block}
   .dev-sep{display:none}.dev-key{display:block;margin-top:4px}
   .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}
-  .metric-card:last-child:nth-child(odd){grid-column:1 / -1;text-align:center}
 }
 @media(max-width:520px){
   .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -230,14 +231,25 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
       <div class="status-pill" id="sendPill"><span class="status-light"></span><span>Último envio --</span></div>
     </div>
 
+    <div style="display:flex;justify-content:center;margin:0 0 14px">
+      <button class="btn" id="forceReadBtn" onclick="forceRead()" style="font-size:10px;padding:6px 12px">+ Fazer nova leitura</button>
+    </div>
+
     <section class="metric-grid" id="metricGrid">
       <article class="metric-card" id="mTemp"><div class="eyebrow-tight">Temperatura</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">°C</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
       <article class="metric-card" id="mHum"><div class="eyebrow-tight">Umidade do ar</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
       <article class="metric-card" id="mEc"><div class="eyebrow-tight">Sólidos dissolvidos</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">ppm</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mPh">
+        <div class="eyebrow-tight">Potencial Hidrog.</div>
+        <div class="metric-value" style="display:flex;align-items:baseline;justify-content:space-between">
+          <div><span data-value>--</span><span class="metric-unit">pH</span></div>
+          <button class="copy-btn" onclick="event.stopPropagation();manualPh()" title="Inserir manual" style="margin:0;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+        </div>
+        <div class="metric-detail" data-detail>entrada manual</div>
+      </article>
       <article class="metric-card" id="mWater"><div class="eyebrow-tight">Nível da água</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">cm</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
       <article class="metric-card" id="mBattery"><div class="eyebrow-tight">Bateria</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
     </section>
-
     <section class="content-grid">
       <div>
         <div class="section-head"><div class="eyebrow">S E R V I D O R E S</div></div>
@@ -371,7 +383,33 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
     if (open) el.classList.add('is-help-open');
     el.querySelector('[data-value]').textContent = value;
     el.querySelector('[data-detail]').textContent = detail;
+    el.className = 'metric-card' + (state ? ' is-' + state : '');
   }
+  window.manualPh = function() {
+    const current = document.querySelector('#mPh [data-value]').textContent;
+    const val = prompt("Digite o valor do PH (0-14):", current === '--' ? '7.0' : current);
+    if (val !== null) {
+      const ph = parseFloat(val.replace(',', '.'));
+      if (!isNaN(ph) && ph >= 0 && ph <= 14) {
+        fetch('/api/ph/manual?ph=' + ph, { method: 'POST' }).then(() => refresh());
+      } else {
+        alert("Valor inválido. Insira um número entre 0 e 14.");
+      }
+    }
+  };
+  window.forceRead = function() {
+    const btn = $('forceReadBtn');
+    btn.disabled = true;
+    btn.textContent = 'Lendo sensores...';
+    fetch('/api/force-read').then(() => {
+      setTimeout(() => {
+        refresh().then(() => {
+          btn.disabled = false;
+          btn.textContent = '+ Fazer nova leitura';
+        });
+      }, 2000);
+    });
+  };
   const metricHelp = {
     mTemp: {
       title: 'Temperatura',
@@ -387,6 +425,11 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       title: 'Sólidos dissolvidos',
       text: 'Estima a quantidade de sais e nutrientes dissolvidos na água. Valores baixos indicam pouca nutrição; valores altos podem causar estresse nas raízes.',
       range: 'Faixa ideal geral: 500 a 1200 ppm, conforme a cultura.'
+    },
+    mPh: {
+      title: 'Potencial Hidrogeniônico',
+      text: 'Mede a acidez ou alcalinidade da água. O pH correto é crucial para que a planta consiga absorver os nutrientes presentes na solução.',
+      range: 'Faixa ideal geral: 5.5 a 6.5.'
     },
     mWater: {
       title: 'Nível da água',
@@ -497,8 +540,8 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       metric('mTemp', fmt(r.temp_ambient, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
       metric('mHum', fmt(r.humidity, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
       metric('mEc', r.ec === undefined ? '--' : Math.round(r.ec), s.tds === false ? 'sensor offline' : 'TDS ativo', sensorState(s.tds));
-      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? 'sensor offline' : 'laser ativo', sensorState(s.laser));
-      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? 'sem leitura' : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
+      metric('mPh', r.ph === undefined ? '--' : fmt(r.ph, 1), 'entrada manual', 'ok');
+      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? 'sensor offline' : 'laser ativo', sensorState(s.laser));      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? 'sem leitura' : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
 
       const info = $('systemInfo');
       info.textContent = '';
@@ -556,6 +599,7 @@ static void handleApiStatus() {
     if (!isnan(gLastReading.temp_ambient)) rdg["temp_ambient"] = gLastReading.temp_ambient;
     if (!isnan(gLastReading.humidity))     rdg["humidity"]     = gLastReading.humidity;
     if (!isnan(gLastReading.ec))           rdg["ec"]           = gLastReading.ec;
+    if (!isnan(gLastReading.ph))           rdg["ph"]           = gLastReading.ph;
     if (gLastReading.water_level >= 0)     rdg["water_level"]  = gLastReading.water_level;
     rdg["bat_volts"]   = gLastReading.bat_volts;
     rdg["bat_percent"] = gLastReading.bat_percent;
@@ -1022,7 +1066,25 @@ void initHttpServer(DeviceConfig* cfg, const DeviceIdentity* id) {
   server.on("/local-nav.js",          handleLocalNavJs);
   server.on("/api/status",            handleApiStatus);
   server.on("/api/telemetry",         handleApiTelemetry);
-  server.on("/config",     HTTP_GET,  handleConfig);
+  server.on("/api/force-read", []() {
+    gPendingAction = ACTION_FORCE_READ;
+    server.send(200, "application/json", "{\"ok\":true}");
+  });
+  server.on("/api/ph/manual", HTTP_POST, []() {
+    if (server.hasArg("ph")) {
+      float ph = server.arg("ph").toFloat();
+      if (ph >= 0 && ph <= 14) {
+        gLastReading.ph = ph;
+        gHasReading = true;
+        // Also add to buffer so it gets sent
+        bufferAdd(gLastReading);
+        server.send(200, "application/json", "{\"ok\":true}");
+        return;
+      }
+    }
+    server.send(400, "application/json", "{\"error\":\"invalid ph\"}");
+  });
+  server.on("/config",                handleConfig);
   server.on("/config/save",HTTP_POST, handleConfigSave);
   server.on("/docs",                  handleDocs);
   server.on("/reset/wifi",            handleResetWifi);

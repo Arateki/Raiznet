@@ -25,7 +25,7 @@
 #define BTN_LONG_MS     5000    // hold 5s -> full reset
 
 // ── Operation ─────────────────────────────────────────────────────────────
-#define TELEMETRY_INTERVAL_MS   30000   // 30s (debug/test mode)
+#define TELEMETRY_INTERVAL_MS   60000   // 60s
 #define TELEMETRY_BUFFER_SIZE   50      // max readings in RAM
 #define TELEMETRY_SEQ_BLOCK_SIZE 100    // reserves N seqs per NVS write
 

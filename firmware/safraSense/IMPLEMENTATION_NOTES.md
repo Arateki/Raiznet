@@ -332,3 +332,28 @@ with two metric cards per row on mobile. PlatformIO reported:
 - RAM: `54,400 bytes` used from `327,680` (`16.6%`).
 - Flash: `1,433,481 bytes` used from `1,966,080` (`72.9%`).
 - Upload port: `/dev/ttyACM1`, MAC `00:70:07:26:7e:90`.
+
+## Known Issues
+
+**Telemetry Interval Drift:**
+A bug has been reported where telemetry readings and sends occur approximately every 5 seconds, despite `TELEMETRY_INTERVAL_MS` being set to 60000 (60s). Initial attempts to fix this by ensuring `lastTelemetryMs` is initialized with `millis()` in `setup()` did not resolve the issue. The cause is currently unknown and further investigation was paused at user request.
+
+**Metric Card Collapse:**
+A bug has been identified where active/open metric cards (showing detailed help text) automatically collapse and close whenever a new sensor reading is received and updated on the dashboard. This occurs during the background refresh cycle. Investigation and fix were paused at user request.
+
+## Forced telemetry cycle
+
+The dashboard provides a "Fazer nova leitura" button that triggers an immediate
+sensor read and data transmission, bypassing the standard interval.
+
+- **Mechanism:** The web UI calls `POST /api/force-read`, which sets
+  `gPendingAction = ACTION_FORCE_READ`.
+- **Timer Reset:** In `main.cpp`, when `ACTION_FORCE_READ` is detected,
+  `lastTelemetryMs` is reset to `millis() - TELEMETRY_INTERVAL_MS`. This forces
+  the next iteration of the telemetry block to evaluate as true immediately.
+- **Safety:** This reset only affects the sensor reading cycle. Independent
+  subsystems (Wi-Fi, HTTP server, LED animations) remain unaffected as they do
+  not rely on `lastTelemetryMs`.
+
+
+

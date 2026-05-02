@@ -14,6 +14,7 @@ struct SensorData {
   float temp_ambient = NAN;  // deg C — NAN when DHT failed
   float humidity     = NAN;  // %     — NAN when DHT failed
   float ec           = NAN;  // ppm   — NAN when TDS failed
+  float ph           = NAN;  // pH    — NAN when not provided
   float water_level  = -1;   // mm    — -1 when laser is offline/out of range
   float bat_volts    = 0;
   int   bat_percent  = 0;

@@ -54,9 +54,10 @@ void bufferAdd(const SensorData& d) {
   e.seq            = seq++;
   e.timestamp_ms   = nowUnixMs();
   e.temp_ambient   = d.temp_ambient;
-  e.humidity       = d.humidity;
-  e.ec             = d.ec;
-  e.water_level    = d.water_level;
+  e.humidity     = d.humidity;
+  e.ec           = d.ec;
+  e.ph           = d.ph;
+  e.water_level  = d.water_level;
   e.bat_volts      = d.bat_volts;
   e.bat_percent    = (int8_t)d.bat_percent;
   e.confirmed_mask = 0;

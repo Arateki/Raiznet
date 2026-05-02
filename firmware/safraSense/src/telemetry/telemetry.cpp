@@ -68,6 +68,7 @@ static String buildRaw(const TelemetryEntry& e) {
   raw += u64ToString(e.timestamp_ms);
   raw += "|0";
   if (!isnan(e.ec)) { raw += "|ec="; raw += fieldValue(e.ec, 0); }
+  if (!isnan(e.ph)) { raw += "|ph="; raw += fieldValue(e.ph, 2); }
   if (e.water_level >= 0) { raw += "|waterLevel="; raw += fieldValue(e.water_level, 0); }
   if (!isnan(e.temp_ambient)) { raw += "|tempAmbient="; raw += fieldValue(e.temp_ambient, 2); }
   if (!isnan(e.humidity)) { raw += "|humidity="; raw += fieldValue(e.humidity, 2); }
@@ -85,6 +86,7 @@ static String buildJson(const TelemetryEntry& e, const String& raw, const String
   block["keyVersion"] = 0;
 
   if (!isnan(e.ec)) block["ec"]["plain"] = roundf(e.ec);
+  if (!isnan(e.ph)) block["ph"]["plain"] = roundf(e.ph * 100) / 100.0f;
   if (e.water_level >= 0) block["waterLevel"]["plain"] = e.water_level;
   if (!isnan(e.temp_ambient)) block["tempAmbient"]["plain"] = roundf(e.temp_ambient * 100) / 100.0f;
   if (!isnan(e.humidity)) block["humidity"]["plain"] = roundf(e.humidity * 100) / 100.0f;
