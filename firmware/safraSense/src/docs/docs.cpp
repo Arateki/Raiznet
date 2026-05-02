@@ -340,7 +340,7 @@ h1{font-family:Georgia,serif;font-size:30px;font-weight:650;margin:10px 0 18px}
 .doc-toc{margin-bottom:18px;padding:11px 14px;background:var(--pap);border:1px solid var(--line);border-radius:3px}
 .doc-toc-item{border-top:1px solid var(--line)}
 .doc-h4+.doc-toc-item{border-top:0}
-.doc-toc-row{display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:center;gap:7px}
+.doc-toc-row{display:flex;align-items:center;gap:7px}
 .doc-toc a{display:block;font-size:16px;font-weight:750;color:var(--pri);text-decoration:none;padding:7px 0;border-bottom:1px solid transparent}
 .doc-toc a:hover{text-decoration:underline}
 .doc-toc-toggle{appearance:none;background:transparent;border:1px solid transparent;border-radius:2px;color:var(--fg-3);cursor:pointer;width:30px;height:30px;padding:0;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center}

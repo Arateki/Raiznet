@@ -49,7 +49,7 @@ button{font:inherit}
 .local-brand{justify-self:start;min-width:0;color:var(--fg);overflow:hidden;white-space:nowrap}
 .local-brand-title{display:block;font-size:12px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis}
 .local-brand-title .brand-aqua{color:var(--aqua)}
-.local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:1px solid var(--line);background:transparent;padding:0}
+.local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:0;background:transparent;padding:0}
 .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase}
 .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
 .theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px;transition:transform .08s ease}
@@ -147,7 +147,7 @@ details.doc-section[open] summary::after{content:'\2212'}
 .doc-toc{margin-bottom:18px;padding:11px 14px;background:var(--bg-inset);border:1px solid var(--line);border-radius:3px}
 .doc-toc-item{border-top:1px solid var(--line)}
 .doc-h4+.doc-toc-item{border-top:0}
-.doc-toc-row{display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:center;gap:7px}
+.doc-toc-row{display:flex;align-items:center;gap:7px}
 .doc-toc a{display:block;font-size:16px;font-weight:750;color:var(--primary);text-decoration:none;padding:7px 0}
 .doc-toc a:hover{text-decoration:underline}
 .doc-toc-toggle{appearance:none;background:transparent;border:1px solid transparent;border-radius:2px;color:var(--fg-3);cursor:pointer;width:30px;height:30px;padding:0;font-size:18px;font-weight:650;line-height:1;display:flex;align-items:center;justify-content:center}
