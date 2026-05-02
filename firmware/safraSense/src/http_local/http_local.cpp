@@ -5,6 +5,7 @@
 #include "identity/identity.h"
 #include "storage/storage.h"
 #include "wifi_setup/wifi_setup.h"
+#include "docs/docs.h"
 #include <WebServer.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
@@ -51,9 +52,15 @@ button{font:inherit}
 .local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:1px solid var(--line);background:transparent;padding:0}
 .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase}
 .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
-.theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px}
-.theme-btn.local-theme:hover{background:var(--fg);color:var(--bg)}
+.theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px;transition:transform .08s ease}
+.theme-btn.local-theme:hover{background:var(--bg);color:var(--fg)}
+.theme-btn.local-theme:active{transform:scale(.88)}
 .theme-btn.local-theme svg{width:20px;height:20px;display:block}
+#loader-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);opacity:.85;z-index:9999}
+#loader-overlay::after{content:"•••";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--fg);font-size:32px;letter-spacing:4px;animation:blink 1.4s infinite both}
+@keyframes blink{0%{opacity:.2}20%{opacity:1}100%{opacity:.2}}
+body.is-loading{pointer-events:none!important;overflow:hidden}
+body.is-loading #loader-overlay{display:block}
 .portal-shell{min-height:100vh;padding:104px 42px 32px}
 .main{width:100%;max-width:1120px;margin:0 auto;min-width:0;padding:0}
 .topbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:32px}
@@ -94,8 +101,8 @@ button{font:inherit}
 .server-status.bad{color:var(--bad)}.server-status.bad::before{background:var(--bad)}
 .empty{color:var(--fg-3);font-size:12px;font-weight:650;border:1px dashed var(--line);padding:10px}
 @media(max-width:900px){
-  .local-header{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:30px 24px;height:62px;padding:4px 12px 3px;gap:0 8px}
-  .local-brand-title{font-size:9px;letter-spacing:.08em}
+  .local-header{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:28px 24px;height:62px;padding:3px 12px 2px;gap:0 8px}
+  .local-brand-title{font-size:10px;line-height:1;letter-spacing:.04em}
   .local-tabs{grid-column:1 / -1;grid-row:2;justify-self:center;align-self:start;gap:8px}
   .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:4px 9px 5px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:10px;font-weight:600;letter-spacing:.08em}
   .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
@@ -110,7 +117,51 @@ button{font:inherit}
   .metric-card{padding:14px 12px 13px}
   .metric-value{font-size:30px}
   .metric-unit{font-size:12px}
-  .title h1{font-size:31px}.local-brand-title{font-size:8px;letter-spacing:.04em}
+  .title h1{font-size:31px}.local-brand-title{font-size:9px;letter-spacing:.02em}
+}
+.doc-wrap{max-width:740px}
+.doc-section{border-top:1px solid var(--line);margin:0}
+details.doc-section summary{list-style:none;display:flex;align-items:center;justify-content:space-between;padding:17px 0;cursor:pointer;font-size:15px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:var(--fg)}
+details.doc-section summary::-webkit-details-marker{display:none}
+details.doc-section summary::after{content:'+';font-size:16px;font-weight:300;color:var(--fg-3);flex-shrink:0;margin-left:8px}
+details.doc-section[open] summary::after{content:'\2212'}
+.doc-body{padding-bottom:18px;font-size:17px;font-weight:550;line-height:1.68;color:var(--fg-2)}
+.doc-h4{font-size:14px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3);margin:18px 0 8px}
+.doc-body p{margin:0 0 10px}
+.doc-body ul,.doc-body ol{margin:6px 0 10px;padding-left:20px}
+.doc-body li{margin-bottom:5px}
+.doc-body strong{font-weight:850;color:var(--fg)}
+.doc-body a{color:var(--primary);font-size:inherit;font-weight:850;letter-spacing:0;text-transform:none;text-decoration:underline}
+.doc-badge{display:inline-block;font-family:var(--f-mono);font-size:14px;background:var(--primary-soft);color:var(--primary);padding:2px 7px;border-radius:2px;font-weight:750}
+.doc-good{background:rgba(47,125,69,.13)!important;color:var(--good)!important}
+.doc-warn{background:rgba(184,101,30,.13)!important;color:var(--warn)!important}
+.doc-bad{background:rgba(168,58,42,.13)!important;color:var(--bad)!important}
+.doc-body table{width:100%;border-collapse:collapse;font-size:15px;margin:10px 0 14px}
+.doc-body th{text-align:left;font-size:13px;font-weight:850;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-3);border-bottom:2px solid var(--line);padding:8px 8px}
+.doc-body td{padding:9px 8px;border-bottom:1px solid var(--line);color:var(--fg-2);font-weight:550}
+.doc-body td:first-child{font-weight:800;color:var(--fg);font-size:15px}
+.doc-body dl{margin:0}
+.doc-body dt{font-family:var(--f-mono);font-size:17px;font-weight:900;color:var(--fg);margin-top:16px}
+.doc-body dd{margin:5px 0 0;font-size:16px;font-weight:550;color:var(--fg-2);line-height:1.64}
+.doc-body code{font-family:var(--f-mono);font-size:15px;background:var(--bg-inset);border:1px solid var(--line);padding:0 4px;border-radius:2px}
+.doc-toc{margin-bottom:18px;padding:11px 14px;background:var(--bg-inset);border:1px solid var(--line);border-radius:3px}
+.doc-toc-item{border-top:1px solid var(--line)}
+.doc-h4+.doc-toc-item{border-top:0}
+.doc-toc-row{display:grid;grid-template-columns:minmax(0,1fr) 30px;align-items:center;gap:7px}
+.doc-toc a{display:block;font-size:16px;font-weight:750;color:var(--primary);text-decoration:none;padding:7px 0}
+.doc-toc a:hover{text-decoration:underline}
+.doc-toc-toggle{appearance:none;background:transparent;border:1px solid transparent;border-radius:2px;color:var(--fg-3);cursor:pointer;width:30px;height:30px;padding:0;font-size:18px;font-weight:650;line-height:1;display:flex;align-items:center;justify-content:center}
+.doc-toc-toggle:hover,.doc-toc-toggle:focus{border-color:var(--line);color:var(--fg);outline:none}
+.doc-toc-item.is-open .doc-toc-toggle{border-color:var(--line);color:var(--primary)}
+.doc-subtoc{margin:-1px 0 5px 5px;padding:0 0 5px 12px;border-left:1px solid var(--line)}
+.doc-subtoc[hidden]{display:none}
+.doc-subtoc a{font-size:13px;font-weight:650;line-height:1.25;color:var(--fg-3);padding:5px 0}
+.doc-subtoc a:hover{color:var(--fg)}
+.doc-section,.doc-h4{scroll-margin-top:88px}
+@media(min-width:901px){
+  .doc-body{font-weight:430}
+  .doc-body td{font-weight:430}
+  .doc-body dd{font-weight:430}
 }
 )rawliteral";
 
@@ -130,6 +181,7 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   <nav class="local-tabs" aria-label="Navegação principal">
     <a class="local-tab is-active" href="/">Início</a>
     <a class="local-tab" href="/config">Configurações</a>
+    <a class="local-tab" href="/docs">Manual</a>
   </nav>
   <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
 </header>
@@ -179,8 +231,57 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   </main>
 </div>
 <script src="/dashboard.js"></script>
+<script src="/local-nav.js"></script>
 </body>
 </html>)rawliteral";
+
+const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
+(function(){
+  function ensureLoader(){
+    var loader=document.getElementById('loader-overlay');
+    if(!loader){
+      loader=document.createElement('div');
+      loader.id='loader-overlay';
+      document.body.appendChild(loader);
+    }
+    return loader;
+  }
+  function startLoading(){
+    ensureLoader();
+    document.body.classList.add('is-loading');
+  }
+  function stopLoading(){
+    document.body.classList.remove('is-loading');
+  }
+  function shouldLoadLink(a,e){
+    if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return false;
+    if(a.target&&a.target!=='_self')return false;
+    if(a.hasAttribute('download'))return false;
+    var href=a.getAttribute('href');
+    if(!href||href.charAt(0)==='#')return false;
+    var url;
+    try{url=new URL(href,location.href);}catch(_){return false;}
+    if(url.origin!==location.origin)return false;
+    if(url.pathname===location.pathname&&url.search===location.search)return false;
+    return true;
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',ensureLoader,{once:true});
+  }else{
+    ensureLoader();
+  }
+  document.addEventListener('click',function(e){
+    var a=e.target.closest&&e.target.closest('a[href]');
+    if(shouldLoadLink(a,e))setTimeout(startLoading,0);
+  });
+  document.addEventListener('submit',function(e){
+    var f=e.target;
+    if(e.defaultPrevented||!f||f.target&&f.target!=='_self')return;
+    setTimeout(startLoading,0);
+  });
+  window.addEventListener('pageshow',stopLoading);
+})();
+)rawliteral";
 
 const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
 (function(){
@@ -476,6 +577,10 @@ static void handleDashboardJs() {
   server.send_P(200, PSTR("application/javascript"), LOCAL_DASHBOARD_JS, strlen_P(LOCAL_DASHBOARD_JS));
 }
 
+static void handleLocalNavJs() {
+  server.send_P(200, PSTR("application/javascript"), LOCAL_NAV_JS, strlen_P(LOCAL_NAV_JS));
+}
+
 // ── /config (GET) ─────────────────────────────────────────────────────────
 
 static String serverRows(const std::vector<ServerEntry>& list, const char* prefix) {
@@ -531,6 +636,7 @@ input:focus{border-color:var(--pri);outline:none}
 	  <nav class="local-tabs" aria-label="Navegação principal">
 	    <a class="local-tab" href="/">Início</a>
 	    <a class="local-tab is-active" href="/config">Configurações</a>
+	    <a class="local-tab" href="/docs">Manual</a>
 	  </nav>
 	  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
 	</header>
@@ -615,7 +721,7 @@ function addArateki(){
 }
 document.getElementById('f').addEventListener('submit',updateCounts);
 updateCounts();
-</script></body></html>)HTML";
+</script><script src="/local-nav.js"></script></body></html>)HTML";
 
   server.send(200, "text/html", html);
 }
@@ -714,6 +820,119 @@ static void handleResetFactoryConfirm() {
   gPendingAction = ACTION_FACTORY_RESET;  // main.cpp executes it on the next loop
 }
 
+// ── /docs ─────────────────────────────────────────────────────────────────
+
+static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual — SafraSense Aqua</title>
+<link rel="stylesheet" href="/local.css">
+</head>
+<body>
+<header class="local-header">
+  <a class="local-brand" href="/">
+    <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
+  </a>
+  <nav class="local-tabs" aria-label="Navegação principal">
+    <a class="local-tab" href="/">Início</a>
+    <a class="local-tab" href="/config">Configurações</a>
+    <a class="local-tab is-active" href="/docs">Manual</a>
+  </nav>
+  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+</header>
+<div class="portal-shell">
+<main class="main doc-wrap">
+<div class="topbar">
+  <div class="title">
+    <div class="eyebrow">M A N U A L</div>
+    <h1 class="serif">Guia SafraSense</h1>
+    <p>Referência rápida para configuração, monitoramento e cultivo hidropônico.</p>
+  </div>
+</div>
+)rawliteral";
+
+static const char DOCS_FOOTER_HTML[] PROGMEM = R"rawliteral(
+</main>
+</div>
+<script>
+(function(){
+  var doc=document.documentElement,btn=document.getElementById('themeBtn');
+  var moon="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
+  var sun="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
+  function setIcon(t){if(btn)btn.innerHTML=t==='dark'?sun:moon;}
+  var stored=localStorage.getItem('theme')||'light';
+  doc.setAttribute('data-theme',stored);
+  setIcon(stored);
+  if(btn)btn.onclick=function(){
+    var n=doc.getAttribute('data-theme')==='dark'?'light':'dark';
+    doc.setAttribute('data-theme',n);localStorage.setItem('theme',n);setIcon(n);
+  };
+})();
+function openDocHash(hash,updateHistory){
+  if(!hash||hash.charAt(0)!=='#')return;
+  var t=document.querySelector(hash);
+  if(!t)return;
+  var sec=t.tagName==='DETAILS'?t:t.closest('details.doc-section');
+  if(sec)sec.open=true;
+  setTimeout(function(){t.scrollIntoView({block:'start'});},0);
+  if(updateHistory!==false){
+    if(history&&history.pushState)history.pushState(null,'',hash);
+    else location.hash=hash;
+  }
+}
+function buildSubtoc(item){
+  var box=item.querySelector('.doc-subtoc');
+  if(!box||box.getAttribute('data-built')==='1')return;
+  var sec=document.getElementById(item.getAttribute('data-section'));
+  if(!sec)return;
+  var heads=sec.querySelectorAll('.doc-body .doc-h4');
+  heads.forEach(function(h,i){
+    if(!h.id)h.id=sec.id+'-sub-'+(i+1);
+    var a=document.createElement('a');
+    a.href='#'+h.id;
+    a.textContent=h.textContent;
+    box.appendChild(a);
+  });
+  box.setAttribute('data-built','1');
+  if(!heads.length){
+    var btn=item.querySelector('.doc-toc-toggle');
+    if(btn)btn.hidden=true;
+  }
+}
+document.querySelectorAll('.doc-toc-item').forEach(function(item){
+  buildSubtoc(item);
+  var btn=item.querySelector('.doc-toc-toggle');
+  var box=item.querySelector('.doc-subtoc');
+  if(btn&&box)btn.addEventListener('click',function(){
+    var open=btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded',open?'false':'true');
+    item.classList.toggle('is-open',!open);
+    box.hidden=open;
+  });
+});
+document.querySelectorAll('.doc-toc a[href^="#"]').forEach(function(a){
+  a.addEventListener('click',function(e){
+    e.preventDefault();
+    openDocHash(a.getAttribute('href'),true);
+  });
+});
+if(location.hash)openDocHash(location.hash,false);
+</script>
+<script src="/local-nav.js"></script>
+</body>
+</html>)rawliteral";
+
+static void handleDocs() {
+  String html;
+  html.reserve(22000);
+  html += FPSTR(DOCS_HEADER_HTML);
+  appendDocsContent(html);
+  html += FPSTR(DOCS_FOOTER_HTML);
+  server.send(200, "text/html", html);
+}
+
 // ── 404 route ─────────────────────────────────────────────────────────────
 
 static void handleNotFound() {
@@ -729,10 +948,12 @@ void initHttpServer(DeviceConfig* cfg, const DeviceIdentity* id) {
   server.on("/",                      handleRoot);
   server.on("/local.css",             handleLocalCss);
   server.on("/dashboard.js",          handleDashboardJs);
+  server.on("/local-nav.js",          handleLocalNavJs);
   server.on("/api/status",            handleApiStatus);
   server.on("/api/telemetry",         handleApiTelemetry);
   server.on("/config",     HTTP_GET,  handleConfig);
   server.on("/config/save",HTTP_POST, handleConfigSave);
+  server.on("/docs",                  handleDocs);
   server.on("/reset/wifi",            handleResetWifi);
   server.on("/reset/factory",         handleResetFactoryPage);
   server.on("/reset/factory/confirm", HTTP_POST, handleResetFactoryConfirm);

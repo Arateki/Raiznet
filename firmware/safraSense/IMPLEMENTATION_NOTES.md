@@ -8,6 +8,51 @@ or hardware constraints that future agents should not rediscover from scratch.
 When adding a note, prefer concrete symptoms, causes, safe patterns, and exact
 files or commands over broad advice.
 
+## Documentation module (src/docs/)
+
+All user-facing documentation lives in `src/docs/docs.cpp` as PROGMEM strings.
+Four accordion sections (SafraSense, Raiznet, Hidroponia, Glossário) are served
+from the same source to both the local dashboard (`/docs`) and the captive portal
+(`/docs`). The shared API is:
+
+- `appendDocsContent(String& out, Language lang)` — renders a TOC block followed
+  by the four accordion sections; both portals call this and wrap it in their own
+  shell HTML.
+- `buildDocsPortalPage(Language lang)` — complete standalone HTML page with inline
+  CSS and JS for the captive portal.
+
+**i18n structure.** Content is organized around `struct DocLang`, one instance per
+language (`DOCS_PT`, future `DOCS_EN`, `DOCS_ES`). Each instance holds:
+- Short navigation strings: `page_title`, `page_subtitle`, `back_link`, `toc_title`,
+  `s1_title`–`s4_title`.
+- Body pointers: `s1_body`–`s4_body`, each pointing to a `static const char[]
+  PROGMEM` array with inner HTML.
+
+`getDocLang(Language)` returns the right struct via a switch; all cases currently
+fall through to `DOCS_PT`. To add a translation: add a `DocLang` instance with the
+translated strings and bodies, then add a `case LANG_XX: return DOCS_XX;`.
+
+**TOC and anchor navigation.** `appendDocsContent()` renders a `.doc-toc` box
+before the sections. Each `<details>` element gets an `id` (`doc-s1`…`doc-s4`).
+A small inline script (in both `DOCS_THEME_JS` and `DOCS_FOOTER_HTML`) listens
+to clicks on `.doc-toc a` and sets `details.open = true` so the target section
+opens when navigated to via anchor link.
+
+**Adding content:** edit only `docs.cpp`. No changes to `http_local.cpp` or
+`wifi_setup.cpp` are needed unless navigation or shell structure changes.
+
+**CSS for the docs sections** is in:
+- `LOCAL_PORTAL_CSS` in `http_local.cpp` (`.doc-section`, `.doc-body`, `.doc-toc`,
+  etc.) — uses local portal CSS variables (`--primary`, `--bg-inset`).
+- `DOCS_PORTAL_CSS` in `docs.cpp` (standalone version for the captive portal) —
+  defines its own CSS variables and mirrors all doc-specific classes.
+
+Keep both in sync when adding new doc-specific CSS classes. The `.doc-toc` styles
+intentionally differ slightly (background token) between the two portals.
+
+Flash cost at time of writing: ~38 KB above the pre-docs baseline (74.9 % of
+1,966,080 bytes). The glossary section alone accounts for ~18 KB of that.
+
 ## Captive portal HTML size
 
 The WiFiManager captive portal is sensitive to large inline HTML. The identity
