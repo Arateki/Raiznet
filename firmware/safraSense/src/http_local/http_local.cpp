@@ -66,6 +66,10 @@ body.is-loading #loader-overlay{display:block}
 .topbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:32px}
 .title h1{margin:8px 0 0;font-size:38px;line-height:1.08}
 .title p{margin:10px 0 0;color:var(--fg-2);font-size:14px;font-weight:500;line-height:1.5;max-width:720px;overflow-wrap:anywhere}
+.copy-btn{background:transparent;border:none;color:var(--fg-3);cursor:pointer;padding:0;margin-left:6px;vertical-align:middle;display:inline-flex;align-items:center;justify-content:center}
+.copy-btn:hover{color:var(--fg)}
+.copy-btn.copied{color:var(--good)}
+.copy-btn svg{width:14px;height:14px}
 .btn,.theme-btn{border:1px solid var(--line-strong);background:transparent;color:var(--fg);border-radius:2px;padding:9px 13px;font-size:12px;font-weight:750;letter-spacing:.04em;cursor:pointer;text-transform:uppercase}
 .btn:hover,.theme-btn:hover{background:var(--fg);color:var(--bg)}
 .btn-primary{background:var(--primary);border-color:var(--primary);color:#f4f1ea}
@@ -109,6 +113,7 @@ body.is-loading #loader-overlay{display:block}
   .local-theme{grid-column:2;grid-row:1;align-self:center;width:34px;height:34px}
   .local-theme svg{width:17px;height:17px}
   .portal-shell{display:block;padding:96px 20px 28px}.topbar{display:block}
+  .dev-sep{display:none}.dev-key{display:block;margin-top:4px}
   .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}
   .metric-card:last-child:nth-child(odd){grid-column:1 / -1;text-align:center}
 }
@@ -287,6 +292,27 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
 (function(){
   const $ = (id) => document.getElementById(id);
   const doc = document.documentElement;
+  window.copyId = function(text, btn) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).catch(()=>{});
+    } else {
+      let ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try { document.execCommand('copy'); } catch(e) {}
+      document.body.removeChild(ta);
+    }
+    if (btn) {
+      btn.classList.add('copied');
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+      setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML=orig;}, 1500);
+    }
+  };
   const moonSvg = "<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
   const sunSvg = "<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
   const setThemeIcon = () => {
@@ -389,7 +415,7 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
     const a = document.createElement('span');
     const b = document.createElement('span');
     a.textContent = label;
-    b.textContent = value || '--';
+    b.innerHTML = value || '--';
     el.appendChild(a);
     el.appendChild(b);
     return el;
@@ -436,7 +462,10 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       const r = d.readings || {};
       const s = d.sensors || {};
       text('deviceName', d.device_name || 'SafraSense Aqua');
-      text('deviceSummary', (d.ip || '--') + ' · ' + (d.mdns || 'safrasense') + '.local · Device ID ' + (d.device_id || '--'));
+      const did = d.device_id || '--';
+      const truncId = did !== '--' ? did.slice(0, 10) + '...' + did.slice(-10) : did;
+      const copyBtn = did !== '--' ? `<button type="button" class="copy-btn" onclick="window.copyId('${did}', this)" aria-label="Copiar" title="Copiar chave pública"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>` : '';
+      $('deviceSummary').innerHTML = `<span class="dev-net">${d.ip || '--'} &middot; ${d.mdns || 'safrasense'}.local</span> <span class="dev-sep">&middot;</span> <span class="dev-key">Chave p&uacute;blica: <span class="mono">${truncId}</span> ${copyBtn}</span>`;
       setPill('wifiPill', d.wifi_ok ? 'Wi-Fi conectado' : 'Wi-Fi offline', d.wifi_ok ? 'ok' : 'bad');
       setPill('serverPill', d.server_ok ? 'Servidor online' : 'Servidor offline', d.server_ok ? 'ok' : 'bad');
       setPill('bufferPill', (d.buffer_pending || 0) + ' pendente(s)', d.buffer_pending > 0 ? 'warn' : 'ok');
@@ -457,8 +486,8 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
         ['MAC', d.mac],
         ['Uptime', uptimeMin + ' min'],
         ['Heap livre', Math.floor((d.free_heap || 0) / 1024) + ' KB'],
-        ['Device ID', d.device_id]
-      ].forEach((item) => info.appendChild(infoRow(item[0], item[1])));
+        ['Chave p&uacute;blica', '<span class="mono">' + truncId + '</span> ' + copyBtn]
+      ].forEach((row) => info.appendChild(infoRow(row[0], row[1])));
 
       renderServers('externalServers', d.servers_external);
       renderServers('localServers', d.servers_local);
