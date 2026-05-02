@@ -33,7 +33,7 @@ const char LOCAL_PORTAL_CSS[] PROGMEM = R"rawliteral(
   --bg:#0d1310;--bg-2:#121814;--bg-card:#161d18;--bg-inset:#0a0f0c;
   --fg:#d8e3d4;--fg-2:#9aa897;--fg-3:#6c7869;--fg-4:#3f4a3e;
   --line:#20281f;--line-strong:#d8e3d4;--paper-tint:#14201a;
-  --primary:#1a3a28;--primary-soft:rgba(26,58,40,.28);--aqua:#a8dcff;
+  --primary:#4da674;--primary-soft:rgba(26,58,40,.28);--aqua:#a8dcff;
   --good:#7fd08d;--warn:#d4933a;--bad:#d36e63;
 }
 *{box-sizing:border-box}
@@ -46,6 +46,10 @@ button{font:inherit}
 .eyebrow,.eyebrow-tight{font-weight:750;text-transform:uppercase;color:var(--fg-3);white-space:pre;letter-spacing:.18em}
 .eyebrow{font-size:11px;line-height:1}.eyebrow-tight{font-size:10px;line-height:1;letter-spacing:.14em}
 .local-header{position:fixed;top:0;left:0;right:0;height:68px;background:var(--bg);border-bottom:1px solid var(--line);z-index:50;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 24px}
+.header-actions{justify-self:end;display:flex;align-items:center;gap:4px}
+.lang-select{background:transparent;border:none;color:var(--fg);font-size:12px;font-weight:750;text-transform:uppercase;cursor:pointer;padding:8px;appearance:none;text-align:center}
+.lang-select:focus{outline:none}
+.lang-select option{background:var(--bg);color:var(--fg)}
 .local-brand{justify-self:start;min-width:0;color:var(--fg);overflow:hidden;white-space:nowrap}
 .local-brand-title{display:block;font-size:12px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis}
 .local-brand-title .brand-aqua{color:var(--aqua)}
@@ -71,7 +75,9 @@ body.is-loading #loader-overlay{display:block}
 .copy-btn.copied{color:var(--good)}
 .copy-btn svg{width:14px;height:14px}
 .btn,.theme-btn{border:1px solid var(--line-strong);background:transparent;color:var(--fg);border-radius:2px;padding:9px 13px;font-size:12px;font-weight:750;letter-spacing:.04em;cursor:pointer;text-transform:uppercase}
-.btn:hover,.theme-btn:hover{background:var(--fg);color:var(--bg)}
+.btn:hover:not(:disabled),.theme-btn:hover:not(:disabled){background:var(--fg);color:var(--bg)}
+.btn:active:not(:disabled),.theme-btn:active:not(:disabled){transform:scale(.98)}
+.btn:disabled{cursor:not-allowed;opacity:0.5}
 .btn-primary{background:var(--primary);border-color:var(--primary);color:#f4f1ea}
 .status-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:26px;text-align:center}
 .status-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--bg-card);padding:7px 10px;font-size:12px;font-weight:650;color:var(--fg-2)}
@@ -104,14 +110,22 @@ body.is-loading #loader-overlay{display:block}
 .server-status.ok{color:var(--good)}.server-status.ok::before{background:var(--good)}
 .server-status.bad{color:var(--bad)}.server-status.bad::before{background:var(--bad)}
 .empty{color:var(--fg-3);font-size:12px;font-weight:650;border:1px dashed var(--line);padding:10px}
+.form-label{display:block;font-size:10px;color:var(--fg-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:750}
+.form-input{width:100%;padding:12px 14px;background:var(--bg-inset);border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:13px;font-family:var(--f-mono);margin-bottom:16px}
+.form-input:focus{border-color:var(--primary);outline:none}
+.srow{display:flex;gap:6px;margin-bottom:10px;align-items:center}
+.srow .form-input{margin-bottom:0;flex:1}
+.btn-danger{color:var(--bad);border-color:var(--bad)}
 @media(max-width:900px){
   .local-header{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:28px 24px;height:62px;padding:3px 12px 2px;gap:0 8px}
+  .header-actions{grid-column:2;grid-row:1;align-self:center}
   .local-brand-title{font-size:10px;line-height:1;letter-spacing:.04em}
   .local-tabs{grid-column:1 / -1;grid-row:2;justify-self:center;align-self:start;gap:8px}
   .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:4px 9px 5px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:10px;font-weight:600;letter-spacing:.08em}
   .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
-  .local-theme{grid-column:2;grid-row:1;align-self:center;width:34px;height:34px}
+  .local-theme{width:34px;height:34px}
   .local-theme svg{width:17px;height:17px}
+  .lang-select{padding:4px;font-size:11px}
   .portal-shell{display:block;padding:96px 20px 28px}.topbar{display:block}
   .dev-sep{display:none}.dev-key{display:block;margin-top:4px}
   .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}
@@ -188,7 +202,16 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     <a class="local-tab" href="/config">Configurações</a>
     <a class="local-tab" href="/docs">Manual</a>
   </nav>
-  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+  <div class="header-actions">
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
+      <option value="pt">PT</option>
+      <option value="en">EN</option>
+      <option value="es">ES</option>
+      <option value="ja">JA</option>
+      <option value="zh">ZH</option>
+    </select>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+  </div>
 </header>
 <div class="portal-shell">
   <main class="main">
@@ -616,9 +639,9 @@ static String serverRows(const std::vector<ServerEntry>& list, const char* prefi
   String html;
   for (size_t i = 0; i < list.size(); i++) {
     html += "<div class='srow' id='" + String(prefix) + String(i) + "'>";
-    html += "<input type='text' name='" + String(prefix) + "_name_" + String(i) + "' placeholder='Nome' value='" + list[i].name + "'>";
-    html += "<input type='text' name='" + String(prefix) + "_url_"  + String(i) + "' placeholder='URL ou IP:porta' value='" + list[i].url + "'>";
-    html += "<button type='button' onclick='removeRow(this)'>✕</button></div>";
+    html += "<input type='text' class='form-input' name='" + String(prefix) + "_name_" + String(i) + "' placeholder='Nome' value='" + list[i].name + "'>";
+    html += "<input type='text' class='form-input' name='" + String(prefix) + "_url_"  + String(i) + "' placeholder='URL ou IP:porta' value='" + list[i].url + "'>";
+    html += "<button type='button' class='btn btn-danger' style='padding:11px 14px;' onclick='removeRow(this)'>✕</button></div>";
   }
   return html;
 }
@@ -628,92 +651,87 @@ static void handleConfig() {
   String locRows = serverRows(gCfg->servers_local,    "loc");
 
   String html = R"HTML(<!DOCTYPE html>
-	<html lang="pt-BR"><head>
-	<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-	<title>Configurações</title>
-	<link rel="stylesheet" href="/local.css">
-	<style>
-	:root { --bg:#f4f1ea; --bg-card:#fbf8f1; --fg:#1d231e; --fg-2:#46493d; --fg-3:#807d6e; --pri:#1a3a28; --line:#d8d2bf; --pap:#f7f1de; --bad:#a83a2a; }
-	[data-theme="dark"] { --bg:#0d1310; --bg-card:#161d18; --fg:#d8e3d4; --fg-2:#9aa897; --fg-3:#6c7869; --pri:#1a3a28; --line:#20281f; --pap:#14201a; --bad:#d36e63; }
-	*{box-sizing:border-box;margin:0;padding:0}
-	body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg);padding:0;transition:background .2s,color .2s}
-	.config-main{width:100%;max-width:520px;margin:0 auto;padding:96px 20px 28px}
-	h1{font-family:Georgia,serif;font-size:24px;font-weight:normal}
-	label{display:block;font-size:10px;color:var(--fg-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
-	input[type=text]{width:100%;padding:12px 14px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:13px;font-family:monospace;margin-bottom:16px}
-input:focus{border-color:var(--pri);outline:none}
-.eyebrow{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--fg-3);margin:24px 0 10px;font-weight:500}
-.srow{display:flex;gap:6px;margin-bottom:10px;align-items:center}
-.srow input{margin-bottom:0;flex:1}
-.srow button{padding:12px;background:var(--pap);border:1px solid var(--line);border-radius:2px;color:var(--bad);cursor:pointer;flex-shrink:0}
-.add-btn{padding:10px 14px;background:transparent;border:1px solid var(--line);color:var(--fg);font-size:11px;cursor:pointer;border-radius:2px}
-.btn-row{display:flex;gap:8px;margin-top:24px}
-	button[type=submit]{padding:14px;background:var(--pri);border:1px solid var(--pri);border-radius:2px;color:var(--bg);font-size:13px;font-weight:500;cursor:pointer;width:100%;text-transform:uppercase;letter-spacing:.04em}
-	.utility-sec{margin-top:30px;padding-top:16px;border-top:1px solid var(--line)}
-	.utility-title{font-size:10px;color:var(--fg-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;font-weight:650}
-	.utility-actions{display:grid;grid-template-columns:1fr;gap:8px}
-	.utility-actions a{display:block;text-align:center;padding:12px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;text-decoration:none}
-	.danger-sec{margin-top:30px;padding:16px;border:1px solid var(--bad);border-radius:2px;background:color-mix(in srgb, var(--bad) 5%, transparent)}
-	.danger-title{font-size:10px;color:var(--bad);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;font-weight:600}
-	.btn-danger{padding:12px;background:transparent;border:1px solid var(--bad);border-radius:2px;color:var(--bad);font-size:11px;cursor:pointer;width:100%;margin-bottom:8px}
-	@media(max-width:900px){.config-main{padding-top:96px}}
-	</style></head><body>
-	<header class="local-header">
-	  <a class="local-brand" href="/">
-	    <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
-	  </a>
-	  <nav class="local-tabs" aria-label="Navegação principal">
-	    <a class="local-tab" href="/">Início</a>
-	    <a class="local-tab is-active" href="/config">Configurações</a>
-	    <a class="local-tab" href="/docs">Manual</a>
-	  </nav>
-	  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
-	</header>
-	<main class="config-main">
-	<h1>Configurar Destinos</h1>
-	<form method="POST" action="/config/save" id="f">
-  <input type="hidden" id="ext_count" name="ext_count" value="0">
-  <input type="hidden" id="loc_count" name="loc_count" value="0">
+<html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Configurações</title>
+<link rel="stylesheet" href="/local.css">
+</head><body>
+<header class="local-header">
+  <a class="local-brand" href="/">
+    <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
+  </a>
+  <nav class="local-tabs" aria-label="Navegação principal">
+    <a class="local-tab" href="/">Início</a>
+    <a class="local-tab is-active" href="/config">Configurações</a>
+    <a class="local-tab" href="/docs">Manual</a>
+  </nav>
+  <div class="header-actions">
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
+      <option value="pt">PT</option>
+      <option value="en">EN</option>
+      <option value="es">ES</option>
+      <option value="ja">JA</option>
+      <option value="zh">ZH</option>
+    </select>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+  </div>
+</header>
+<div class="portal-shell">
+  <main class="main">
+    <div class="topbar">
+      <div class="title">
+        <div class="eyebrow">C O N F I G U R A Ç Õ E S</div>
+        <h1 class="serif">Destinos e Sistema</h1>
+      </div>
+    </div>
+    <div class="content-grid">
+      <div class="panel">
+        <form method="POST" action="/config/save" id="f">
+          <input type="hidden" id="ext_count" name="ext_count" value="0">
+          <input type="hidden" id="loc_count" name="loc_count" value="0">
 
-  <label style="margin-top:20px">Nome do sensor</label>
-  <input type="text" name="device_name" value=")HTML";
+          <label class="form-label">Nome do sensor</label>
+          <input type="text" class="form-input" name="device_name" value=")HTML";
   html += gCfg->device_name;
   html += R"HTML(" maxlength="32">
 
-  <div class="eyebrow" style="color:var(--pri)">Servidores Públicos</div>
-  <div id="ext_list">)HTML";
+          <div class="eyebrow" style="color:var(--primary);margin:24px 0 10px">Servidores Públicos</div>
+          <div id="ext_list">)HTML";
   html += extRows;
   html += R"HTML(</div>
-  <div style="display:flex;gap:8px;margin-bottom:10px">
-    <button type="button" class="add-btn" onclick="addRow('ext')">+ Outro</button>
-    <button type="button" class="add-btn" onclick="addArateki()">Usar Arateki</button>
-  </div>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button type="button" class="btn" onclick="addRow('ext')">+ Outro</button>
+            <button type="button" class="btn" id="ara-btn" onclick="addArateki()">Usar Arateki</button>
+          </div>
 
-  <div class="eyebrow">Servidor Local</div>
-  <div id="loc_list">)HTML";
+          <div class="eyebrow" style="margin:24px 0 10px">Servidor Local</div>
+          <div id="loc_list">)HTML";
   html += locRows;
   html += R"HTML(</div>
-  <button type="button" class="add-btn" onclick="addRow('loc')">+ Local</button>
+          <button type="button" class="btn" onclick="addRow('loc')">+ Outro</button>
 
-	  <div class="btn-row"><button type="submit">Salvar</button></div>
-	</form>
-
-	<div class="utility-sec">
-	  <div class="utility-title">Ferramentas</div>
-	  <div class="utility-actions">
-	    <a href="/api/status" target="_blank">Status API</a>
-	    <a href="/api/telemetry" target="_blank">JSON</a>
-	    <a href="/reset/wifi" onclick="return confirm('Reconectar Wi-Fi?')">Reconectar Wi-Fi</a>
-	  </div>
-	</div>
-
-	<div class="danger-sec">
-	  <div class="danger-title">Zona de perigo</div>
-	  <button class="btn-danger" onclick="location='/reset/factory'">Reset Completo (Apagar Chaves)</button>
-	</div>
-	</main>
-	<script>
-	const tb=document.getElementById('themeBtn'), doc=document.documentElement;
+          <div style="margin-top:24px"><button type="submit" class="btn btn-primary" style="width:100%">Salvar</button></div>
+        </form>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="eyebrow" style="margin-bottom:14px">Ferramentas</div>
+          <div style="display:grid;grid-template-columns:1fr;gap:8px">
+            <a href="/api/status" target="_blank" class="btn" style="text-align:center">Status API</a>
+            <a href="/api/telemetry" target="_blank" class="btn" style="text-align:center">JSON</a>
+            <a href="/reset/wifi" onclick="return confirm('Reconectar Wi-Fi?')" class="btn" style="text-align:center">Reconectar Wi-Fi</a>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:36px;border-top-color:var(--bad)">
+          <div class="eyebrow" style="margin-bottom:14px;color:var(--bad)">Zona de perigo</div>
+          <button class="btn btn-danger" style="width:100%" onclick="location='/reset/factory'">Reset Completo (Apagar Chaves)</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const tb=document.getElementById('themeBtn'), doc=document.documentElement;
 const moonSvg="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
 const sunSvg="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
 function setThemeIcon(){tb.innerHTML=doc.getAttribute('data-theme')==='dark'?sunSvg:moonSvg}
@@ -726,29 +744,44 @@ function countRows(pfx){return document.getElementById(pfx+'_list').querySelecto
 function updateCounts(){
   document.getElementById('ext_count').value=countRows('ext');
   document.getElementById('loc_count').value=countRows('loc');
+  const btn=document.getElementById('ara-btn');
+  if(!btn)return;
+  let hasAra=false;
+  document.getElementById('ext_list').querySelectorAll('.srow').forEach(row=>{
+    const url=row.querySelector('input[name^="ext_url_"]').value;
+    if(url===")HTML";
+  html += DEFAULT_SERVER_EXT_URL;
+  html += R"HTML(") hasAra=true;
+  });
+  btn.disabled=hasAra;
+  btn.style.opacity=hasAra?0.5:1;
+  btn.style.cursor=hasAra?'not-allowed':'pointer';
 }
 function addRow(pfx){
   const list=document.getElementById(pfx+'_list');
   const i=list.querySelectorAll('.srow').length;
   const d=document.createElement('div');d.className='srow';d.id=pfx+i;
-  d.innerHTML=`<input type="text" name="${pfx}_name_${i}" placeholder="Nome">
-    <input type="text" name="${pfx}_url_${i}" placeholder="${pfx==='loc'?'IP:porta':'URL'}">
-    <button type="button" onclick="removeRow(this)">✕</button>`;
-  list.appendChild(d);updateCounts();
+  d.innerHTML=`<input type="text" class="form-input" name="${pfx}_name_${i}" placeholder="Nome">
+    <input type="text" class="form-input" name="${pfx}_url_${i}" placeholder="${pfx==='loc'?'IP:porta':'URL'}">
+    <button type="button" class="btn btn-danger" style="padding:11px 14px" onclick="removeRow(this)">✕</button>`;
+  list.appendChild(d);
+  d.querySelector('input').focus();
+  updateCounts();
 }
 function removeRow(btn){btn.closest('.srow').remove();updateCounts()}
 function addArateki(){
   const list=document.getElementById('ext_list');
   const i=list.querySelectorAll('.srow').length;
   const d=document.createElement('div');d.className='srow';d.id='ext'+i;
-  d.innerHTML=`<input type="text" name="ext_name_${i}" value=")HTML";
+  d.innerHTML=`<input type="text" class="form-input" name="ext_name_${i}" value=")HTML";
   html += DEFAULT_SERVER_EXT_NAME;
-  html += R"HTML("><input type="text" name="ext_url_${i}" value=")HTML";
+  html += R"HTML("><input type="text" class="form-input" name="ext_url_${i}" value=")HTML";
   html += DEFAULT_SERVER_EXT_URL;
-  html += R"HTML("><button type="button" onclick="removeRow(this)">✕</button>`;
+  html += R"HTML("><button type="button" class="btn btn-danger" style="padding:11px 14px" onclick="removeRow(this)">✕</button>`;
   list.appendChild(d);updateCounts();
 }
 document.getElementById('f').addEventListener('submit',updateCounts);
+document.getElementById('ext_list').addEventListener('input',updateCounts);
 updateCounts();
 </script><script src="/local-nav.js"></script></body></html>)HTML";
 
@@ -869,7 +902,16 @@ static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     <a class="local-tab" href="/config">Configurações</a>
     <a class="local-tab is-active" href="/docs">Manual</a>
   </nav>
-  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+  <div class="header-actions">
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
+      <option value="pt">PT</option>
+      <option value="en">EN</option>
+      <option value="es">ES</option>
+      <option value="ja">JA</option>
+      <option value="zh">ZH</option>
+    </select>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+  </div>
 </header>
 <div class="portal-shell">
 <main class="main doc-wrap">

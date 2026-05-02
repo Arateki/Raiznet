@@ -325,7 +325,7 @@ static const DocLang& getDocLang(Language lang) {
 
 static const char DOCS_PORTAL_CSS[] PROGMEM = R"CSS(
 :root{--bg:#f4f1ea;--fg:#1d231e;--fg-2:#46493d;--fg-3:#6d6a5f;--pri:#1a3a28;--line:#d8d2bf;--pap:#f7f1de;--aqua:#9ed8ff;--good:#2f7d45;--warn:#b8651e;--bad:#a83a2a}
-[data-theme=dark]{--bg:#0d1310;--fg:#d8e3d4;--fg-2:#b3c2af;--fg-3:#9ead99;--pri:#1a3a28;--line:#20281f;--pap:#14201a;--aqua:#a8dcff;--good:#7fd08d;--warn:#d4933a;--bad:#d36e63}
+[data-theme=dark]{--bg:#0d1310;--fg:#d8e3d4;--fg-2:#b3c2af;--fg-3:#9ead99;--pri:#4da674;--line:#20281f;--pap:#14201a;--aqua:#a8dcff;--good:#7fd08d;--warn:#d4933a;--bad:#d36e63}
 *{box-sizing:border-box}
 body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:20px;display:flex;justify-content:center;transition:background .2s,color .2s}
 body::before{content:'';position:fixed;top:0;left:0;right:0;height:66px;background:var(--bg);z-index:89;pointer-events:none}
