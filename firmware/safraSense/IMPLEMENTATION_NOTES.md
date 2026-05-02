@@ -122,26 +122,73 @@ Current behavior:
   and up to 6 `suggestions` for the current prefix.
 - Validation is case-insensitive; imported mnemonics are normalized to lowercase
   before saving.
-- Empty import text is allowed because identity import is optional.
+- Empty import text is allowed only while advanced Raiznet connectivity is
+  disabled. When enabled, the identity block controls whether saving is allowed.
 - Compatible but incomplete input is yellow and keeps save disabled until 12
   words are complete.
 - A word or prefix outside the selected language wordlist is red and blocks
   save.
-- The browser currently autocompletes the active word only when the endpoint has
-  exactly one suggestion.
+- Duplicate mnemonic words are invalid and show a duplicate-word error.
+- Validation/autocomplete requests are debounced in the browser. The current
+  debounce is 120 ms.
+- The browser autocompletes the active word only when the endpoint has exactly
+  one suggestion and the current typed prefix is still compatible with the
+  prefix that triggered the request. This prevents stale responses from
+  replacing a word after the user has erased or changed its beginning.
+- Backspace removes the whole current word only when that word is already a
+  complete valid word. Invalid or incomplete words delete one character at a
+  time so the user can correct typos.
+- Suggestion chips are rendered in a fixed-height row above the textarea. The
+  browser measures available width and only displays the chips that fit on one
+  row, so the layout does not jump or clip a second line.
+- Tapping a suggestion chip replaces only the active word and appends a trailing
+  space.
 
 Known continuation work:
 
-- The endpoint already returns `suggestions`/`suggestionTotal`, but the UI does
-  not yet render selectable suggestion chips/dropdowns.
-- A good mobile UX would show 4 to 6 small chips under the textarea for the
-  active word. Tapping a chip should replace only the active word and append a
-  trailing space.
-- Keep suggestion requests debounced; the current validation debounce is in
-  `/portal.js` inside `setupIdentityBackupActions()`.
+- Keep suggestion requests debounced; the current validation debounce is in the
+  portal JavaScript inside `setupIdentityBackupActions()`.
 - Re-test Japanese and Chinese carefully before changing tokenization. The
   current implementation assumes words are separated by spaces, matching the QR
   and displayed mnemonic format used by this portal.
+
+## Advanced Raiznet connectivity section
+
+The initial Wi-Fi page now has a general `Configuração Inicial` title and a
+`Configurações avançadas` section with the checkbox `Conectar a servidores
+raiznet`.
+
+When the checkbox is unchecked:
+
+- The identity UI and server fields are hidden.
+- The hidden server fields are disabled so they are not submitted.
+- Identity validation is cleared and ignored.
+- Saving Wi-Fi settings uses the simple save confirmation and must not be
+  blocked by invalid or incomplete identity text.
+
+When the checkbox is checked:
+
+- The identity section is fetched from `/identity/section?lang=...`.
+- The server fields (`name`, `ext_name`, `ext_url`, `loc_url`) are moved into the
+  advanced section as label/input pairs.
+- Inside the advanced body, server settings are shown first under the
+  `Servidores` subsection and the mnemonic card is shown below under
+  `Identificação`.
+- Identity validation and the master-key save warning become active.
+
+The DOM manipulation here is intentionally explicit. WiFiManager renders custom
+parameters with extra `<br>` elements and applies default padding to `div`
+elements. The portal script removes the orphan `<br>` nodes around moved fields,
+groups each server label with its input inside `#server-fields`, and the CSS
+resets lateral padding on `.advanced-section`, `.advanced-body`,
+`.advanced-subsection`, `.advanced-fields`, and `.advanced-field`. Without these
+details, labels can remain visible while the checkbox is unchecked, inputs can
+separate from labels, subsection widths can drift, and the advanced section can
+look narrower than the rest of the form.
+
+Do not move the identity block and server fields back into a large static
+`headerHtml` block. Keep the initial HTML small and let the browser assemble the
+advanced section after the Wi-Fi page loads.
 
 ## BIP-39 scope
 

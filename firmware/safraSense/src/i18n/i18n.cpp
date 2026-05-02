@@ -3,6 +3,10 @@
 String t(const char* key, Language lang) {
   if (lang == LANG_PT) {
     if (strcmp(key, "setup_title") == 0) return "Identificação";
+    if (strcmp(key, "identity_title") == 0) return "Identificação";
+    if (strcmp(key, "advanced_settings") == 0) return "Configurações avançadas";
+    if (strcmp(key, "connect_raiznet") == 0) return "Conectar a servidores raiznet";
+    if (strcmp(key, "servers_section") == 0) return "Servidores";
     if (strcmp(key, "owner_id") == 0) return "ID do Proprietário (Público)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemônico (12 palavras)";
     if (strcmp(key, "master_key") == 0) return "Sua chave-mestra";
@@ -26,6 +30,10 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "optional") == 0) return "Opcional";
   } else if (lang == LANG_ES) {
     if (strcmp(key, "setup_title") == 0) return "Identificación";
+    if (strcmp(key, "identity_title") == 0) return "Identificación";
+    if (strcmp(key, "advanced_settings") == 0) return "Configuración avanzada";
+    if (strcmp(key, "connect_raiznet") == 0) return "Conectar a servidores Raiznet";
+    if (strcmp(key, "servers_section") == 0) return "Servidores";
     if (strcmp(key, "owner_id") == 0) return "ID del Propietario (Público)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemónico (12 palabras)";
     if (strcmp(key, "master_key") == 0) return "Su llave maestra";
@@ -49,6 +57,10 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "optional") == 0) return "Opcional";
   } else if (lang == LANG_JA) {
     if (strcmp(key, "setup_title") == 0) return "識別";
+    if (strcmp(key, "identity_title") == 0) return "識別";
+    if (strcmp(key, "advanced_settings") == 0) return "詳細設定";
+    if (strcmp(key, "connect_raiznet") == 0) return "Raiznetサーバーに接続";
+    if (strcmp(key, "servers_section") == 0) return "サーバー";
     if (strcmp(key, "owner_id") == 0) return "オーナーID (公開)";
     if (strcmp(key, "owner_secret") == 0) return "ニーモニック (12語)";
     if (strcmp(key, "master_key") == 0) return "マスターキー";
@@ -72,6 +84,10 @@ String t(const char* key, Language lang) {
     if (strcmp(key, "optional") == 0) return "任意";
   } else if (lang == LANG_ZH) {
     if (strcmp(key, "setup_title") == 0) return "身份识别";
+    if (strcmp(key, "identity_title") == 0) return "身份识别";
+    if (strcmp(key, "advanced_settings") == 0) return "高级设置";
+    if (strcmp(key, "connect_raiznet") == 0) return "连接到 Raiznet 服务器";
+    if (strcmp(key, "servers_section") == 0) return "服务器";
     if (strcmp(key, "owner_id") == 0) return "所有者 ID (公开)";
     if (strcmp(key, "owner_secret") == 0) return "助记词 (12个单词)";
     if (strcmp(key, "master_key") == 0) return "您的主密钥";
@@ -96,6 +112,10 @@ String t(const char* key, Language lang) {
   } else {
     // Default EN
     if (strcmp(key, "setup_title") == 0) return "Identification";
+    if (strcmp(key, "identity_title") == 0) return "Identification";
+    if (strcmp(key, "advanced_settings") == 0) return "Advanced settings";
+    if (strcmp(key, "connect_raiznet") == 0) return "Connect to Raiznet servers";
+    if (strcmp(key, "servers_section") == 0) return "Servers";
     if (strcmp(key, "owner_id") == 0) return "Owner ID (Public)";
     if (strcmp(key, "owner_secret") == 0) return "Mnemonic (12 words)";
     if (strcmp(key, "master_key") == 0) return "Your master key";
