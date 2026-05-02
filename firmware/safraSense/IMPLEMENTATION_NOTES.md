@@ -169,26 +169,55 @@ When the checkbox is unchecked:
 When the checkbox is checked:
 
 - The identity section is fetched from `/identity/section?lang=...`.
-- The server fields (`name`, `ext_name`, `ext_url`, `loc_url`) are moved into the
-  advanced section as label/input pairs.
+- `Nome do Sensor` stays outside the advanced section and remains visible even
+  when Raiznet connectivity is disabled.
+- Server settings are stored in hidden JSON inputs (`ext_servers` and
+  `loc_servers`) so the portal can manage multiple entries without adding many
+  WiFiManager parameters.
 - Inside the advanced body, server settings are shown first under the
-  `Servidores` subsection and the mnemonic card is shown below under
-  `Identificação`.
+  `Servidores` subsection. That subsection contains `Lista de servidores
+  externos` and `Lista de servidores locais` areas. The Arateki action is
+  disabled while the Arateki server chip is present and is re-enabled only after
+  that chip is removed.
+- The mnemonic card is shown below under `Identificação`.
+- Switching the identity tab from `Recuperar` back to `Criar` clears the pending
+  recovery validation state, because the generated words in `Criar` are the
+  active identity source.
 - Identity validation and the master-key save warning become active.
 
 The DOM manipulation here is intentionally explicit. WiFiManager renders custom
 parameters with extra `<br>` elements and applies default padding to `div`
-elements. The portal script removes the orphan `<br>` nodes around moved fields,
-groups each server label with its input inside `#server-fields`, and the CSS
-resets lateral padding on `.advanced-section`, `.advanced-body`,
-`.advanced-subsection`, `.advanced-fields`, and `.advanced-field`. Without these
-details, labels can remain visible while the checkbox is unchecked, inputs can
-separate from labels, subsection widths can drift, and the advanced section can
-look narrower than the rest of the form.
+elements. The portal keeps the server UI browser-side, renders chips from the
+hidden JSON values, and the CSS resets lateral padding on `.advanced-section`,
+`.advanced-body`, `.advanced-subsection`, `.advanced-fields`, and
+`.advanced-field`. Without these details, subsection widths can drift and the
+advanced section can look narrower than the rest of the form.
 
 Do not move the identity block and server fields back into a large static
 `headerHtml` block. Keep the initial HTML small and let the browser assemble the
 advanced section after the Wi-Fi page loads.
+
+`/portal.js` must be served with `send_P(...)`, not `send(...)`. The portal
+script is large enough that `send(...)` can force a full `String` allocation in
+RAM; when that allocation fails, the browser receives no custom script and the
+portal falls back to raw WiFiManager behavior: no persistent header, no custom
+language handling, no loading overlay, no custom Wi-Fi select, and broken
+translations.
+
+Future HTML/JS/CSS work:
+
+- Prefer `PROGMEM` plus `send_P(...)` for large static HTML, JS, or CSS,
+  especially inside the captive portal.
+- It is fine to keep small dynamic JSON or short status responses using
+  `send(...)`.
+- Do not convert dynamic pages mechanically. If a page mixes static markup with
+  runtime values, split static chunks from dynamic values or leave it alone
+  until that page is actively being changed.
+- Watch `http_local.cpp` `/config` if that page grows; it currently builds a
+  full HTML page in a `String`.
+- Watch `/identity/current`, `/identity/reroll`, and `/identity/decode-qr` for
+  heap pressure if QR payloads or response bodies grow. Their risk is dynamic
+  payload size, not static asset delivery.
 
 ## BIP-39 scope
 
