@@ -29,6 +29,13 @@ static uint32_t targetMask() {
   return mask;
 }
 
+static void setServerOnline(uint8_t bit, bool online) {
+  if (bit >= 32) return;
+  uint32_t flag = (1u << bit);
+  if (online) gState.online_mask |= flag;
+  else gState.online_mask &= ~flag;
+}
+
 static String toHex(const String& raw) {
   static const char* hex = "0123456789abcdef";
   String out;
@@ -131,7 +138,10 @@ void sendPending() {
       if (e->confirmed_mask & (1u << bit)) continue;
       if (!(mask & (1u << bit))) continue;
       if (postTelemetry(gCfg->servers_external[i].url, body)) {
+        setServerOnline(bit, true);
         bufferConfirmServer(e->seq, bit);
+      } else {
+        setServerOnline(bit, false);
       }
     }
 
@@ -142,7 +152,10 @@ void sendPending() {
       if (!(mask & (1u << bit))) continue;
       String url = "http://" + gCfg->servers_local[i].url + "/v1/telemetry";
       if (postTelemetry(url, body)) {
+        setServerOnline(bit, true);
         bufferConfirmServer(e->seq, bit);
+      } else {
+        setServerOnline(bit, false);
       }
     }
 
@@ -166,4 +179,5 @@ void sendPending() {
 }
 
 TelemetryState getTelemetryState() { return gState; }
+void clearTelemetryServerStatus() { gState.online_mask = 0; }
 int pendingCount() { return bufferPendingCount(targetMask()); }

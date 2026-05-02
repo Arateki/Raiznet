@@ -8,6 +8,7 @@
 #include <WebServer.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <pgmspace.h>
 
 static WebServer      server(80);
 static DeviceConfig*       gCfg = nullptr;
@@ -16,18 +17,373 @@ static SensorData     gLastReading;
 static bool           gHasReading   = false;
 static PendingAction  gPendingAction = ACTION_NONE;
 
+const char LOCAL_PORTAL_CSS[] PROGMEM = R"rawliteral(
+:root{
+  --bg:#f4f1ea;--bg-2:#ede8dc;--bg-card:#fbf8f1;--bg-inset:#e8e2d2;
+  --fg:#1d231e;--fg-2:#46493d;--fg-3:#807d6e;--fg-4:#b3ad9c;
+  --line:#d8d2bf;--line-strong:#1d231e;--paper-tint:#f7f1de;
+  --primary:#1a3a28;--primary-soft:rgba(26,58,40,.12);--aqua:#9ed8ff;
+  --good:#2f7d45;--warn:#b8651e;--bad:#a83a2a;
+  --f-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --f-mono:"SF Mono","JetBrains Mono",ui-monospace,Menlo,monospace;
+  --f-serif:Georgia,"Times New Roman",serif;
+}
+[data-theme="dark"]{
+  --bg:#0d1310;--bg-2:#121814;--bg-card:#161d18;--bg-inset:#0a0f0c;
+  --fg:#d8e3d4;--fg-2:#9aa897;--fg-3:#6c7869;--fg-4:#3f4a3e;
+  --line:#20281f;--line-strong:#d8e3d4;--paper-tint:#14201a;
+  --primary:#1a3a28;--primary-soft:rgba(26,58,40,.28);--aqua:#a8dcff;
+  --good:#7fd08d;--warn:#d4933a;--bad:#d36e63;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-sans);font-size:15px}
+a{color:inherit;text-decoration:none}
+button{font:inherit}
+.serif{font-family:var(--f-serif);font-weight:400}
+.mono{font-family:var(--f-mono)}
+.eyebrow,.eyebrow-tight{font-weight:750;text-transform:uppercase;color:var(--fg-3);white-space:pre;letter-spacing:.18em}
+.eyebrow{font-size:11px;line-height:1}.eyebrow-tight{font-size:10px;line-height:1;letter-spacing:.14em}
+.local-header{position:fixed;top:0;left:0;right:0;height:68px;background:var(--bg);border-bottom:1px solid var(--line);z-index:50;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 24px}
+.local-brand{justify-self:start;min-width:0;color:var(--fg);overflow:hidden;white-space:nowrap}
+.local-brand-title{display:block;font-size:12px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis}
+.local-brand-title .brand-aqua{color:var(--aqua)}
+.local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:1px solid var(--line);background:transparent;padding:0}
+.local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase}
+.local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
+.theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px}
+.theme-btn.local-theme:hover{background:var(--fg);color:var(--bg)}
+.theme-btn.local-theme svg{width:20px;height:20px;display:block}
+.portal-shell{min-height:100vh;padding:104px 42px 32px}
+.main{width:100%;max-width:1120px;margin:0 auto;min-width:0;padding:0}
+.topbar{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin-bottom:32px}
+.title h1{margin:8px 0 0;font-size:38px;line-height:1.08}
+.title p{margin:10px 0 0;color:var(--fg-2);font-size:14px;font-weight:500;line-height:1.5;max-width:720px;overflow-wrap:anywhere}
+.btn,.theme-btn{border:1px solid var(--line-strong);background:transparent;color:var(--fg);border-radius:2px;padding:9px 13px;font-size:12px;font-weight:750;letter-spacing:.04em;cursor:pointer;text-transform:uppercase}
+.btn:hover,.theme-btn:hover{background:var(--fg);color:var(--bg)}
+.btn-primary{background:var(--primary);border-color:var(--primary);color:#f4f1ea}
+.status-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:26px;text-align:center}
+.status-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:var(--bg-card);padding:7px 10px;font-size:12px;font-weight:650;color:var(--fg-2)}
+.status-light{width:7px;height:7px;background:var(--fg-4)}
+.status-pill.ok .status-light{background:var(--good)}.status-pill.warn .status-light{background:var(--warn)}.status-pill.bad .status-light{background:var(--bad)}
+.metric-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:34px}
+.metric-card{min-width:0;background:var(--bg-card);padding:18px 18px 16px;position:relative;cursor:pointer}
+.metric-card:focus{outline:2px solid var(--primary);outline-offset:-2px}
+.metric-value{font-family:var(--f-serif);font-size:34px;line-height:1;margin-top:12px;white-space:nowrap}
+.metric-unit{font-family:var(--f-sans);font-size:14px;font-weight:650;color:var(--fg-3);margin-left:4px}
+.metric-detail{font-size:11px;font-weight:650;color:var(--fg-3);margin-top:8px;min-height:1.2em}
+.metric-card.is-good .metric-detail{color:var(--good)}.metric-card.is-warn .metric-detail{color:var(--warn)}.metric-card.is-bad .metric-detail{color:var(--bad)}
+.metric-help{display:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;line-height:1.45;color:var(--fg-2);font-weight:500}
+.metric-help strong{display:block;margin-bottom:4px;color:var(--fg);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.metric-range{display:block;margin-top:6px;color:var(--fg);font-size:11px;font-weight:750}
+.metric-card.is-help-open .metric-help{display:block}
+.content-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.8fr);gap:36px;align-items:start}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.panel{border-top:1px solid var(--line-strong);padding-top:14px}
+.info-list{border-top:1px solid var(--line)}
+.info-row{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line);padding:10px 0;font-size:12px;font-weight:650}
+.info-row span:first-child{color:var(--fg-2)}.info-row span:last-child{font-family:var(--f-mono);text-align:right;word-break:break-all}
+.server-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.server-chip{border:1px solid var(--line);background:var(--paper-tint);padding:9px 10px;font-size:12px;font-weight:650}
+.server-chip-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.server-chip strong{display:block;min-width:0;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.server-chip span{display:block;margin-top:3px;color:var(--fg-3);font-family:var(--f-mono);font-size:11px;word-break:break-all}
+.server-status{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;color:var(--fg-3);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.server-status::before{content:"";width:7px;height:7px;background:var(--fg-4)}
+.server-status.ok{color:var(--good)}.server-status.ok::before{background:var(--good)}
+.server-status.bad{color:var(--bad)}.server-status.bad::before{background:var(--bad)}
+.empty{color:var(--fg-3);font-size:12px;font-weight:650;border:1px dashed var(--line);padding:10px}
+@media(max-width:900px){
+  .local-header{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:30px 24px;height:62px;padding:4px 12px 3px;gap:0 8px}
+  .local-brand-title{font-size:9px;letter-spacing:.08em}
+  .local-tabs{grid-column:1 / -1;grid-row:2;justify-self:center;align-self:start;gap:8px}
+  .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:4px 9px 5px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:10px;font-weight:600;letter-spacing:.08em}
+  .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
+  .local-theme{grid-column:2;grid-row:1;align-self:center;width:34px;height:34px}
+  .local-theme svg{width:17px;height:17px}
+  .portal-shell{display:block;padding:96px 20px 28px}.topbar{display:block}
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}
+  .metric-card:last-child:nth-child(odd){grid-column:1 / -1;text-align:center}
+}
+@media(max-width:520px){
+  .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metric-card{padding:14px 12px 13px}
+  .metric-value{font-size:30px}
+  .metric-unit{font-size:12px}
+  .title h1{font-size:31px}.local-brand-title{font-size:8px;letter-spacing:.04em}
+}
+)rawliteral";
+
+const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SafraSense Aqua</title>
+<link rel="stylesheet" href="/local.css">
+</head>
+<body>
+<header class="local-header">
+  <a class="local-brand" href="/">
+    <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
+  </a>
+  <nav class="local-tabs" aria-label="Navegação principal">
+    <a class="local-tab is-active" href="/">Início</a>
+    <a class="local-tab" href="/config">Configurações</a>
+  </nav>
+  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+</header>
+<div class="portal-shell">
+  <main class="main">
+    <div class="topbar">
+      <div class="title">
+        <div class="eyebrow">V I S Ã O   G E R A L</div>
+        <h1 class="serif" id="deviceName">SafraSense Aqua</h1>
+        <p id="deviceSummary">Aguardando a primeira leitura local do sensor.</p>
+      </div>
+    </div>
+
+    <div class="status-strip">
+      <div class="status-pill" id="wifiPill"><span class="status-light"></span><span>Wi-Fi --</span></div>
+      <div class="status-pill" id="serverPill"><span class="status-light"></span><span>Servidor --</span></div>
+      <div class="status-pill" id="bufferPill"><span class="status-light"></span><span>Buffer --</span></div>
+      <div class="status-pill" id="sendPill"><span class="status-light"></span><span>Último envio --</span></div>
+    </div>
+
+    <section class="metric-grid" id="metricGrid">
+      <article class="metric-card" id="mTemp"><div class="eyebrow-tight">Temperatura</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">°C</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mHum"><div class="eyebrow-tight">Umidade do ar</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mEc"><div class="eyebrow-tight">Sólidos dissolvidos</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">ppm</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mWater"><div class="eyebrow-tight">Nível da água</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">cm</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mBattery"><div class="eyebrow-tight">Bateria</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+    </section>
+
+    <section class="content-grid">
+      <div>
+        <div class="section-head"><div class="eyebrow">S E R V I D O R E S</div></div>
+        <div class="panel">
+          <div class="eyebrow-tight">E X T E R N O S</div>
+          <div class="server-list" id="externalServers"></div>
+          <div class="eyebrow-tight" style="margin-top:16px">L O C A I S</div>
+          <div class="server-list" id="localServers"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-head"><div class="eyebrow">S I S T E M A</div></div>
+        <div class="panel">
+          <div class="info-list" id="systemInfo"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script src="/dashboard.js"></script>
+</body>
+</html>)rawliteral";
+
+const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const doc = document.documentElement;
+  const moonSvg = "<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
+  const sunSvg = "<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
+  const setThemeIcon = () => {
+    const btn = $('themeBtn');
+    if (btn) btn.innerHTML = doc.getAttribute('data-theme') === 'dark' ? sunSvg : moonSvg;
+  };
+  const storedTheme = localStorage.getItem('theme') || 'light';
+  doc.setAttribute('data-theme', storedTheme);
+  setThemeIcon();
+  $('themeBtn').onclick = () => {
+    const next = doc.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    doc.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    setThemeIcon();
+  };
+
+  function text(id, value) { const el = $(id); if (el) el.textContent = value; }
+  function fmt(value, digits) {
+    return value === null || value === undefined || Number.isNaN(value) ? '--' : Number(value).toFixed(digits);
+  }
+  function statusName(state) { return state === 'ok' ? 'ok' : state === 'warn' ? 'warn' : state === 'bad' ? 'bad' : ''; }
+  function setPill(id, label, state) {
+    const el = $(id);
+    if (!el) return;
+    el.className = 'status-pill ' + statusName(state);
+    el.querySelector('span:last-child').textContent = label;
+  }
+  function metric(id, value, detail, state) {
+    const el = $(id);
+    if (!el) return;
+    const open = el.classList.contains('is-help-open');
+    el.className = 'metric-card ' + (state ? 'is-' + state : '');
+    if (open) el.classList.add('is-help-open');
+    el.querySelector('[data-value]').textContent = value;
+    el.querySelector('[data-detail]').textContent = detail;
+  }
+  const metricHelp = {
+    mTemp: {
+      title: 'Temperatura',
+      text: 'Indica o calor do ambiente ao redor da planta. Temperaturas fora da faixa ideal reduzem crescimento, absorção de água e resposta aos nutrientes.',
+      range: 'Faixa ideal geral: 20 a 28 °C.'
+    },
+    mHum: {
+      title: 'Umidade do ar',
+      text: 'Mostra quanta umidade existe no ar. Umidade muito baixa aumenta perda de água; muito alta favorece fungos e dificulta a transpiração da planta.',
+      range: 'Faixa ideal geral: 50 a 70%.'
+    },
+    mEc: {
+      title: 'Sólidos dissolvidos',
+      text: 'Estima a quantidade de sais e nutrientes dissolvidos na água. Valores baixos indicam pouca nutrição; valores altos podem causar estresse nas raízes.',
+      range: 'Faixa ideal geral: 500 a 1200 ppm, conforme a cultura.'
+    },
+    mWater: {
+      title: 'Nível da água',
+      text: 'Mostra a altura disponível no reservatório. Nível baixo pode secar raízes, parar circulação ou concentrar demais os nutrientes.',
+      range: 'Faixa ideal: acima do mínimo seguro do reservatório.'
+    },
+    mBattery: {
+      title: 'Bateria',
+      text: 'Indica a energia restante do dispositivo. Bateria baixa pode interromper leituras e atrasar o envio dos dados para os servidores.',
+      range: 'Faixa ideal: acima de 40%.'
+    }
+  };
+  function setupMetricHelp() {
+    Object.keys(metricHelp).forEach((id) => {
+      const card = $(id);
+      const info = metricHelp[id];
+      if (!card || card.querySelector('.metric-help')) return;
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-expanded', 'false');
+      card.setAttribute('aria-label', 'Mostrar detalhes: ' + info.title);
+      const help = document.createElement('div');
+      help.className = 'metric-help';
+      help.innerHTML = '<strong>' + info.title + '</strong><span>' + info.text + '</span><span class="metric-range">' + info.range + '</span>';
+      card.appendChild(help);
+      const toggle = () => {
+        const next = !card.classList.contains('is-help-open');
+        document.querySelectorAll('.metric-card.is-help-open').forEach((openCard) => {
+          if (openCard !== card) {
+            openCard.classList.remove('is-help-open');
+            openCard.setAttribute('aria-expanded', 'false');
+          }
+        });
+        card.classList.toggle('is-help-open', next);
+        card.setAttribute('aria-expanded', next ? 'true' : 'false');
+      };
+      card.addEventListener('click', toggle);
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggle();
+        }
+      });
+    });
+  }
+  function infoRow(label, value) {
+    const el = document.createElement('div');
+    el.className = 'info-row';
+    const a = document.createElement('span');
+    const b = document.createElement('span');
+    a.textContent = label;
+    b.textContent = value || '--';
+    el.appendChild(a);
+    el.appendChild(b);
+    return el;
+  }
+  function renderServers(id, list) {
+    const root = $(id);
+    root.textContent = '';
+    if (!list || !list.length) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'Nenhum servidor configurado';
+      root.appendChild(empty);
+      return;
+    }
+    list.forEach((item) => {
+      const chip = document.createElement('div');
+      const online = item.online === true;
+      chip.className = 'server-chip';
+      const top = document.createElement('div');
+      top.className = 'server-chip-top';
+      const name = document.createElement('strong');
+      const status = document.createElement('div');
+      const url = document.createElement('span');
+      name.textContent = item.name || 'Servidor';
+      status.className = 'server-status ' + (online ? 'ok' : 'bad');
+      status.textContent = online ? 'online' : 'offline';
+      url.textContent = item.url || '--';
+      top.appendChild(name);
+      top.appendChild(status);
+      chip.appendChild(top);
+      chip.appendChild(url);
+      root.appendChild(chip);
+    });
+  }
+  function sensorState(ok) { return ok === false ? 'bad' : 'ok'; }
+  function batteryState(percent) {
+    if (percent === null || percent === undefined) return '';
+    return percent < 20 ? 'bad' : percent < 40 ? 'warn' : 'ok';
+  }
+  async function refresh() {
+    try {
+      const response = await fetch('/api/status');
+      const d = await response.json();
+      const r = d.readings || {};
+      const s = d.sensors || {};
+      text('deviceName', d.device_name || 'SafraSense Aqua');
+      text('deviceSummary', (d.ip || '--') + ' · ' + (d.mdns || 'safrasense') + '.local · Device ID ' + (d.device_id || '--'));
+      setPill('wifiPill', d.wifi_ok ? 'Wi-Fi conectado' : 'Wi-Fi offline', d.wifi_ok ? 'ok' : 'bad');
+      setPill('serverPill', d.server_ok ? 'Servidor online' : 'Servidor offline', d.server_ok ? 'ok' : 'bad');
+      setPill('bufferPill', (d.buffer_pending || 0) + ' pendente(s)', d.buffer_pending > 0 ? 'warn' : 'ok');
+      setPill('sendPill', 'Último envio ' + (d.last_send_time || '--'), d.server_ok ? 'ok' : 'warn');
+
+      metric('mTemp', fmt(r.temp_ambient, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
+      metric('mHum', fmt(r.humidity, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
+      metric('mEc', r.ec === undefined ? '--' : Math.round(r.ec), s.tds === false ? 'sensor offline' : 'TDS ativo', sensorState(s.tds));
+      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? 'sensor offline' : 'laser ativo', sensorState(s.laser));
+      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? 'sem leitura' : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
+
+      const info = $('systemInfo');
+      info.textContent = '';
+      const uptimeMin = Math.floor((d.uptime_s || 0) / 60);
+      [
+        ['IP', d.ip],
+        ['mDNS', (d.mdns || '--') + '.local'],
+        ['MAC', d.mac],
+        ['Uptime', uptimeMin + ' min'],
+        ['Heap livre', Math.floor((d.free_heap || 0) / 1024) + ' KB'],
+        ['Device ID', d.device_id]
+      ].forEach((item) => info.appendChild(infoRow(item[0], item[1])));
+
+      renderServers('externalServers', d.servers_external);
+      renderServers('localServers', d.servers_local);
+    } catch (err) {
+      setPill('wifiPill', 'Sem resposta local', 'bad');
+    }
+    setTimeout(refresh, 5000);
+  }
+  setupMetricHelp();
+  refresh();
+})();
+)rawliteral";
+
 // ── /api/status ───────────────────────────────────────────────────────────
 
 static void handleApiStatus() {
   TelemetryState ts = getTelemetryState();
   JsonDocument   doc;
+  bool wifiOk = (WiFi.status() == WL_CONNECTED);
 
   doc["device_name"]    = gCfg->device_name;
   doc["device_id"]      = gId->public_key_hex;
   doc["mac"]            = gId->mac;
   doc["mdns"]           = getMdnsName();
   doc["ip"]             = WiFi.localIP().toString();
-  doc["wifi_ok"]        = (WiFi.status() == WL_CONNECTED);
+  doc["wifi_ok"]        = wifiOk;
   doc["server_ok"]      = ts.last_send_ok;
   doc["last_send_time"] = ts.last_send_time;
   doc["fail_streak"]    = ts.fail_streak;
@@ -54,16 +410,21 @@ static void handleApiStatus() {
 
   // Server list with confirmation status.
   JsonArray ext = doc["servers_external"].to<JsonArray>();
-  for (const auto& s : gCfg->servers_external) {
+  for (size_t i = 0; i < gCfg->servers_external.size() && i < 16; i++) {
+    const auto& s = gCfg->servers_external[i];
     JsonObject o = ext.add<JsonObject>();
-    o["name"] = s.name;
-    o["url"]  = s.url;
+    o["name"]   = s.name;
+    o["url"]    = s.url;
+    o["online"] = wifiOk && ((ts.online_mask & (1u << i)) != 0);
   }
   JsonArray loc = doc["servers_local"].to<JsonArray>();
-  for (const auto& s : gCfg->servers_local) {
+  for (size_t i = 0; i < gCfg->servers_local.size() && i < 16; i++) {
+    const auto& s = gCfg->servers_local[i];
+    uint8_t bit = (uint8_t)(16 + i);
     JsonObject o = loc.add<JsonObject>();
-    o["name"] = s.name;
-    o["url"]  = s.url;
+    o["name"]   = s.name;
+    o["url"]    = s.url;
+    o["online"] = wifiOk && ((ts.online_mask & (1u << bit)) != 0);
   }
 
   String json;
@@ -104,94 +465,15 @@ static void handleApiTelemetry() {
 // ── / (dashboard) ─────────────────────────────────────────────────────────
 
 static void handleRoot() {
-  server.send(200, "text/html", R"HTML(<!DOCTYPE html>
-<html lang="pt-BR"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Safrasense Aqua</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,sans-serif;background:#0f1117;color:#e8e8e8;min-height:100vh}
-header{padding:14px 16px;border-bottom:1px solid #1e2030;display:flex;justify-content:space-between;align-items:center}
-.dname{font-size:1.05em;font-weight:600}
-.did{font-size:.7em;color:#555;font-family:monospace;margin-top:2px}
-.badge{padding:3px 9px;border-radius:10px;font-size:.78em;font-weight:500}
-.ok{background:#0d2b1a;color:#4ade80}.warn{background:#2b1f00;color:#fbbf24}.err{background:#2b0d0d;color:#f87171}
-.sbar{padding:7px 16px;font-size:.78em;display:flex;flex-wrap:wrap;gap:12px;background:#0c0e16;border-bottom:1px solid #1e2030;align-items:center}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding:14px}
-.card{background:#161820;border:1px solid #1e2030;border-radius:10px;padding:14px}
-.clabel{font-size:.7em;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
-.cval{font-size:2em;font-weight:700;line-height:1}
-.cunit{font-size:.85em;color:#666;margin-left:3px}
-.offline{color:#f87171;font-size:.9em;margin-top:6px}
-.batbar{height:5px;background:#1e2030;border-radius:3px;margin-top:8px;overflow:hidden}
-.batfill{height:100%;border-radius:3px;transition:width .4s}
-.sys{padding:0 16px 14px}
-.stitle{font-size:.7em;color:#555;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
-.igrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.icard{background:#161820;border:1px solid #1e2030;border-radius:8px;padding:9px 11px}
-.ikey{font-size:.67em;color:#555}
-.ival{font-size:.82em;font-family:monospace;word-break:break-all}
-nav{padding:12px 16px;border-top:1px solid #1e2030;display:flex;gap:8px;flex-wrap:wrap}
-nav a{padding:7px 13px;background:#161820;border:1px solid #2a2d3e;border-radius:7px;text-decoration:none;color:#ccc;font-size:.82em}
-.good{color:#4ade80}.warn2{color:#fbbf24}.bad{color:#f87171}
-</style></head><body>
-<header>
-  <div><div class="dname" id="dn">—</div><div class="did" id="did">—</div></div>
-  <span id="wb" class="badge">—</span>
-</header>
-<div class="sbar">
-  <span>Servidor: <span id="sb" class="badge">—</span></span>
-  <span id="buf">—</span>
-  <span>Último envio: <span id="ls">—</span></span>
-</div>
-<div class="grid" id="grid"></div>
-<div class="sys">
-  <div class="stitle">Sistema</div>
-  <div class="igrid" id="sinfo"></div>
-</div>
-<nav>
-  <a href="/config">⚙ Configurações</a>
-  <a href="/api/telemetry" target="_blank">JSON</a>
-  <a href="/reset/wifi" onclick="return confirm('Reconectar Wi-Fi?')">↺ Reconectar Wi-Fi</a>
-</nav>
-<script>
-function badge(el,text,cls){el.textContent=text;el.className='badge '+cls}
-function cls(v,lo,hi){return v===null?'':v<lo?'bad':v<hi?'warn2':'good'}
-async function refresh(){
-  try{
-    const d=await(await fetch('/api/status')).json();
-    document.getElementById('dn').textContent=d.device_name;
-    document.getElementById('did').textContent=d.device_id.slice(0,20)+'...';
-    badge(document.getElementById('wb'),d.wifi_ok?'Wi-Fi ✓':'Wi-Fi ✗',d.wifi_ok?'ok':'err');
-    badge(document.getElementById('sb'),d.server_ok?'Online':'Offline',d.server_ok?'ok':'err');
-    document.getElementById('buf').textContent=d.buffer_pending+' leitura(s) pendente(s)';
-    document.getElementById('ls').textContent=d.last_send_time;
-    const r=d.readings,s=d.sensors;
-    let h='';
-    const fld=(label,val,unit,ok)=>ok===false
-      ?`<div class="card"><div class="clabel">${label}</div><div class="offline">Sensor offline</div></div>`
-      :`<div class="card"><div class="clabel">${label}</div><div class="cval">${val??'—'}</div><span class="cunit">${unit}</span></div>`;
-    h+=fld('Temperatura Ar',r.temp_ambient!=null?r.temp_ambient.toFixed(1):null,'°C',s.dht);
-    h+=fld('Umidade',r.humidity!=null?r.humidity.toFixed(1):null,'%',s.dht);
-    h+=fld('Nutrientes EC',r.ec!=null?r.ec.toFixed(0):null,'ppm',s.tds);
-    h+=fld('Nível Água',r.water_level!=null?(r.water_level/10).toFixed(1):null,'cm',s.laser);
-    const bp=r.bat_percent??0;
-    const bc=bp<20?'#f87171':bp<40?'#fbbf24':'#4ade80';
-    h+=`<div class="card"><div class="clabel">Bateria</div>
-      <div class="cval ${bp<20?'bad':bp<40?'warn2':'good'}">${bp}</div><span class="cunit">%</span>
-      <div class="batbar"><div class="batfill" style="width:${bp}%;background:${bc}"></div></div></div>`;
-    document.getElementById('grid').innerHTML=h;
-    const upMin=Math.floor(d.uptime_s/60);
-    const si=[['IP',d.ip],['mDNS',d.mdns+'.local'],['MAC',d.mac],
-              ['Uptime',upMin+'min'],['Heap',Math.floor(d.free_heap/1024)+'KB'],
-              ['Device ID',d.device_id.slice(0,16)+'...']];
-    document.getElementById('sinfo').innerHTML=si.map(([k,v])=>
-      `<div class="icard"><div class="ikey">${k}</div><div class="ival">${v}</div></div>`).join('');
-  }catch(e){}
-  setTimeout(refresh,5000);
+  server.send_P(200, PSTR("text/html"), LOCAL_DASHBOARD_HTML, strlen_P(LOCAL_DASHBOARD_HTML));
 }
-refresh();
-</script></body></html>)HTML");
+
+static void handleLocalCss() {
+  server.send_P(200, PSTR("text/css"), LOCAL_PORTAL_CSS, strlen_P(LOCAL_PORTAL_CSS));
+}
+
+static void handleDashboardJs() {
+  server.send_P(200, PSTR("application/javascript"), LOCAL_DASHBOARD_JS, strlen_P(LOCAL_DASHBOARD_JS));
 }
 
 // ── /config (GET) ─────────────────────────────────────────────────────────
@@ -212,19 +494,19 @@ static void handleConfig() {
   String locRows = serverRows(gCfg->servers_local,    "loc");
 
   String html = R"HTML(<!DOCTYPE html>
-<html lang="pt-BR"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Configurações</title>
-<style>
-:root { --bg:#f4f1ea; --bg-card:#fbf8f1; --fg:#1d231e; --fg-2:#46493d; --fg-3:#807d6e; --pri:#1a3a28; --line:#d8d2bf; --pap:#f7f1de; --bad:#a83a2a; }
-[data-theme="dark"] { --bg:#0d1310; --bg-card:#161d18; --fg:#d8e3d4; --fg-2:#9aa897; --fg-3:#6c7869; --pri:#d8e3d4; --line:#20281f; --pap:#14201a; --bad:#d36e63; }
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg);padding:20px;transition:background .2s,color .2s}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-a.back{color:var(--fg-3);text-decoration:none;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
-h1{font-family:Georgia,serif;font-size:24px;font-weight:normal}
-label{display:block;font-size:10px;color:var(--fg-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
-input[type=text]{width:100%;padding:12px 14px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:13px;font-family:monospace;margin-bottom:16px}
+	<html lang="pt-BR"><head>
+	<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Configurações</title>
+	<link rel="stylesheet" href="/local.css">
+	<style>
+	:root { --bg:#f4f1ea; --bg-card:#fbf8f1; --fg:#1d231e; --fg-2:#46493d; --fg-3:#807d6e; --pri:#1a3a28; --line:#d8d2bf; --pap:#f7f1de; --bad:#a83a2a; }
+	[data-theme="dark"] { --bg:#0d1310; --bg-card:#161d18; --fg:#d8e3d4; --fg-2:#9aa897; --fg-3:#6c7869; --pri:#1a3a28; --line:#20281f; --pap:#14201a; --bad:#d36e63; }
+	*{box-sizing:border-box;margin:0;padding:0}
+	body{font-family:-apple-system,sans-serif;background:var(--bg);color:var(--fg);padding:0;transition:background .2s,color .2s}
+	.config-main{width:100%;max-width:520px;margin:0 auto;padding:96px 20px 28px}
+	h1{font-family:Georgia,serif;font-size:24px;font-weight:normal}
+	label{display:block;font-size:10px;color:var(--fg-3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;font-weight:500}
+	input[type=text]{width:100%;padding:12px 14px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:13px;font-family:monospace;margin-bottom:16px}
 input:focus{border-color:var(--pri);outline:none}
 .eyebrow{font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--fg-3);margin:24px 0 10px;font-weight:500}
 .srow{display:flex;gap:6px;margin-bottom:10px;align-items:center}
@@ -232,18 +514,29 @@ input:focus{border-color:var(--pri);outline:none}
 .srow button{padding:12px;background:var(--pap);border:1px solid var(--line);border-radius:2px;color:var(--bad);cursor:pointer;flex-shrink:0}
 .add-btn{padding:10px 14px;background:transparent;border:1px solid var(--line);color:var(--fg);font-size:11px;cursor:pointer;border-radius:2px}
 .btn-row{display:flex;gap:8px;margin-top:24px}
-button[type=submit]{padding:14px;background:var(--pri);border:1px solid var(--pri);border-radius:2px;color:var(--bg);font-size:13px;font-weight:500;cursor:pointer;width:100%;text-transform:uppercase;letter-spacing:.04em}
-.danger-sec{margin-top:30px;padding:16px;border:1px solid var(--bad);border-radius:2px;background:color-mix(in srgb, var(--bad) 5%, transparent)}
-.danger-title{font-size:10px;color:var(--bad);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;font-weight:600}
-.btn-danger{padding:12px;background:transparent;border:1px solid var(--bad);border-radius:2px;color:var(--bad);font-size:11px;cursor:pointer;width:100%;margin-bottom:8px}
-.theme-btn{background:none;border:none;color:var(--fg);font-size:16px;cursor:pointer}
-</style></head><body>
-<header>
-  <a href="/" class="back">← Voltar</a>
-  <button class="theme-btn" id="tb" type="button">◑</button>
-</header>
-<h1>Configurar Destinos</h1>
-<form method="POST" action="/config/save" id="f">
+	button[type=submit]{padding:14px;background:var(--pri);border:1px solid var(--pri);border-radius:2px;color:var(--bg);font-size:13px;font-weight:500;cursor:pointer;width:100%;text-transform:uppercase;letter-spacing:.04em}
+	.utility-sec{margin-top:30px;padding-top:16px;border-top:1px solid var(--line)}
+	.utility-title{font-size:10px;color:var(--fg-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;font-weight:650}
+	.utility-actions{display:grid;grid-template-columns:1fr;gap:8px}
+	.utility-actions a{display:block;text-align:center;padding:12px;background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--fg);font-size:11px;font-weight:650;letter-spacing:.04em;text-transform:uppercase;text-decoration:none}
+	.danger-sec{margin-top:30px;padding:16px;border:1px solid var(--bad);border-radius:2px;background:color-mix(in srgb, var(--bad) 5%, transparent)}
+	.danger-title{font-size:10px;color:var(--bad);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px;font-weight:600}
+	.btn-danger{padding:12px;background:transparent;border:1px solid var(--bad);border-radius:2px;color:var(--bad);font-size:11px;cursor:pointer;width:100%;margin-bottom:8px}
+	@media(max-width:900px){.config-main{padding-top:96px}}
+	</style></head><body>
+	<header class="local-header">
+	  <a class="local-brand" href="/">
+	    <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
+	  </a>
+	  <nav class="local-tabs" aria-label="Navegação principal">
+	    <a class="local-tab" href="/">Início</a>
+	    <a class="local-tab is-active" href="/config">Configurações</a>
+	  </nav>
+	  <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+	</header>
+	<main class="config-main">
+	<h1>Configurar Destinos</h1>
+	<form method="POST" action="/config/save" id="f">
   <input type="hidden" id="ext_count" name="ext_count" value="0">
   <input type="hidden" id="loc_count" name="loc_count" value="0">
 
@@ -267,19 +560,32 @@ button[type=submit]{padding:14px;background:var(--pri);border:1px solid var(--pr
   html += R"HTML(</div>
   <button type="button" class="add-btn" onclick="addRow('loc')">+ Local</button>
 
-  <div class="btn-row"><button type="submit">Salvar</button></div>
-</form>
+	  <div class="btn-row"><button type="submit">Salvar</button></div>
+	</form>
 
-<div class="danger-sec">
-  <div class="danger-title">Zona de perigo</div>
-  <button class="btn-danger" onclick="if(confirm('Reconectar Wi-Fi?'))location='/reset/wifi'">Esquecer Wi-Fi atual</button>
-  <button class="btn-danger" onclick="location='/reset/factory'">Reset Completo (Apagar Chaves)</button>
-</div>
-<script>
-const tb=document.getElementById('tb'), doc=document.documentElement;
+	<div class="utility-sec">
+	  <div class="utility-title">Ferramentas</div>
+	  <div class="utility-actions">
+	    <a href="/api/status" target="_blank">Status API</a>
+	    <a href="/api/telemetry" target="_blank">JSON</a>
+	    <a href="/reset/wifi" onclick="return confirm('Reconectar Wi-Fi?')">Reconectar Wi-Fi</a>
+	  </div>
+	</div>
+
+	<div class="danger-sec">
+	  <div class="danger-title">Zona de perigo</div>
+	  <button class="btn-danger" onclick="location='/reset/factory'">Reset Completo (Apagar Chaves)</button>
+	</div>
+	</main>
+	<script>
+	const tb=document.getElementById('themeBtn'), doc=document.documentElement;
+const moonSvg="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
+const sunSvg="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
+function setThemeIcon(){tb.innerHTML=doc.getAttribute('data-theme')==='dark'?sunSvg:moonSvg}
 const cur=localStorage.getItem('theme')||'light';
 doc.setAttribute('data-theme',cur);
-tb.onclick=()=>{const n=doc.getAttribute('data-theme')==='dark'?'light':'dark';doc.setAttribute('data-theme',n);localStorage.setItem('theme',n);};
+setThemeIcon();
+tb.onclick=()=>{const n=doc.getAttribute('data-theme')==='dark'?'light':'dark';doc.setAttribute('data-theme',n);localStorage.setItem('theme',n);setThemeIcon();};
 
 function countRows(pfx){return document.getElementById(pfx+'_list').querySelectorAll('.srow').length}
 function updateCounts(){
@@ -340,6 +646,7 @@ static void handleConfigSave() {
   }
 
   saveConfig(*gCfg);
+  clearTelemetryServerStatus();
   server.sendHeader("Location", "/config");
   server.send(302, "text/plain", "");
 }
@@ -420,6 +727,8 @@ void initHttpServer(DeviceConfig* cfg, const DeviceIdentity* id) {
   gId  = id;
 
   server.on("/",                      handleRoot);
+  server.on("/local.css",             handleLocalCss);
+  server.on("/dashboard.js",          handleDashboardJs);
   server.on("/api/status",            handleApiStatus);
   server.on("/api/telemetry",         handleApiTelemetry);
   server.on("/config",     HTTP_GET,  handleConfig);

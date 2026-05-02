@@ -219,6 +219,31 @@ Future HTML/JS/CSS work:
   heap pressure if QR payloads or response bodies grow. Their risk is dynamic
   payload size, not static asset delivery.
 
+Connected local portal:
+
+- The connected dashboard at `/` serves its reusable visual layer from
+  `/local.css` and its dashboard behavior from `/dashboard.js`, both stored in
+  `PROGMEM` and sent with `send_P(...)`.
+- Keep new local-portal pages on the same tokens/classes before adding page
+  specific CSS. The base vocabulary intentionally mirrors `apps/prototype`
+  (`eyebrow`, serif/mono text, line-based metric cards, compact side chrome)
+  while staying close to the SafraSense captive-portal colors.
+- `/` and `/config` share the fixed local header from `/local.css`: brand on
+  the left, `Inicio` / `Configuracoes` in the center, and the theme toggle on
+  the right. Keep route-specific utility links inside `/config`, not in a
+  sidebar or dashboard footer.
+- The `/` dashboard intentionally does not repeat the metric readings in a
+  second `Leituras atuais` section. After the status strip and metric cards, the
+  page shows `Servidores` and `Sistema` only.
+- On narrow mobile screens, keep the metric cards at two readings per row. The
+  small-screen breakpoint reduces card padding and metric typography rather than
+  collapsing to a single column.
+- `/config` still has its older inline style and dynamic `String` assembly. Move
+  it onto `/local.css` only when actively changing that page, because its saved
+  values and form rows need careful escaping and naming preservation. Technical
+  links such as `Status API`, `JSON`, and `Reconectar Wi-Fi` belong in `/config`,
+  not in the dashboard.
+
 ## BIP-39 scope
 
 The current mnemonic generation uses:
@@ -251,3 +276,14 @@ Upload from this folder and let PlatformIO detect the port:
 ```sh
 /home/yan/.platformio/penv/bin/pio run -t upload
 ```
+
+For firmware/UI code changes in this project, the current workflow preference is
+to run the build and then upload immediately after the adjustment succeeds. Do
+not wait for a separate "suba" command unless the user explicitly asks to pause.
+
+At this handoff, the last uploaded build was the local-portal mobile adjustment
+with two metric cards per row on mobile. PlatformIO reported:
+
+- RAM: `54,400 bytes` used from `327,680` (`16.6%`).
+- Flash: `1,433,481 bytes` used from `1,966,080` (`72.9%`).
+- Upload port: `/dev/ttyACM1`, MAC `00:70:07:26:7e:90`.
