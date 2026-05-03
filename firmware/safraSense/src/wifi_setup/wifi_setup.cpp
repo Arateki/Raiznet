@@ -153,7 +153,7 @@ static String renderIdentitySectionHtml(const DeviceIdentity& id) {
 const char IDENTITY_CSS[] PROGMEM = R"rawliteral(
 <style>
   :root { --bg:#f4f1ea; --fg:#1d231e; --fg-2:#46493d; --fg-3:#6d6a5f; --pri:#1a3a28; --line:#d8d2bf; --input-line:#d8d2bf; --pap:#f7f1de; --bad:#a83a2a; --warn:#9b6b12; --ok:#2f7d45; --btn-fg:#f4f1ea; --aqua:#9ed8ff; --mnemonic:#1a3a28; }
-  [data-theme="dark"] { --bg:#0d1310; --fg:#d8e3d4; --fg-2:#b3c2af; --fg-3:#9ead99; --pri:#1a3a28; --line:#20281f; --input-line:#9ead99; --pap:#14201a; --bad:#d36e63; --warn:#d2aa4f; --ok:#7fd08d; --btn-fg:#f4f1ea; --aqua:#a8dcff; --mnemonic:#c7efd5; }
+  [data-theme="dark"] { --bg:#0d1310; --fg:#d8e3d4; --fg-2:#b3c2af; --fg-3:#9ead99; --pri:#2d6e4a; --line:#20281f; --input-line:#9ead99; --pap:#14201a; --bad:#d36e63; --warn:#d2aa4f; --ok:#7fd08d; --btn-fg:#f4f1ea; --aqua:#a8dcff; --mnemonic:#c7efd5; }
   body { background:var(--bg); color:var(--fg); font-family:-apple-system,system-ui,sans-serif; text-align:left; padding:20px; margin:0; transition: background 0.2s, color 0.2s; display:flex; justify-content:center; }
   body::before { content:''; position:fixed; top:0; left:0; right:0; height:68px; background:var(--bg); z-index:89; pointer-events:none; }
   .wrap { width:100%; max-width:400px; margin:0 auto; text-align:left; position:relative; padding-top:54px; }

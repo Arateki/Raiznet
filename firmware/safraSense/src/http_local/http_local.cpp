@@ -33,7 +33,7 @@ const char LOCAL_PORTAL_CSS[] PROGMEM = R"rawliteral(
   --bg:#0d1310;--bg-2:#121814;--bg-card:#161d18;--bg-inset:#0a0f0c;
   --fg:#d8e3d4;--fg-2:#9aa897;--fg-3:#6c7869;--fg-4:#3f4a3e;
   --line:#20281f;--line-strong:#d8e3d4;--paper-tint:#14201a;
-  --primary:#4da674;--primary-soft:rgba(26,58,40,.28);--aqua:#a8dcff;
+  --primary:#2d6e4a;--primary-soft:rgba(45,110,74,.28);--aqua:#a8dcff;
   --good:#7fd08d;--warn:#d4933a;--bad:#d36e63;
 }
 *{box-sizing:border-box}
@@ -53,11 +53,11 @@ button{font:inherit}
 .local-brand{justify-self:start;min-width:0;color:var(--fg);overflow:hidden;white-space:nowrap}
 .local-brand-title{display:block;font-size:12px;font-weight:850;letter-spacing:.16em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis}
 .local-brand-title .brand-aqua{color:var(--aqua)}
-.local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:0;background:transparent;padding:0}
-.local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:12px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;transition:transform .12s ease-out}
-.local-tab:hover{transform:scale(1.04);color:var(--fg)}
+.local-tabs{justify-self:center;display:flex;align-items:flex-end;justify-content:center;gap:10px;border-bottom:0;background:transparent;padding:0;position:relative;z-index:10}
+.local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:6px 14px 7px;background:transparent;color:var(--primary);border:1px solid var(--primary);border-bottom:2px solid var(--primary);border-radius:4px 4px 0 0;font-size:12px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;transition:transform .12s ease-out;position:relative;z-index:11}
+.local-tab:hover{transform:scale(1.04)}
 .local-tab:active{transform:scale(.96)}
-.local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
+.local-tab.is-active{background:transparent;color:var(--primary);border-width:2.5px;border-bottom-width:5px;font-weight:900;transform:scale(1.1)}
 .theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px;transition:transform .08s ease}
 .theme-btn.local-theme:active{transform:scale(.88)}
 .theme-btn.local-theme svg{width:20px;height:20px;display:block}
@@ -123,8 +123,8 @@ body.is-loading #loader-overlay{display:block}
   .header-actions{grid-column:2;grid-row:1;align-self:center}
   .local-brand-title{font-size:10px;line-height:1;letter-spacing:.04em}
   .local-tabs{grid-column:1 / -1;grid-row:2;justify-self:center;align-self:start;gap:8px}
-  .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:4px 9px 5px;background:transparent;color:var(--fg-3);border:1px solid var(--line);border-bottom:2px solid var(--line);border-radius:4px 4px 0 0;font-size:10px;font-weight:600;letter-spacing:.08em}
-  .local-tab.is-active{background:transparent;color:var(--fg);border-color:var(--primary);border-bottom-width:3px;font-weight:800}
+  .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:4px 9px 5px;background:transparent;color:var(--primary);border:1px solid var(--primary);border-bottom:2px solid var(--primary);border-radius:4px 4px 0 0;font-size:10px;font-weight:750;letter-spacing:.08em}
+  .local-tab.is-active{background:transparent;color:var(--primary);border-width:2px;border-bottom-width:4px;font-weight:900;transform:scale(1.1);z-index:2}
   .local-theme{width:34px;height:34px}
   .local-theme svg{width:17px;height:17px}
   .lang-select{padding:4px;font-size:11px}
@@ -165,14 +165,14 @@ details.doc-section[open] summary::after{content:'\2212'}
 .doc-body dd{margin:5px 0 0;font-size:16px;font-weight:550;color:var(--fg-2);line-height:1.64}
 .doc-body code{font-family:var(--f-mono);font-size:15px;background:var(--bg-inset);border:1px solid var(--line);padding:0 4px;border-radius:2px}
 .doc-toc{margin-bottom:18px;padding:11px 14px;background:var(--bg-inset);border:1px solid var(--line);border-radius:3px}
-.doc-toc-item{border-top:1px solid var(--line)}
+.doc-toc-item{border-top:0}
 .doc-h4+.doc-toc-item{border-top:0}
 .doc-toc-row{display:flex;align-items:center;gap:7px}
 .doc-toc a{display:block;font-size:16px;font-weight:750;color:var(--primary);text-decoration:none;padding:7px 0}
 .doc-toc a:hover{text-decoration:underline}
-.doc-toc-toggle{appearance:none;background:transparent;border:1px solid transparent;border-radius:2px;color:var(--fg-3);cursor:pointer;width:30px;height:30px;padding:0;font-size:18px;font-weight:650;line-height:1;display:flex;align-items:center;justify-content:center}
-.doc-toc-toggle:hover,.doc-toc-toggle:focus{border-color:var(--line);color:var(--fg);outline:none}
-.doc-toc-item.is-open .doc-toc-toggle{border-color:var(--line);color:var(--primary)}
+.doc-toc-toggle{appearance:none;background:transparent;border:1px solid var(--line);border-radius:5px;color:var(--fg-3);cursor:pointer;width:30px;height:30px;padding:0;font-size:18px;font-weight:650;line-height:1;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,0.05);transition:transform .12s, border-color .12s}
+.doc-toc-toggle:hover,.doc-toc-toggle:focus{border-color:var(--primary);color:var(--fg);outline:none;transform:scale(1.05)}
+.doc-toc-item.is-open .doc-toc-toggle{border-color:var(--primary);color:var(--primary);box-shadow:inset 0 1px 2px rgba(0,0,0,0.08)}
 .doc-subtoc{margin:-1px 0 5px 5px;padding:0 0 5px 12px;border-left:1px solid var(--line)}
 .doc-subtoc[hidden]{display:none}
 .doc-subtoc a{font-size:13px;font-weight:650;line-height:1.25;color:var(--fg-3);padding:5px 0}
@@ -199,7 +199,8 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
   </a>
   <nav class="local-tabs" aria-label="Navegação principal">
-    <a class="local-tab is-active" href="/">Início</a>
+    <a class="local-tab" href="/">Início</a>
+    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none">Raiznet</a>
     <a class="local-tab" href="/config">Configurações</a>
     <a class="local-tab" href="/docs">Manual</a>
   </nav>
@@ -488,6 +489,7 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
   }
   function renderServers(id, list) {
     const root = $(id);
+    if (!root) return;
     root.textContent = '';
     if (!list || !list.length) {
       const empty = document.createElement('div');
@@ -531,7 +533,8 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       const did = d.device_id || '--';
       const truncId = did !== '--' ? did.slice(0, 10) + '...' + did.slice(-10) : did;
       const copyBtn = did !== '--' ? `<button type="button" class="copy-btn" onclick="window.copyId('${did}', this)" aria-label="Copiar" title="Copiar chave pública"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>` : '';
-      $('deviceSummary').innerHTML = `<span class="dev-net">${d.ip || '--'} &middot; ${d.mdns || 'safrasense'}.local</span> <span class="dev-sep">&middot;</span> <span class="dev-key">Chave p&uacute;blica: <span class="mono">${truncId}</span> ${copyBtn}</span>`;
+      const summary = $('deviceSummary');
+      if (summary) summary.innerHTML = `<span class="dev-net">${d.ip || '--'} &middot; ${d.mdns || 'safrasense'}.local</span> <span class="dev-sep">&middot;</span> <span class="dev-key">Chave p&uacute;blica: <span class="mono">${truncId}</span> ${copyBtn}</span>`;
       setPill('wifiPill', d.wifi_ok ? 'Wi-Fi conectado' : 'Wi-Fi offline', d.wifi_ok ? 'ok' : 'bad');
       setPill('serverPill', d.server_ok ? 'Servidor online' : 'Servidor offline', d.server_ok ? 'ok' : 'bad');
       setPill('bufferPill', (d.buffer_pending || 0) + ' pendente(s)', d.buffer_pending > 0 ? 'warn' : 'ok');
@@ -541,19 +544,22 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       metric('mHum', fmt(r.humidity, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
       metric('mEc', r.ec === undefined ? '--' : Math.round(r.ec), s.tds === false ? 'sensor offline' : 'TDS ativo', sensorState(s.tds));
       metric('mPh', r.ph === undefined ? '--' : fmt(r.ph, 1), 'entrada manual', 'ok');
-      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? 'sensor offline' : 'laser ativo', sensorState(s.laser));      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? 'sem leitura' : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
+      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? 'sensor offline' : 'laser ativo', sensorState(s.laser));
+      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? 'sem leitura' : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
 
       const info = $('systemInfo');
-      info.textContent = '';
-      const uptimeMin = Math.floor((d.uptime_s || 0) / 60);
-      [
-        ['IP', d.ip],
-        ['mDNS', (d.mdns || '--') + '.local'],
-        ['MAC', d.mac],
-        ['Uptime', uptimeMin + ' min'],
-        ['Heap livre', Math.floor((d.free_heap || 0) / 1024) + ' KB'],
-        ['Chave p&uacute;blica', '<span class="mono">' + truncId + '</span> ' + copyBtn]
-      ].forEach((row) => info.appendChild(infoRow(row[0], row[1])));
+      if (info) {
+        info.textContent = '';
+        const uptimeMin = Math.floor((d.uptime_s || 0) / 60);
+        [
+          ['IP', d.ip],
+          ['mDNS', (d.mdns || '--') + '.local'],
+          ['MAC', d.mac],
+          ['Uptime', uptimeMin + ' min'],
+          ['Heap livre', Math.floor((d.free_heap || 0) / 1024) + ' KB'],
+          ['Chave p&uacute;blica', '<span class="mono">' + truncId + '</span> ' + copyBtn]
+        ].forEach((row) => info.appendChild(infoRow(row[0], row[1])));
+      }
 
       renderServers('externalServers', d.servers_external);
       renderServers('localServers', d.servers_local);
@@ -662,7 +668,12 @@ static void handleApiTelemetry() {
 // ── / (dashboard) ─────────────────────────────────────────────────────────
 
 static void handleRoot() {
-  server.send_P(200, PSTR("text/html"), LOCAL_DASHBOARD_HTML, strlen_P(LOCAL_DASHBOARD_HTML));
+  String html = FPSTR(LOCAL_DASHBOARD_HTML);
+  html.replace("class=\"local-tab\" href=\"/\"", "class=\"local-tab is-active\" href=\"/\"");
+  if (!gCfg->servers_external.empty()) {
+    html.replace("id=\"raiznet-menu-item\" href=\"/raiznet\" style=\"display:none\"", "id=\"raiznet-menu-item\" href=\"/raiznet\"");
+  }
+  server.send(200, "text/html", html);
 }
 
 static void handleLocalCss() {
@@ -706,6 +717,7 @@ static void handleConfig() {
   </a>
   <nav class="local-tabs" aria-label="Navegação principal">
     <a class="local-tab" href="/">Início</a>
+    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none">Raiznet</a>
     <a class="local-tab is-active" href="/config">Configurações</a>
     <a class="local-tab" href="/docs">Manual</a>
   </nav>
@@ -741,6 +753,11 @@ static void handleConfig() {
 
           <div class="eyebrow" style="color:var(--primary);margin:24px 0 10px">Servidores Públicos</div>
           <div id="ext_list">)HTML";
+
+  if (!gCfg->servers_external.empty()) {
+    html.replace("id=\"raiznet-menu-item\" href=\"/raiznet\" style=\"display:none\"", "id=\"raiznet-menu-item\" href=\"/raiznet\"");
+  }
+
   html += extRows;
   html += R"HTML(</div>
           <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -943,8 +960,9 @@ static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   </a>
   <nav class="local-tabs" aria-label="Navegação principal">
     <a class="local-tab" href="/">Início</a>
+    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none">Raiznet</a>
     <a class="local-tab" href="/config">Configurações</a>
-    <a class="local-tab is-active" href="/docs">Manual</a>
+    <a class="local-tab" href="/docs">Manual</a>
   </nav>
   <div class="header-actions">
     <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
@@ -962,7 +980,15 @@ static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <div class="topbar">
   <div class="title">
     <div class="eyebrow">M A N U A L</div>
-    <h1 class="serif">Guia SafraSense</h1>
+    <h1 class="serif" style="display:inline-flex;align-items:center;gap:10px">
+      Guia SafraSense
+      <button class="copy-btn" id="copy-docs-btn" onclick="window.copyDocs(this)" title="Copiar manual completo" style="margin:0;width:30px;height:30px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </h1>
     <p>Referência rápida para configuração, monitoramento e cultivo hidropônico.</p>
   </div>
 </div>
@@ -985,6 +1011,28 @@ static const char DOCS_FOOTER_HTML[] PROGMEM = R"rawliteral(
     doc.setAttribute('data-theme',n);localStorage.setItem('theme',n);setIcon(n);
   };
 })();
+window.copyDocs = function(btn) {
+  const content = document.querySelector('.main.doc-wrap').innerText;
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(content).catch(()=>{});
+  } else {
+    let ta = document.createElement("textarea");
+    ta.value = content;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+  if (btn) {
+    btn.classList.add('copied');
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+    setTimeout(()=>{btn.classList.remove('copied');btn.innerHTML=orig;}, 1500);
+  }
+};
 function openDocHash(hash,updateHistory){
   if(!hash||hash.charAt(0)!=='#')return;
   var t=document.querySelector(hash);
@@ -1039,10 +1087,69 @@ if(location.hash)openDocHash(location.hash,false);
 </body>
 </html>)rawliteral";
 
+static void handleRaiznet() {
+  if (gCfg->servers_external.empty()) {
+    server.sendHeader("Location", "/");
+    server.send(302, "text/plain", "");
+    return;
+  }
+
+  String html = R"HTML(<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Raiznet - SafraSense</title>
+<link rel="stylesheet" href="/local.css">
+</head><body>
+<header class="local-header">
+  <a class="local-brand" href="/">
+    <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
+  </a>
+  <nav class="local-tabs" aria-label="Navegação principal">
+    <a class="local-tab" href="/">Início</a>
+    <a class="local-tab is-active" id="raiznet-menu-item" href="/raiznet">Raiznet</a>
+    <a class="local-tab" href="/config">Configurações</a>
+    <a class="local-tab" href="/docs">Manual</a>
+  </nav>
+  <div class="header-actions">
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
+      <option value="pt">PT</option><option value="en">EN</option><option value="es">ES</option><option value="ja">JA</option><option value="zh">ZH</option>
+    </select>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+  </div>
+</header>
+<div class="portal-shell">
+  <main class="main">
+    <div class="topbar">
+      <div class="title">
+        <div class="eyebrow">R E D E   D E S C E N T R A L I Z A D A</div>
+        <h1 class="serif">Status Raiznet</h1>
+      </div>
+    </div>
+    <div class="content-grid" style="grid-template-columns: 1fr;">
+      <div class="panel">
+        <div class="section-head"><div class="eyebrow">Servidores Conectados</div></div>
+        <div id="externalServers" class="server-list">
+          <div class="empty">Carregando status...</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="/dashboard.js"></script>
+<script src="/local-nav.js"></script>
+</body></html>)HTML";
+
+  server.send(200, "text/html", html);
+}
+
 static void handleDocs() {
   String html;
   html.reserve(22000);
   html += FPSTR(DOCS_HEADER_HTML);
+  if (!gCfg->servers_external.empty()) {
+    html.replace("id=\"raiznet-menu-item\" href=\"/raiznet\" style=\"display:none\"", "id=\"raiznet-menu-item\" href=\"/raiznet\"");
+  }
+  html.replace("class=\"local-tab\" href=\"/docs\">Manual</a>", "class=\"local-tab is-active\" href=\"/docs\">Manual</a>");
   appendDocsContent(html);
   html += FPSTR(DOCS_FOOTER_HTML);
   server.send(200, "text/html", html);
@@ -1061,6 +1168,7 @@ void initHttpServer(DeviceConfig* cfg, const DeviceIdentity* id) {
   gId  = id;
 
   server.on("/",                      handleRoot);
+  server.on("/raiznet",               handleRaiznet);
   server.on("/local.css",             handleLocalCss);
   server.on("/dashboard.js",          handleDashboardJs);
   server.on("/local-nav.js",          handleLocalNavJs);

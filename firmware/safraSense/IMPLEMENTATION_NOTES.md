@@ -341,6 +341,10 @@ A bug has been reported where telemetry readings and sends occur approximately e
 **Metric Card Collapse:**
 A bug has been identified where active/open metric cards (showing detailed help text) automatically collapse and close whenever a new sensor reading is received and updated on the dashboard. This occurs during the background refresh cycle. Investigation and fix were paused at user request.
 
+**Sensor Initialization Delay:**
+A significant delay has been observed in sensor readiness upon system startup. Sensors take a considerable amount of time to begin reporting valid data after the firmware starts. No repair was requested; this is documented for awareness.
+
+
 ## Forced telemetry cycle
 
 The dashboard provides a "Fazer nova leitura" button that triggers an immediate
