@@ -22,14 +22,15 @@ from the same source to both the local dashboard (`/docs`) and the captive porta
   CSS and JS for the captive portal.
 
 **i18n structure.** Content is organized around `struct DocLang`, one instance per
-language (`DOCS_PT`, future `DOCS_EN`, `DOCS_ES`). Each instance holds:
+language (`DOCS_PT`, `DOCS_EN`, future `DOCS_ES`). Each instance holds:
 - Short navigation strings: `page_title`, `page_subtitle`, `back_link`, `toc_title`,
   `s1_title`–`s4_title`.
 - Body pointers: `s1_body`–`s4_body`, each pointing to a `static const char[]
   PROGMEM` array with inner HTML.
 
-`getDocLang(Language)` returns the right struct via a switch; all cases currently
-fall through to `DOCS_PT`. To add a translation: add a `DocLang` instance with the
+`getDocLang(Language)` returns the right struct via a switch. `LANG_PT` returns
+`DOCS_PT`, `LANG_EN` returns `DOCS_EN`, and untranslated languages currently fall
+back to `DOCS_EN`. To add a translation: add a `DocLang` instance with the
 translated strings and bodies, then add a `case LANG_XX: return DOCS_XX;`.
 
 **TOC and anchor navigation.** `appendDocsContent()` renders a `.doc-toc` box
@@ -277,6 +278,12 @@ Connected local portal:
   the left, `Inicio` / `Configuracoes` in the center, and the theme toggle on
   the right. Keep route-specific utility links inside `/config`, not in a
   sidebar or dashboard footer.
+- The connected dashboard intentionally does not use cookies for language or
+  theme. Theme uses `localStorage` first and then the browser
+  `prefers-color-scheme`. Language uses `?lang=...` for server-rendered pages;
+  when no query is present, the firmware reads `Accept-Language` and falls back
+  to English. `LOCAL_NAV_JS` must preserve `lang` on internal links and forms so
+  the next page can render in the selected language before client translation.
 - The `/` dashboard intentionally does not repeat the metric readings in a
   second `Leituras atuais` section. After the status strip and metric cards, the
   page shows `Servidores` and `Sistema` only.
@@ -358,6 +365,4 @@ sensor read and data transmission, bypassing the standard interval.
 - **Safety:** This reset only affects the sensor reading cycle. Independent
   subsystems (Wi-Fi, HTTP server, LED animations) remain unaffected as they do
   not rely on `lastTelemetryMs`.
-
-
 

@@ -6,10 +6,12 @@
 #include "storage/storage.h"
 #include "wifi_setup/wifi_setup.h"
 #include "docs/docs.h"
+#include "i18n/i18n.h"
 #include <WebServer.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <pgmspace.h>
+#include <string.h>
 
 static WebServer      server(80);
 static DeviceConfig*       gCfg = nullptr;
@@ -17,6 +19,197 @@ static const DeviceIdentity* gId  = nullptr;
 static SensorData     gLastReading;
 static bool           gHasReading   = false;
 static PendingAction  gPendingAction = ACTION_NONE;
+
+static const char* LOCAL_HEADER_KEYS[] = { "Accept-Language" };
+
+static String normalizeLocalLangCode(String code) {
+  code.trim();
+  code.toLowerCase();
+  if (code == "pt" || code.startsWith("pt-") || code == "1") return "1";
+  if (code == "en" || code.startsWith("en-") || code == "0") return "0";
+  return "0";
+}
+
+static String systemLocalLangCode() {
+  String header = server.header("Accept-Language");
+  header.toLowerCase();
+  int start = 0;
+  while (start < header.length()) {
+    int end = header.indexOf(',', start);
+    if (end < 0) end = header.length();
+    String item = header.substring(start, end);
+    int params = item.indexOf(';');
+    if (params >= 0) item = item.substring(0, params);
+    item.trim();
+    if (item == "pt" || item.startsWith("pt-")) return "1";
+    if (item == "en" || item.startsWith("en-")) return "0";
+    start = end + 1;
+  }
+  return "0";
+}
+
+static String currentLocalLangCode() {
+  String code = server.arg("lang");
+  if (code.length() > 0) return normalizeLocalLangCode(code);
+  return systemLocalLangCode();
+}
+
+static Language currentLocalLanguage() {
+  String code = currentLocalLangCode();
+  if (code == "1") return LANG_PT;
+  return LANG_EN;
+}
+
+static const char* localHtmlLang(Language lang) {
+  return lang == LANG_PT ? "pt-BR" : "en";
+}
+
+static const char* localText(Language lang, const char* key) {
+  const bool pt = (lang == LANG_PT);
+  if (strcmp(key, "select_language") == 0) return pt ? "Selecionar idioma" : "Select language";
+  if (strcmp(key, "toggle_theme") == 0) return pt ? "Alternar tema" : "Toggle theme";
+  if (strcmp(key, "nav_main") == 0) return pt ? "Navegação principal" : "Main navigation";
+  if (strcmp(key, "title_dashboard") == 0) return "SafraSense Aqua";
+  if (strcmp(key, "title_settings") == 0) return pt ? "Configurações" : "Settings";
+  if (strcmp(key, "title_manual") == 0) return pt ? "Manual — SafraSense Aqua" : "Guide - SafraSense Aqua";
+  if (strcmp(key, "title_raiznet") == 0) return "Raiznet - SafraSense";
+  if (strcmp(key, "nav_home") == 0) return pt ? "Início" : "Home";
+  if (strcmp(key, "nav_raiznet") == 0) return "Raiznet";
+  if (strcmp(key, "nav_config") == 0) return pt ? "Configurações" : "Settings";
+  if (strcmp(key, "nav_docs") == 0) return pt ? "Manual" : "Guide";
+  if (strcmp(key, "overview_label") == 0) return pt ? "V I S Ã O   G E R A L" : "O V E R V I E W";
+  if (strcmp(key, "dashboard_empty_summary") == 0) return pt ? "Aguardando a primeira leitura local do sensor." : "Waiting for the first local sensor reading.";
+  if (strcmp(key, "wifi_pending") == 0) return "Wi-Fi --";
+  if (strcmp(key, "server_pending") == 0) return pt ? "Servidor --" : "Server --";
+  if (strcmp(key, "buffer_pending") == 0) return "Buffer --";
+  if (strcmp(key, "send_pending") == 0) return pt ? "Último envio --" : "Last send --";
+  if (strcmp(key, "force_read") == 0) return pt ? "+ Fazer nova leitura" : "+ Take new reading";
+  if (strcmp(key, "metric_temp") == 0) return pt ? "Temperatura" : "Temperature";
+  if (strcmp(key, "metric_humidity") == 0) return pt ? "Umidade do ar" : "Air humidity";
+  if (strcmp(key, "metric_tds") == 0) return pt ? "Sólidos dissolvidos" : "Dissolved solids";
+  if (strcmp(key, "metric_ph") == 0) return pt ? "Potencial Hidrog." : "Hydrogen pot.";
+  if (strcmp(key, "metric_water") == 0) return pt ? "Nível da água" : "Water level";
+  if (strcmp(key, "metric_battery") == 0) return pt ? "Bateria" : "Battery";
+  if (strcmp(key, "no_reading") == 0) return pt ? "sem leitura" : "no reading";
+  if (strcmp(key, "manual_input") == 0) return pt ? "entrada manual" : "manual input";
+  if (strcmp(key, "servers_label") == 0) return pt ? "S E R V I D O R E S" : "S E R V E R S";
+  if (strcmp(key, "external_label") == 0) return pt ? "E X T E R N O S" : "E X T E R N A L";
+  if (strcmp(key, "local_label") == 0) return pt ? "L O C A I S" : "L O C A L";
+  if (strcmp(key, "system_label") == 0) return pt ? "S I S T E M A" : "S Y S T E M";
+  if (strcmp(key, "config_label") == 0) return pt ? "C O N F I G U R A Ç Õ E S" : "S E T T I N G S";
+  if (strcmp(key, "config_heading") == 0) return pt ? "Destinos e Sistema" : "Destinations and System";
+  if (strcmp(key, "sensor_name") == 0) return pt ? "Nome do sensor" : "Sensor name";
+  if (strcmp(key, "public_servers") == 0) return pt ? "Servidores Públicos" : "Public servers";
+  if (strcmp(key, "local_server") == 0) return pt ? "Servidor Local" : "Local server";
+  if (strcmp(key, "other_btn") == 0) return pt ? "+ Outro" : "+ Other";
+  if (strcmp(key, "use_arateki") == 0) return pt ? "Usar Arateki" : "Use Arateki";
+  if (strcmp(key, "save") == 0) return pt ? "Salvar" : "Save";
+  if (strcmp(key, "tools") == 0) return pt ? "Ferramentas" : "Tools";
+  if (strcmp(key, "status_api") == 0) return "Status API";
+  if (strcmp(key, "json") == 0) return "JSON";
+  if (strcmp(key, "reconnect_wifi") == 0) return pt ? "Reconectar Wi-Fi" : "Reconnect Wi-Fi";
+  if (strcmp(key, "reconnect_confirm") == 0) return pt ? "Reconectar Wi-Fi?" : "Reconnect Wi-Fi?";
+  if (strcmp(key, "danger_zone") == 0) return pt ? "Zona de perigo" : "Danger zone";
+  if (strcmp(key, "factory_reset") == 0) return pt ? "Reset Completo (Apagar Chaves)" : "Full Reset (Erase Keys)";
+  if (strcmp(key, "name_placeholder") == 0) return pt ? "Nome" : "Name";
+  if (strcmp(key, "url_or_ip_port_placeholder") == 0) return pt ? "URL ou IP:porta" : "URL or IP:port";
+  if (strcmp(key, "ip_port_placeholder") == 0) return pt ? "IP:porta" : "IP:port";
+  if (strcmp(key, "url_placeholder") == 0) return "URL";
+  if (strcmp(key, "manual_label") == 0) return pt ? "M A N U A L" : "G U I D E";
+  if (strcmp(key, "docs_title") == 0) return pt ? "Guia SafraSense" : "SafraSense Guide";
+  if (strcmp(key, "docs_subtitle") == 0) return pt ? "Referência rápida para configuração, monitoramento e cultivo hidropônico." : "Quick reference for setup, monitoring, and hydroponic growing.";
+  if (strcmp(key, "copy_docs_title") == 0) return pt ? "Copiar manual completo" : "Copy full guide";
+  if (strcmp(key, "raiznet_label") == 0) return pt ? "R E D E   D E S C E N T R A L I Z A D A" : "D E C E N T R A L I Z E D   N E T W O R K";
+  if (strcmp(key, "raiznet_heading") == 0) return pt ? "Status Raiznet" : "Raiznet Status";
+  if (strcmp(key, "connected_servers") == 0) return pt ? "Servidores Conectados" : "Connected servers";
+  if (strcmp(key, "loading_status") == 0) return pt ? "Carregando status..." : "Loading status...";
+  if (strcmp(key, "reset_wifi_title") == 0) return pt ? "Reconectando Wi-Fi" : "Reconnecting Wi-Fi";
+  if (strcmp(key, "reset_wifi_body") == 0) return pt ? "Aguarde alguns segundos." : "Wait a few seconds.";
+  if (strcmp(key, "factory_title") == 0) return pt ? "Reset de fábrica" : "Factory reset";
+  if (strcmp(key, "factory_warning") == 0) return pt ? "Esta ação vai <strong>apagar permanentemente</strong> a identidade criptográfica e as configurações." : "This action will <strong>permanently erase</strong> the cryptographic identity and settings.";
+  if (strcmp(key, "factory_confirm_hint") == 0) return pt ? "Para confirmar, digite <strong>CONFIRMAR</strong>:" : "To confirm, type <strong>CONFIRM</strong>:";
+  if (strcmp(key, "factory_placeholder") == 0) return pt ? "CONFIRMAR" : "CONFIRM";
+  if (strcmp(key, "factory_button") == 0) return pt ? "Apagar e reiniciar" : "Erase and restart";
+  if (strcmp(key, "factory_back") == 0) return pt ? "← Voltar" : "← Back";
+  if (strcmp(key, "factory_running_title") == 0) return pt ? "Resetando..." : "Resetting...";
+  if (strcmp(key, "factory_running_body") == 0) return pt ? "O dispositivo vai reiniciar e gerar uma nova identidade." : "The device will restart and generate a new identity.";
+  return key;
+}
+
+static const char* LOCAL_I18N_KEYS[] = {
+  "select_language", "toggle_theme", "nav_main", "nav_home", "nav_raiznet",
+  "nav_config", "nav_docs", "overview_label", "dashboard_empty_summary",
+  "wifi_pending", "server_pending", "buffer_pending", "send_pending",
+  "force_read", "metric_temp", "metric_humidity", "metric_tds", "metric_ph",
+  "metric_water", "metric_battery", "no_reading", "manual_input",
+  "servers_label", "external_label", "local_label", "system_label",
+  "config_label", "config_heading", "sensor_name", "public_servers",
+  "local_server", "other_btn", "use_arateki", "save", "tools",
+  "status_api", "json", "reconnect_wifi", "danger_zone", "factory_reset",
+  "name_placeholder", "url_or_ip_port_placeholder", "ip_port_placeholder",
+  "url_placeholder", "manual_label", "docs_title", "docs_subtitle",
+  "copy_docs_title", "raiznet_label", "raiznet_heading", "connected_servers",
+  "loading_status"
+};
+
+static void replaceBetween(String& html, const String& open, const String& close, const String& value) {
+  int start = html.indexOf(open);
+  if (start < 0) return;
+  start += open.length();
+  int end = html.indexOf(close, start);
+  if (end < 0) return;
+  html = html.substring(0, start) + value + html.substring(end);
+}
+
+static void localizeMarkedText(String& html, const char* key, const char* value) {
+  String marker = String("data-i18n=\"") + key + "\">";
+  int search = 0;
+  while (true) {
+    int pos = html.indexOf(marker, search);
+    if (pos < 0) break;
+    int textStart = pos + marker.length();
+    int textEnd = html.indexOf('<', textStart);
+    if (textEnd < 0) break;
+    html = html.substring(0, textStart) + String(value) + html.substring(textEnd);
+    search = textStart + strlen(value);
+  }
+}
+
+static void localizeMarkedAttr(String& html, const char* dataAttr, const char* attr, const char* key, const char* value) {
+  String marker = String(dataAttr) + "=\"" + key + "\"";
+  String attrMarker = String(attr) + "=\"";
+  int search = 0;
+  while (true) {
+    int pos = html.indexOf(marker, search);
+    if (pos < 0) break;
+    int tagStart = html.lastIndexOf('<', pos);
+    if (tagStart < 0) break;
+    int attrPos = html.indexOf(attrMarker, tagStart);
+    if (attrPos >= 0 && attrPos < pos) {
+      int valueStart = attrPos + attrMarker.length();
+      int valueEnd = html.indexOf('"', valueStart);
+      if (valueEnd >= 0 && valueEnd < pos) {
+        html = html.substring(0, valueStart) + String(value) + html.substring(valueEnd);
+        search = pos + strlen(value);
+        continue;
+      }
+    }
+    search = pos + marker.length();
+  }
+}
+
+static void localizeLocalHtml(String& html, Language lang, const char* titleKey) {
+  html.replace("<html lang=\"pt-BR\">", String("<html lang=\"") + localHtmlLang(lang) + "\">");
+  if (titleKey) replaceBetween(html, "<title>", "</title>", localText(lang, titleKey));
+  for (size_t i = 0; i < sizeof(LOCAL_I18N_KEYS) / sizeof(LOCAL_I18N_KEYS[0]); i++) {
+    const char* key = LOCAL_I18N_KEYS[i];
+    const char* value = localText(lang, key);
+    localizeMarkedText(html, key, value);
+    localizeMarkedAttr(html, "data-i18n-placeholder", "placeholder", key, value);
+    localizeMarkedAttr(html, "data-i18n-title", "title", key, value);
+    localizeMarkedAttr(html, "data-i18n-aria-label", "aria-label", key, value);
+  }
+}
 
 const char LOCAL_PORTAL_CSS[] PROGMEM = R"rawliteral(
 :root{
@@ -47,7 +240,7 @@ button{font:inherit}
 .eyebrow{font-size:11px;line-height:1}.eyebrow-tight{font-size:10px;line-height:1;letter-spacing:.14em}
 .local-header{position:fixed;top:0;left:0;right:0;height:68px;background:var(--bg);border-bottom:1px solid var(--line);z-index:50;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;padding:0 24px}
 .header-actions{justify-self:end;display:flex;align-items:center;gap:4px}
-.lang-select{background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--fg);font-size:12px;font-weight:750;text-transform:uppercase;cursor:pointer;padding:7px 8px;appearance:none;text-align:center}
+.lang-select{height:34px;background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--fg);font-size:12px;font-weight:750;text-transform:uppercase;cursor:pointer;padding:0 8px;appearance:none;text-align:center}
 .lang-select:focus{outline:none}
 .lang-select option{background:var(--bg);color:var(--fg)}
 .local-brand{justify-self:start;min-width:0;color:var(--fg);overflow:hidden;white-space:nowrap}
@@ -58,9 +251,9 @@ button{font:inherit}
 .local-tab:hover{transform:scale(1.04)}
 .local-tab:active{transform:scale(.96)}
 .local-tab.is-active{background:transparent;color:var(--primary);border-width:2.5px;border-bottom-width:5px;font-weight:900;transform:scale(1.1)}
-.theme-btn.local-theme{justify-self:end;width:42px;height:42px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:var(--bg);border:none;color:var(--fg);font-size:16px;transition:transform .08s ease}
+.theme-btn.local-theme{justify-self:end;width:34px;height:34px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid var(--line);border-radius:3px;color:var(--fg);font-size:12px;transition:transform .08s ease}
 .theme-btn.local-theme:active{transform:scale(.88)}
-.theme-btn.local-theme svg{width:20px;height:20px;display:block}
+.theme-btn.local-theme svg{width:15px;height:15px;display:block}
 #loader-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);opacity:.85;z-index:9999}
 #loader-overlay::after{content:"•••";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--fg);font-size:32px;letter-spacing:4px;animation:blink 1.4s infinite both}
 @keyframes blink{0%{opacity:.2}20%{opacity:1}100%{opacity:.2}}
@@ -125,9 +318,9 @@ body.is-loading #loader-overlay{display:block}
   .local-tabs{grid-column:1 / -1;grid-row:2;justify-self:center;align-self:start;gap:8px}
   .local-tab{display:inline-flex;width:auto;margin:0 0 -1px;padding:4px 9px 5px;background:transparent;color:var(--primary);border:1px solid var(--primary);border-bottom:2px solid var(--primary);border-radius:4px 4px 0 0;font-size:10px;font-weight:750;letter-spacing:.08em}
   .local-tab.is-active{background:transparent;color:var(--primary);border-width:2px;border-bottom-width:4px;font-weight:900;transform:scale(1.1);z-index:2}
-  .local-theme{width:34px;height:34px}
-  .local-theme svg{width:17px;height:17px}
-  .lang-select{padding:4px;font-size:11px}
+  .theme-btn.local-theme{width:28px;height:28px}
+  .theme-btn.local-theme svg{width:16px;height:16px}
+  .lang-select{height:28px;padding:0 6px;font-size:11px}
   .portal-shell{display:block;padding:96px 20px 28px}.topbar{display:block}
   .dev-sep{display:none}.dev-key{display:block;margin-top:4px}
   .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.content-grid{grid-template-columns:1fr}
@@ -191,6 +384,7 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafraSense Aqua</title>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head>
 <body>
@@ -198,72 +392,72 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   <a class="local-brand" href="/">
     <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
   </a>
-  <nav class="local-tabs" aria-label="Navegação principal">
-    <a class="local-tab" href="/">Início</a>
-    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none">Raiznet</a>
-    <a class="local-tab" href="/config">Configurações</a>
-    <a class="local-tab" href="/docs">Manual</a>
+  <nav class="local-tabs" aria-label="Navegação principal" data-i18n-aria-label="nav_main">
+    <a class="local-tab" href="/" data-i18n="nav_home">Início</a>
+    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none" data-i18n="nav_raiznet">Raiznet</a>
+    <a class="local-tab" href="/config" data-i18n="nav_config">Configurações</a>
+    <a class="local-tab" href="/docs" data-i18n="nav_docs">Manual</a>
   </nav>
   <div class="header-actions">
-    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
-      <option value="pt">PT</option>
-      <option value="en">EN</option>
-      <option value="es">ES</option>
-      <option value="ja">JA</option>
-      <option value="zh">ZH</option>
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma" data-i18n-aria-label="select_language">
+      <option value="1">PT</option>
+      <option value="0">EN</option>
+      <option value="2">ES</option>
+      <option value="3">JA</option>
+      <option value="4">ZH</option>
     </select>
-    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema" data-i18n-aria-label="toggle_theme"></button>
   </div>
 </header>
 <div class="portal-shell">
   <main class="main">
     <div class="topbar">
       <div class="title">
-        <div class="eyebrow">V I S Ã O   G E R A L</div>
+        <div class="eyebrow" data-i18n="overview_label">V I S Ã O   G E R A L</div>
         <h1 class="serif" id="deviceName">SafraSense Aqua</h1>
-        <p id="deviceSummary">Aguardando a primeira leitura local do sensor.</p>
+        <p id="deviceSummary" data-i18n="dashboard_empty_summary">Aguardando a primeira leitura local do sensor.</p>
       </div>
     </div>
 
     <div class="status-strip">
-      <div class="status-pill" id="wifiPill"><span class="status-light"></span><span>Wi-Fi --</span></div>
-      <div class="status-pill" id="serverPill"><span class="status-light"></span><span>Servidor --</span></div>
-      <div class="status-pill" id="bufferPill"><span class="status-light"></span><span>Buffer --</span></div>
-      <div class="status-pill" id="sendPill"><span class="status-light"></span><span>Último envio --</span></div>
+      <div class="status-pill" id="wifiPill"><span class="status-light"></span><span data-i18n="wifi_pending">Wi-Fi --</span></div>
+      <div class="status-pill" id="serverPill"><span class="status-light"></span><span data-i18n="server_pending">Servidor --</span></div>
+      <div class="status-pill" id="bufferPill"><span class="status-light"></span><span data-i18n="buffer_pending">Buffer --</span></div>
+      <div class="status-pill" id="sendPill"><span class="status-light"></span><span data-i18n="send_pending">Último envio --</span></div>
     </div>
 
     <div style="display:flex;justify-content:center;margin:0 0 14px">
-      <button class="btn" id="forceReadBtn" onclick="forceRead()" style="font-size:10px;padding:6px 12px">+ Fazer nova leitura</button>
+      <button class="btn" id="forceReadBtn" onclick="forceRead()" style="font-size:10px;padding:6px 12px" data-i18n="force_read">+ Fazer nova leitura</button>
     </div>
 
     <section class="metric-grid" id="metricGrid">
-      <article class="metric-card" id="mTemp"><div class="eyebrow-tight">Temperatura</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">°C</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
-      <article class="metric-card" id="mHum"><div class="eyebrow-tight">Umidade do ar</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
-      <article class="metric-card" id="mEc"><div class="eyebrow-tight">Sólidos dissolvidos</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">ppm</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mTemp"><div class="eyebrow-tight" data-i18n="metric_temp">Temperatura</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">°C</span></div><div class="metric-detail" data-detail data-i18n="no_reading">sem leitura</div></article>
+      <article class="metric-card" id="mHum"><div class="eyebrow-tight" data-i18n="metric_humidity">Umidade do ar</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail data-i18n="no_reading">sem leitura</div></article>
+      <article class="metric-card" id="mEc"><div class="eyebrow-tight" data-i18n="metric_tds">Sólidos dissolvidos</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">ppm</span></div><div class="metric-detail" data-detail data-i18n="no_reading">sem leitura</div></article>
       <article class="metric-card" id="mPh">
-        <div class="eyebrow-tight">Potencial Hidrog.</div>
+        <div class="eyebrow-tight" data-i18n="metric_ph">Potencial Hidrog.</div>
         <div class="metric-value" style="display:flex;align-items:baseline;justify-content:space-between">
           <div><span data-value>--</span><span class="metric-unit">pH</span></div>
-          <button class="copy-btn" onclick="event.stopPropagation();manualPh()" title="Inserir manual" style="margin:0;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+          <button class="copy-btn" onclick="event.stopPropagation();manualPh()" title="Inserir manual" data-i18n-title="manual_input" style="margin:0;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
         </div>
-        <div class="metric-detail" data-detail>entrada manual</div>
+        <div class="metric-detail" data-detail data-i18n="manual_input">entrada manual</div>
       </article>
-      <article class="metric-card" id="mWater"><div class="eyebrow-tight">Nível da água</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">cm</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
-      <article class="metric-card" id="mBattery"><div class="eyebrow-tight">Bateria</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail>sem leitura</div></article>
+      <article class="metric-card" id="mWater"><div class="eyebrow-tight" data-i18n="metric_water">Nível da água</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">cm</span></div><div class="metric-detail" data-detail data-i18n="no_reading">sem leitura</div></article>
+      <article class="metric-card" id="mBattery"><div class="eyebrow-tight" data-i18n="metric_battery">Bateria</div><div class="metric-value"><span data-value>--</span><span class="metric-unit">%</span></div><div class="metric-detail" data-detail data-i18n="no_reading">sem leitura</div></article>
     </section>
     <section class="content-grid">
       <div>
-        <div class="section-head"><div class="eyebrow">S E R V I D O R E S</div></div>
+        <div class="section-head"><div class="eyebrow" data-i18n="servers_label">S E R V I D O R E S</div></div>
         <div class="panel">
-          <div class="eyebrow-tight">E X T E R N O S</div>
+          <div class="eyebrow-tight" data-i18n="external_label">E X T E R N O S</div>
           <div class="server-list" id="externalServers"></div>
-          <div class="eyebrow-tight" style="margin-top:16px">L O C A I S</div>
+          <div class="eyebrow-tight" style="margin-top:16px" data-i18n="local_label">L O C A I S</div>
           <div class="server-list" id="localServers"></div>
         </div>
       </div>
 
       <div>
-        <div class="section-head"><div class="eyebrow">S I S T E M A</div></div>
+        <div class="section-head"><div class="eyebrow" data-i18n="system_label">S I S T E M A</div></div>
         <div class="panel">
           <div class="info-list" id="systemInfo"></div>
         </div>
@@ -271,13 +465,162 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
     </section>
   </main>
 </div>
-<script src="/dashboard.js"></script>
 <script src="/local-nav.js"></script>
+<script src="/dashboard.js"></script>
 </body>
 </html>)rawliteral";
 
 const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
 (function(){
+  var dict={
+    '0':{
+      select_language:'Select language',toggle_theme:'Toggle theme',nav_main:'Main navigation',
+      title_dashboard:'SafraSense Aqua',title_settings:'Settings',title_manual:'Guide - SafraSense Aqua',title_raiznet:'Raiznet - SafraSense',
+      nav_home:'Home',nav_raiznet:'Raiznet',nav_config:'Settings',nav_docs:'Guide',
+      overview_label:'O V E R V I E W',dashboard_empty_summary:'Waiting for the first local sensor reading.',
+      wifi_pending:'Wi-Fi --',server_pending:'Server --',buffer_pending:'Buffer --',send_pending:'Last send --',
+      force_read:'+ Take new reading',reading_sensors:'Reading sensors...',
+      metric_temp:'Temperature',metric_humidity:'Air humidity',metric_tds:'Dissolved solids',
+      metric_ph:'Hydrogen pot.',metric_water:'Water level',metric_battery:'Battery',
+      no_reading:'no reading',manual_input:'manual input',servers_label:'S E R V E R S',
+      external_label:'E X T E R N A L',local_label:'L O C A L',system_label:'S Y S T E M',
+      config_label:'S E T T I N G S',config_heading:'Destinations and System',sensor_name:'Sensor name',
+      public_servers:'Public servers',local_server:'Local server',other_btn:'+ Other',use_arateki:'Use Arateki',
+      save:'Save',tools:'Tools',status_api:'Status API',json:'JSON',reconnect_wifi:'Reconnect Wi-Fi',
+      reconnect_confirm:'Reconnect Wi-Fi?',danger_zone:'Danger zone',factory_reset:'Full Reset (Erase Keys)',
+      name_placeholder:'Name',url_or_ip_port_placeholder:'URL or IP:port',ip_port_placeholder:'IP:port',url_placeholder:'URL',
+      manual_label:'G U I D E',docs_title:'SafraSense Guide',
+      docs_subtitle:'Quick reference for setup, monitoring, and hydroponic growing.',copy_docs_title:'Copy full guide',
+      raiznet_label:'D E C E N T R A L I Z E D   N E T W O R K',raiznet_heading:'Raiznet Status',
+      connected_servers:'Connected servers',loading_status:'Loading status...',
+      wifi_connected:'Wi-Fi connected',wifi_offline:'Wi-Fi offline',server_online:'Server online',
+      server_offline:'Server offline',pending_suffix:' pending',last_send:'Last send ',local_no_response:'No local response',
+      sensor_offline:'sensor offline',dht_active:'DHT active',tds_active:'TDS active',laser_active:'laser active',
+      public_key:'Public key',copy:'Copy',copy_public_key:'Copy public key',
+      uptime:'Uptime',free_heap:'Free heap',minutes_suffix:' min',kb_suffix:' KB',
+      no_servers:'No server configured',server_default:'Server',online:'online',offline:'offline',
+      ph_prompt:'Type the PH value (0-14):',invalid_ph_alert:'Invalid value. Enter a number between 0 and 14.',
+      show_details:'Show details: ',
+      help_temp_title:'Temperature',help_temp_text:'Shows the heat around the plant. Temperatures outside the ideal range reduce growth, water absorption, and nutrient response.',help_temp_range:'General ideal range: 20 to 28 °C.',
+      help_hum_title:'Air humidity',help_hum_text:'Shows how much moisture is in the air. Very low humidity increases water loss; very high humidity favors fungi and makes plant transpiration harder.',help_hum_range:'General ideal range: 50 to 70%.',
+      help_ec_title:'Dissolved solids',help_ec_text:'Estimates the amount of salts and nutrients dissolved in the water. Low values indicate weak nutrition; high values can stress roots.',help_ec_range:'General ideal range: 500 to 1200 ppm, depending on the crop.',
+      help_ph_title:'Hydrogen potential',help_ph_text:'Measures water acidity or alkalinity. Correct pH is crucial so the plant can absorb nutrients in the solution.',help_ph_range:'General ideal range: 5.5 to 6.5.',
+      help_water_title:'Water level',help_water_text:'Shows the available height in the reservoir. A low level can dry roots, stop circulation, or over-concentrate nutrients.',help_water_range:'Ideal range: above the reservoir safe minimum.',
+      help_battery_title:'Battery',help_battery_text:'Shows the remaining device energy. Low battery can interrupt readings and delay data delivery to servers.',help_battery_range:'Ideal range: above 40%.'
+    },
+    '1':{
+      select_language:'Selecionar idioma',toggle_theme:'Alternar tema',nav_main:'Navegação principal',
+      title_dashboard:'SafraSense Aqua',title_settings:'Configurações',title_manual:'Manual — SafraSense Aqua',title_raiznet:'Raiznet - SafraSense',
+      nav_home:'Início',nav_raiznet:'Raiznet',nav_config:'Configurações',nav_docs:'Manual',
+      overview_label:'V I S Ã O   G E R A L',dashboard_empty_summary:'Aguardando a primeira leitura local do sensor.',
+      wifi_pending:'Wi-Fi --',server_pending:'Servidor --',buffer_pending:'Buffer --',send_pending:'Último envio --',
+      force_read:'+ Fazer nova leitura',reading_sensors:'Lendo sensores...',
+      metric_temp:'Temperatura',metric_humidity:'Umidade do ar',metric_tds:'Sólidos dissolvidos',
+      metric_ph:'Potencial Hidrog.',metric_water:'Nível da água',metric_battery:'Bateria',
+      no_reading:'sem leitura',manual_input:'entrada manual',servers_label:'S E R V I D O R E S',
+      external_label:'E X T E R N O S',local_label:'L O C A I S',system_label:'S I S T E M A',
+      config_label:'C O N F I G U R A Ç Õ E S',config_heading:'Destinos e Sistema',sensor_name:'Nome do sensor',
+      public_servers:'Servidores Públicos',local_server:'Servidor Local',other_btn:'+ Outro',use_arateki:'Usar Arateki',
+      save:'Salvar',tools:'Ferramentas',status_api:'Status API',json:'JSON',reconnect_wifi:'Reconectar Wi-Fi',
+      reconnect_confirm:'Reconectar Wi-Fi?',danger_zone:'Zona de perigo',factory_reset:'Reset Completo (Apagar Chaves)',
+      name_placeholder:'Nome',url_or_ip_port_placeholder:'URL ou IP:porta',ip_port_placeholder:'IP:porta',url_placeholder:'URL',
+      manual_label:'M A N U A L',docs_title:'Guia SafraSense',
+      docs_subtitle:'Referência rápida para configuração, monitoramento e cultivo hidropônico.',copy_docs_title:'Copiar manual completo',
+      raiznet_label:'R E D E   D E S C E N T R A L I Z A D A',raiznet_heading:'Status Raiznet',
+      connected_servers:'Servidores Conectados',loading_status:'Carregando status...',
+      wifi_connected:'Wi-Fi conectado',wifi_offline:'Wi-Fi offline',server_online:'Servidor online',
+      server_offline:'Servidor offline',pending_suffix:' pendente(s)',last_send:'Último envio ',local_no_response:'Sem resposta local',
+      sensor_offline:'sensor offline',dht_active:'DHT ativo',tds_active:'TDS ativo',laser_active:'laser ativo',
+      public_key:'Chave pública',copy:'Copiar',copy_public_key:'Copiar chave pública',
+      uptime:'Uptime',free_heap:'Heap livre',minutes_suffix:' min',kb_suffix:' KB',
+      no_servers:'Nenhum servidor configurado',server_default:'Servidor',online:'online',offline:'offline',
+      ph_prompt:'Digite o valor do PH (0-14):',invalid_ph_alert:'Valor inválido. Insira um número entre 0 e 14.',
+      show_details:'Mostrar detalhes: ',
+      help_temp_title:'Temperatura',help_temp_text:'Indica o calor do ambiente ao redor da planta. Temperaturas fora da faixa ideal reduzem crescimento, absorção de água e resposta aos nutrientes.',help_temp_range:'Faixa ideal geral: 20 a 28 °C.',
+      help_hum_title:'Umidade do ar',help_hum_text:'Mostra quanta umidade existe no ar. Umidade muito baixa aumenta perda de água; muito alta favorece fungos e dificulta a transpiração da planta.',help_hum_range:'Faixa ideal geral: 50 a 70%.',
+      help_ec_title:'Sólidos dissolvidos',help_ec_text:'Estima a quantidade de sais e nutrientes dissolvidos na água. Valores baixos indicam pouca nutrição; valores altos podem causar estresse nas raízes.',help_ec_range:'Faixa ideal geral: 500 a 1200 ppm, conforme a cultura.',
+      help_ph_title:'Potencial Hidrogeniônico',help_ph_text:'Mede a acidez ou alcalinidade da água. O pH correto é crucial para que a planta consiga absorver os nutrientes presentes na solução.',help_ph_range:'Faixa ideal geral: 5.5 a 6.5.',
+      help_water_title:'Nível da água',help_water_text:'Mostra a altura disponível no reservatório. Nível baixo pode secar raízes, parar circulação ou concentrar demais os nutrientes.',help_water_range:'Faixa ideal: acima do mínimo seguro do reservatório.',
+      help_battery_title:'Bateria',help_battery_text:'Indica a energia restante do dispositivo. Bateria baixa pode interromper leituras e atrasar o envio dos dados para os servidores.',help_battery_range:'Faixa ideal: acima de 40%.'
+    }
+  };
+  function normalizeLang(value){
+    if(value==='pt')return'1';
+    if(value==='en')return'0';
+    return value==='1'?'1':'0';
+  }
+  function systemLang(){
+    var langs=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||navigator.userLanguage||''];
+    for(var i=0;i<langs.length;i++){
+      var v=String(langs[i]||'').toLowerCase();
+      if(v==='pt'||v.indexOf('pt-')===0)return'1';
+      if(v==='en'||v.indexOf('en-')===0)return'0';
+    }
+    return'0';
+  }
+  function readPref(key,fallback){
+    try{var stored=localStorage.getItem(key);if(stored)return stored;}catch(_){}
+    return fallback;
+  }
+  function writePref(key,value){
+    try{localStorage.setItem(key,value);}catch(_){}
+  }
+  var queryLang='';
+  try{queryLang=new URLSearchParams(location.search).get('lang')||'';}catch(_){}
+  var activeLang=normalizeLang(queryLang||readPref('lang',systemLang()));
+  if(queryLang)writePref('lang',activeLang);
+  function textFor(lang){return Object.assign({},dict['0'],dict[lang]||{});}
+  window.localLang=activeLang;
+  window.localText=function(key,fallback){
+    var value=textFor(window.localLang)[key];
+    return value!==undefined?value:(fallback!==undefined?fallback:key);
+  };
+  window.localCurrentLanguage=function(){return window.localLang;};
+  window.localSetLanguage=function(lang){
+    var next=normalizeLang(lang);
+    writePref('lang',next);
+    var url=new URL(location.href);
+    url.searchParams.set('lang',next);
+    startLoading();
+    setTimeout(function(){
+      location.href=url.pathname+url.search+url.hash;
+    },60);
+  };
+  function applyTranslations(){
+    var t=textFor(window.localLang);
+    document.documentElement.lang=window.localLang==='1'?'pt-BR':'en';
+    if(location.pathname==='/')document.title=t.title_dashboard;
+    else if(location.pathname==='/config')document.title=t.title_settings;
+    else if(location.pathname==='/docs')document.title=t.title_manual;
+    else if(location.pathname==='/raiznet')document.title=t.title_raiznet;
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var key=el.getAttribute('data-i18n');
+      if(t[key]!==undefined)el.textContent=t[key];
+    });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el){
+      var key=el.getAttribute('data-i18n-html');
+      if(t[key]!==undefined)el.innerHTML=t[key];
+    });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el){
+      var key=el.getAttribute('data-i18n-placeholder');
+      if(t[key]!==undefined)el.setAttribute('placeholder',t[key]);
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function(el){
+      var key=el.getAttribute('data-i18n-title');
+      if(t[key]!==undefined)el.setAttribute('title',t[key]);
+    });
+    document.querySelectorAll('[data-i18n-aria-label]').forEach(function(el){
+      var key=el.getAttribute('data-i18n-aria-label');
+      if(t[key]!==undefined)el.setAttribute('aria-label',t[key]);
+    });
+    document.querySelectorAll('.lang-select').forEach(function(sel){
+      sel.value=window.localLang;
+      sel.setAttribute('aria-label',t.select_language);
+      sel.onchange=function(){window.localSetLanguage(sel.value);};
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',applyTranslations,{once:true});
+  else applyTranslations();
   function ensureLoader(){
     var loader=document.getElementById('loader-overlay');
     if(!loader){
@@ -306,6 +649,11 @@ const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
     if(url.pathname===location.pathname&&url.search===location.search)return false;
     return true;
   }
+  function withLocalLang(href){
+    var url=new URL(href,location.href);
+    url.searchParams.set('lang',window.localLang||normalizeLang(readPref('lang',systemLang())));
+    return url.pathname+url.search+url.hash;
+  }
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',ensureLoader,{once:true});
   }else{
@@ -313,11 +661,22 @@ const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
   }
   document.addEventListener('click',function(e){
     var a=e.target.closest&&e.target.closest('a[href]');
-    if(shouldLoadLink(a,e))setTimeout(startLoading,0);
+    if(!shouldLoadLink(a,e))return;
+    e.preventDefault();
+    startLoading();
+    var href=withLocalLang(a.href);
+    setTimeout(function(){location.href=href;},60);
   });
   document.addEventListener('submit',function(e){
     var f=e.target;
     if(e.defaultPrevented||!f||f.target&&f.target!=='_self')return;
+    try{
+      var url=new URL(f.getAttribute('action')||location.href,location.href);
+      if(url.origin===location.origin){
+        url.searchParams.set('lang',window.localLang||normalizeLang(readPref('lang',systemLang())));
+        f.action=url.pathname+url.search+url.hash;
+      }
+    }catch(_){}
     setTimeout(startLoading,0);
   });
   window.addEventListener('pageshow',stopLoading);
@@ -328,6 +687,7 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
 (function(){
   const $ = (id) => document.getElementById(id);
   const doc = document.documentElement;
+  const tr = (key, fallback) => window.localText ? window.localText(key, fallback) : fallback;
   window.copyId = function(text, btn) {
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).catch(()=>{});
@@ -355,7 +715,7 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
     const btn = $('themeBtn');
     if (btn) btn.innerHTML = doc.getAttribute('data-theme') === 'dark' ? sunSvg : moonSvg;
   };
-  const storedTheme = localStorage.getItem('theme') || 'light';
+  const storedTheme = localStorage.getItem('theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   doc.setAttribute('data-theme', storedTheme);
   setThemeIcon();
   $('themeBtn').onclick = () => {
@@ -366,6 +726,10 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
   };
 
   function text(id, value) { const el = $(id); if (el) el.textContent = value; }
+  function shortPublicKey(value) {
+    if (!value || value === '--' || value.length <= 24) return value || '--';
+    return value.slice(0, 10) + '...' + value.slice(-8);
+  }
   function fmt(value, digits) {
     return value === null || value === undefined || Number.isNaN(value) ? '--' : Number(value).toFixed(digits);
   }
@@ -388,59 +752,59 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
   }
   window.manualPh = function() {
     const current = document.querySelector('#mPh [data-value]').textContent;
-    const val = prompt("Digite o valor do PH (0-14):", current === '--' ? '7.0' : current);
+    const val = prompt(tr('ph_prompt', 'Digite o valor do PH (0-14):'), current === '--' ? '7.0' : current);
     if (val !== null) {
       const ph = parseFloat(val.replace(',', '.'));
       if (!isNaN(ph) && ph >= 0 && ph <= 14) {
         fetch('/api/ph/manual?ph=' + ph, { method: 'POST' }).then(() => refresh());
       } else {
-        alert("Valor inválido. Insira um número entre 0 e 14.");
+        alert(tr('invalid_ph_alert', 'Valor inválido. Insira um número entre 0 e 14.'));
       }
     }
   };
   window.forceRead = function() {
     const btn = $('forceReadBtn');
     btn.disabled = true;
-    btn.textContent = 'Lendo sensores...';
+    btn.textContent = tr('reading_sensors', 'Lendo sensores...');
     fetch('/api/force-read').then(() => {
       setTimeout(() => {
         refresh().then(() => {
           btn.disabled = false;
-          btn.textContent = '+ Fazer nova leitura';
+          btn.textContent = tr('force_read', '+ Fazer nova leitura');
         });
       }, 2000);
     });
   };
   const metricHelp = {
     mTemp: {
-      title: 'Temperatura',
-      text: 'Indica o calor do ambiente ao redor da planta. Temperaturas fora da faixa ideal reduzem crescimento, absorção de água e resposta aos nutrientes.',
-      range: 'Faixa ideal geral: 20 a 28 °C.'
+      title: tr('help_temp_title', 'Temperatura'),
+      text: tr('help_temp_text', 'Indica o calor do ambiente ao redor da planta. Temperaturas fora da faixa ideal reduzem crescimento, absorção de água e resposta aos nutrientes.'),
+      range: tr('help_temp_range', 'Faixa ideal geral: 20 a 28 °C.')
     },
     mHum: {
-      title: 'Umidade do ar',
-      text: 'Mostra quanta umidade existe no ar. Umidade muito baixa aumenta perda de água; muito alta favorece fungos e dificulta a transpiração da planta.',
-      range: 'Faixa ideal geral: 50 a 70%.'
+      title: tr('help_hum_title', 'Umidade do ar'),
+      text: tr('help_hum_text', 'Mostra quanta umidade existe no ar. Umidade muito baixa aumenta perda de água; muito alta favorece fungos e dificulta a transpiração da planta.'),
+      range: tr('help_hum_range', 'Faixa ideal geral: 50 a 70%.')
     },
     mEc: {
-      title: 'Sólidos dissolvidos',
-      text: 'Estima a quantidade de sais e nutrientes dissolvidos na água. Valores baixos indicam pouca nutrição; valores altos podem causar estresse nas raízes.',
-      range: 'Faixa ideal geral: 500 a 1200 ppm, conforme a cultura.'
+      title: tr('help_ec_title', 'Sólidos dissolvidos'),
+      text: tr('help_ec_text', 'Estima a quantidade de sais e nutrientes dissolvidos na água. Valores baixos indicam pouca nutrição; valores altos podem causar estresse nas raízes.'),
+      range: tr('help_ec_range', 'Faixa ideal geral: 500 a 1200 ppm, conforme a cultura.')
     },
     mPh: {
-      title: 'Potencial Hidrogeniônico',
-      text: 'Mede a acidez ou alcalinidade da água. O pH correto é crucial para que a planta consiga absorver os nutrientes presentes na solução.',
-      range: 'Faixa ideal geral: 5.5 a 6.5.'
+      title: tr('help_ph_title', 'Potencial Hidrogeniônico'),
+      text: tr('help_ph_text', 'Mede a acidez ou alcalinidade da água. O pH correto é crucial para que a planta consiga absorver os nutrientes presentes na solução.'),
+      range: tr('help_ph_range', 'Faixa ideal geral: 5.5 a 6.5.')
     },
     mWater: {
-      title: 'Nível da água',
-      text: 'Mostra a altura disponível no reservatório. Nível baixo pode secar raízes, parar circulação ou concentrar demais os nutrientes.',
-      range: 'Faixa ideal: acima do mínimo seguro do reservatório.'
+      title: tr('help_water_title', 'Nível da água'),
+      text: tr('help_water_text', 'Mostra a altura disponível no reservatório. Nível baixo pode secar raízes, parar circulação ou concentrar demais os nutrientes.'),
+      range: tr('help_water_range', 'Faixa ideal: acima do mínimo seguro do reservatório.')
     },
     mBattery: {
-      title: 'Bateria',
-      text: 'Indica a energia restante do dispositivo. Bateria baixa pode interromper leituras e atrasar o envio dos dados para os servidores.',
-      range: 'Faixa ideal: acima de 40%.'
+      title: tr('help_battery_title', 'Bateria'),
+      text: tr('help_battery_text', 'Indica a energia restante do dispositivo. Bateria baixa pode interromper leituras e atrasar o envio dos dados para os servidores.'),
+      range: tr('help_battery_range', 'Faixa ideal: acima de 40%.')
     }
   };
   function setupMetricHelp() {
@@ -451,7 +815,7 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       card.tabIndex = 0;
       card.setAttribute('role', 'button');
       card.setAttribute('aria-expanded', 'false');
-      card.setAttribute('aria-label', 'Mostrar detalhes: ' + info.title);
+      card.setAttribute('aria-label', tr('show_details', 'Mostrar detalhes: ') + info.title);
       const help = document.createElement('div');
       help.className = 'metric-help';
       help.innerHTML = '<strong>' + info.title + '</strong><span>' + info.text + '</span><span class="metric-range">' + info.range + '</span>';
@@ -494,7 +858,7 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
     if (!list || !list.length) {
       const empty = document.createElement('div');
       empty.className = 'empty';
-      empty.textContent = 'Nenhum servidor configurado';
+      empty.textContent = tr('no_servers', 'Nenhum servidor configurado');
       root.appendChild(empty);
       return;
     }
@@ -507,9 +871,9 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       const name = document.createElement('strong');
       const status = document.createElement('div');
       const url = document.createElement('span');
-      name.textContent = item.name || 'Servidor';
+      name.textContent = item.name || tr('server_default', 'Servidor');
       status.className = 'server-status ' + (online ? 'ok' : 'bad');
-      status.textContent = online ? 'online' : 'offline';
+      status.textContent = online ? tr('online', 'online') : tr('offline', 'offline');
       url.textContent = item.url || '--';
       top.appendChild(name);
       top.appendChild(status);
@@ -531,21 +895,21 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
       const s = d.sensors || {};
       text('deviceName', d.device_name || 'SafraSense Aqua');
       const did = d.device_id || '--';
-      const truncId = did !== '--' ? did.slice(0, 10) + '...' + did.slice(-10) : did;
-      const copyBtn = did !== '--' ? `<button type="button" class="copy-btn" onclick="window.copyId('${did}', this)" aria-label="Copiar" title="Copiar chave pública"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>` : '';
+      const didShort = shortPublicKey(did);
+      const copyBtn = did !== '--' ? `<button type="button" class="copy-btn" onclick="window.copyId('${did}', this)" aria-label="${tr('copy', 'Copiar')}" title="${tr('copy_public_key', 'Copiar chave pública')}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>` : '';
       const summary = $('deviceSummary');
-      if (summary) summary.innerHTML = `<span class="dev-net">${d.ip || '--'} &middot; ${d.mdns || 'safrasense'}.local</span> <span class="dev-sep">&middot;</span> <span class="dev-key">Chave p&uacute;blica: <span class="mono">${truncId}</span> ${copyBtn}</span>`;
-      setPill('wifiPill', d.wifi_ok ? 'Wi-Fi conectado' : 'Wi-Fi offline', d.wifi_ok ? 'ok' : 'bad');
-      setPill('serverPill', d.server_ok ? 'Servidor online' : 'Servidor offline', d.server_ok ? 'ok' : 'bad');
-      setPill('bufferPill', (d.buffer_pending || 0) + ' pendente(s)', d.buffer_pending > 0 ? 'warn' : 'ok');
-      setPill('sendPill', 'Último envio ' + (d.last_send_time || '--'), d.server_ok ? 'ok' : 'warn');
+      if (summary) summary.innerHTML = `<span class="dev-net">${d.ip || '--'} &middot; ${d.mdns || 'safrasense'}.local</span> <span class="dev-sep">&middot;</span> <span class="dev-key">${tr('public_key', 'Chave pública')}: <span class="mono" title="${did}">${didShort}</span> ${copyBtn}</span>`;
+      setPill('wifiPill', d.wifi_ok ? tr('wifi_connected', 'Wi-Fi conectado') : tr('wifi_offline', 'Wi-Fi offline'), d.wifi_ok ? 'ok' : 'bad');
+      setPill('serverPill', d.server_ok ? tr('server_online', 'Servidor online') : tr('server_offline', 'Servidor offline'), d.server_ok ? 'ok' : 'bad');
+      setPill('bufferPill', (d.buffer_pending || 0) + tr('pending_suffix', ' pendente(s)'), d.buffer_pending > 0 ? 'warn' : 'ok');
+      setPill('sendPill', tr('last_send', 'Último envio ') + (d.last_send_time || '--'), d.server_ok ? 'ok' : 'warn');
 
-      metric('mTemp', fmt(r.temp_ambient, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
-      metric('mHum', fmt(r.humidity, 1), s.dht === false ? 'sensor offline' : 'DHT ativo', sensorState(s.dht));
-      metric('mEc', r.ec === undefined ? '--' : Math.round(r.ec), s.tds === false ? 'sensor offline' : 'TDS ativo', sensorState(s.tds));
-      metric('mPh', r.ph === undefined ? '--' : fmt(r.ph, 1), 'entrada manual', 'ok');
-      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? 'sensor offline' : 'laser ativo', sensorState(s.laser));
-      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? 'sem leitura' : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
+      metric('mTemp', fmt(r.temp_ambient, 1), s.dht === false ? tr('sensor_offline', 'sensor offline') : tr('dht_active', 'DHT ativo'), sensorState(s.dht));
+      metric('mHum', fmt(r.humidity, 1), s.dht === false ? tr('sensor_offline', 'sensor offline') : tr('dht_active', 'DHT ativo'), sensorState(s.dht));
+      metric('mEc', r.ec === undefined ? '--' : Math.round(r.ec), s.tds === false ? tr('sensor_offline', 'sensor offline') : tr('tds_active', 'TDS ativo'), sensorState(s.tds));
+      metric('mPh', r.ph === undefined ? '--' : fmt(r.ph, 1), tr('manual_input', 'entrada manual'), 'ok');
+      metric('mWater', r.water_level === undefined ? '--' : fmt(r.water_level / 10, 1), s.laser === false ? tr('sensor_offline', 'sensor offline') : tr('laser_active', 'laser ativo'), sensorState(s.laser));
+      metric('mBattery', r.bat_percent === undefined ? '--' : Math.round(r.bat_percent), r.bat_volts === undefined ? tr('no_reading', 'sem leitura') : fmt(r.bat_volts, 2) + ' V', batteryState(r.bat_percent));
 
       const info = $('systemInfo');
       if (info) {
@@ -555,16 +919,16 @@ const char LOCAL_DASHBOARD_JS[] PROGMEM = R"rawliteral(
           ['IP', d.ip],
           ['mDNS', (d.mdns || '--') + '.local'],
           ['MAC', d.mac],
-          ['Uptime', uptimeMin + ' min'],
-          ['Heap livre', Math.floor((d.free_heap || 0) / 1024) + ' KB'],
-          ['Chave p&uacute;blica', '<span class="mono">' + truncId + '</span> ' + copyBtn]
+          [tr('uptime', 'Uptime'), uptimeMin + tr('minutes_suffix', ' min')],
+          [tr('free_heap', 'Heap livre'), Math.floor((d.free_heap || 0) / 1024) + tr('kb_suffix', ' KB')],
+          [tr('public_key', 'Chave p&uacute;blica'), '<span class="mono" title="' + did + '">' + didShort + '</span> ' + copyBtn]
         ].forEach((row) => info.appendChild(infoRow(row[0], row[1])));
       }
 
       renderServers('externalServers', d.servers_external);
       renderServers('localServers', d.servers_local);
     } catch (err) {
-      setPill('wifiPill', 'Sem resposta local', 'bad');
+      setPill('wifiPill', tr('local_no_response', 'Sem resposta local'), 'bad');
     }
     setTimeout(refresh, 5000);
   }
@@ -639,7 +1003,11 @@ static void handleApiStatus() {
 
 static void handleApiTelemetry() {
   if (!gHasReading) {
-    server.send(503, "application/json", "{\"error\":\"sem leituras ainda\"}");
+    Language lang = currentLocalLanguage();
+    String body = "{\"error\":\"";
+    body += (lang == LANG_PT) ? "sem leituras ainda" : "no readings yet";
+    body += "\"}";
+    server.send(503, "application/json", body);
     return;
   }
   JsonDocument doc;
@@ -668,7 +1036,9 @@ static void handleApiTelemetry() {
 // ── / (dashboard) ─────────────────────────────────────────────────────────
 
 static void handleRoot() {
+  Language lang = currentLocalLanguage();
   String html = FPSTR(LOCAL_DASHBOARD_HTML);
+  localizeLocalHtml(html, lang, "title_dashboard");
   html.replace("class=\"local-tab\" href=\"/\"", "class=\"local-tab is-active\" href=\"/\"");
   if (!gCfg->servers_external.empty()) {
     html.replace("id=\"raiznet-menu-item\" href=\"/raiznet\" style=\"display:none\"", "id=\"raiznet-menu-item\" href=\"/raiznet\"");
@@ -694,14 +1064,15 @@ static String serverRows(const std::vector<ServerEntry>& list, const char* prefi
   String html;
   for (size_t i = 0; i < list.size(); i++) {
     html += "<div class='srow' id='" + String(prefix) + String(i) + "'>";
-    html += "<input type='text' class='form-input' name='" + String(prefix) + "_name_" + String(i) + "' placeholder='Nome' value='" + list[i].name + "'>";
-    html += "<input type='text' class='form-input' name='" + String(prefix) + "_url_"  + String(i) + "' placeholder='URL ou IP:porta' value='" + list[i].url + "'>";
+    html += "<input type='text' class='form-input' name='" + String(prefix) + "_name_" + String(i) + "' placeholder='Nome' data-i18n-placeholder='name_placeholder' value='" + list[i].name + "'>";
+    html += "<input type='text' class='form-input' name='" + String(prefix) + "_url_"  + String(i) + "' placeholder='URL ou IP:porta' data-i18n-placeholder='url_or_ip_port_placeholder' value='" + list[i].url + "'>";
     html += "<button type='button' class='btn btn-danger' style='padding:11px 14px;' onclick='removeRow(this)'>✕</button></div>";
   }
   return html;
 }
 
 static void handleConfig() {
+  Language lang = currentLocalLanguage();
   String extRows = serverRows(gCfg->servers_external, "ext");
   String locRows = serverRows(gCfg->servers_local,    "loc");
 
@@ -709,35 +1080,36 @@ static void handleConfig() {
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Configurações</title>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head><body>
 <header class="local-header">
   <a class="local-brand" href="/">
     <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
   </a>
-  <nav class="local-tabs" aria-label="Navegação principal">
-    <a class="local-tab" href="/">Início</a>
-    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none">Raiznet</a>
-    <a class="local-tab is-active" href="/config">Configurações</a>
-    <a class="local-tab" href="/docs">Manual</a>
+  <nav class="local-tabs" aria-label="Navegação principal" data-i18n-aria-label="nav_main">
+    <a class="local-tab" href="/" data-i18n="nav_home">Início</a>
+    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none" data-i18n="nav_raiznet">Raiznet</a>
+    <a class="local-tab is-active" href="/config" data-i18n="nav_config">Configurações</a>
+    <a class="local-tab" href="/docs" data-i18n="nav_docs">Manual</a>
   </nav>
   <div class="header-actions">
-    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
-      <option value="pt">PT</option>
-      <option value="en">EN</option>
-      <option value="es">ES</option>
-      <option value="ja">JA</option>
-      <option value="zh">ZH</option>
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma" data-i18n-aria-label="select_language">
+      <option value="1">PT</option>
+      <option value="0">EN</option>
+      <option value="2">ES</option>
+      <option value="3">JA</option>
+      <option value="4">ZH</option>
     </select>
-    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema" data-i18n-aria-label="toggle_theme"></button>
   </div>
 </header>
 <div class="portal-shell">
   <main class="main">
     <div class="topbar">
       <div class="title">
-        <div class="eyebrow">C O N F I G U R A Ç Õ E S</div>
-        <h1 class="serif">Destinos e Sistema</h1>
+        <div class="eyebrow" data-i18n="config_label">C O N F I G U R A Ç Õ E S</div>
+        <h1 class="serif" data-i18n="config_heading">Destinos e Sistema</h1>
       </div>
     </div>
     <div class="content-grid">
@@ -746,12 +1118,12 @@ static void handleConfig() {
           <input type="hidden" id="ext_count" name="ext_count" value="0">
           <input type="hidden" id="loc_count" name="loc_count" value="0">
 
-          <label class="form-label">Nome do sensor</label>
+          <label class="form-label" data-i18n="sensor_name">Nome do sensor</label>
           <input type="text" class="form-input" name="device_name" value=")HTML";
   html += gCfg->device_name;
   html += R"HTML(" maxlength="32">
 
-          <div class="eyebrow" style="color:var(--primary);margin:24px 0 10px">Servidores Públicos</div>
+          <div class="eyebrow" style="color:var(--primary);margin:24px 0 10px" data-i18n="public_servers">Servidores Públicos</div>
           <div id="ext_list">)HTML";
 
   if (!gCfg->servers_external.empty()) {
@@ -761,42 +1133,44 @@ static void handleConfig() {
   html += extRows;
   html += R"HTML(</div>
           <div style="display:flex;gap:8px;margin-bottom:10px">
-            <button type="button" class="btn" onclick="addRow('ext')">+ Outro</button>
-            <button type="button" class="btn" id="ara-btn" onclick="addArateki()">Usar Arateki</button>
+            <button type="button" class="btn" onclick="addRow('ext')" data-i18n="other_btn">+ Outro</button>
+            <button type="button" class="btn" id="ara-btn" onclick="addArateki()" data-i18n="use_arateki">Usar Arateki</button>
           </div>
 
-          <div class="eyebrow" style="margin:24px 0 10px">Servidor Local</div>
+          <div class="eyebrow" style="margin:24px 0 10px" data-i18n="local_server">Servidor Local</div>
           <div id="loc_list">)HTML";
   html += locRows;
   html += R"HTML(</div>
-          <button type="button" class="btn" onclick="addRow('loc')">+ Outro</button>
+          <button type="button" class="btn" onclick="addRow('loc')" data-i18n="other_btn">+ Outro</button>
 
-          <div style="margin-top:24px"><button type="submit" class="btn btn-primary" style="width:100%">Salvar</button></div>
+          <div style="margin-top:24px"><button type="submit" class="btn btn-primary" style="width:100%" data-i18n="save">Salvar</button></div>
         </form>
       </div>
       <div>
         <div class="panel">
-          <div class="eyebrow" style="margin-bottom:14px">Ferramentas</div>
+          <div class="eyebrow" style="margin-bottom:14px" data-i18n="tools">Ferramentas</div>
           <div style="display:grid;grid-template-columns:1fr;gap:8px">
-            <a href="/api/status" target="_blank" class="btn" style="text-align:center">Status API</a>
-            <a href="/api/telemetry" target="_blank" class="btn" style="text-align:center">JSON</a>
-            <a href="/reset/wifi" onclick="return confirm('Reconectar Wi-Fi?')" class="btn" style="text-align:center">Reconectar Wi-Fi</a>
+            <a href="/api/status" target="_blank" class="btn" style="text-align:center" data-i18n="status_api">Status API</a>
+            <a href="/api/telemetry" target="_blank" class="btn" style="text-align:center" data-i18n="json">JSON</a>
+            <a href="/reset/wifi" onclick="return confirm(window.localText ? window.localText('reconnect_confirm','Reconectar Wi-Fi?') : 'Reconectar Wi-Fi?')" class="btn" style="text-align:center" data-i18n="reconnect_wifi">Reconectar Wi-Fi</a>
           </div>
         </div>
         <div class="panel" style="margin-top:36px;border-top-color:var(--bad)">
-          <div class="eyebrow" style="margin-bottom:14px;color:var(--bad)">Zona de perigo</div>
-          <button class="btn btn-danger" style="width:100%" onclick="location='/reset/factory'">Reset Completo (Apagar Chaves)</button>
+          <div class="eyebrow" style="margin-bottom:14px;color:var(--bad)" data-i18n="danger_zone">Zona de perigo</div>
+          <button class="btn btn-danger" style="width:100%" onclick="location='/reset/factory'" data-i18n="factory_reset">Reset Completo (Apagar Chaves)</button>
         </div>
       </div>
     </div>
   </main>
 </div>
+<script src="/local-nav.js"></script>
 <script>
+const tr=(key,fallback)=>window.localText?window.localText(key,fallback):fallback;
 const tb=document.getElementById('themeBtn'), doc=document.documentElement;
 const moonSvg="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
 const sunSvg="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' aria-hidden='true'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
 function setThemeIcon(){tb.innerHTML=doc.getAttribute('data-theme')==='dark'?sunSvg:moonSvg}
-const cur=localStorage.getItem('theme')||'light';
+const cur=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
 doc.setAttribute('data-theme',cur);
 setThemeIcon();
 tb.onclick=()=>{const n=doc.getAttribute('data-theme')==='dark'?'light':'dark';doc.setAttribute('data-theme',n);localStorage.setItem('theme',n);setThemeIcon();};
@@ -822,8 +1196,8 @@ function addRow(pfx){
   const list=document.getElementById(pfx+'_list');
   const i=list.querySelectorAll('.srow').length;
   const d=document.createElement('div');d.className='srow';d.id=pfx+i;
-  d.innerHTML=`<input type="text" class="form-input" name="${pfx}_name_${i}" placeholder="Nome">
-    <input type="text" class="form-input" name="${pfx}_url_${i}" placeholder="${pfx==='loc'?'IP:porta':'URL'}">
+  d.innerHTML=`<input type="text" class="form-input" name="${pfx}_name_${i}" placeholder="${tr('name_placeholder','Nome')}" data-i18n-placeholder="name_placeholder">
+    <input type="text" class="form-input" name="${pfx}_url_${i}" placeholder="${pfx==='loc'?tr('ip_port_placeholder','IP:porta'):tr('url_placeholder','URL')}" data-i18n-placeholder="${pfx==='loc'?'ip_port_placeholder':'url_placeholder'}">
     <button type="button" class="btn btn-danger" style="padding:11px 14px" onclick="removeRow(this)">✕</button>`;
   list.appendChild(d);
   d.querySelector('input').focus();
@@ -844,8 +1218,9 @@ function addArateki(){
 document.getElementById('f').addEventListener('submit',updateCounts);
 document.getElementById('ext_list').addEventListener('input',updateCounts);
 updateCounts();
-</script><script src="/local-nav.js"></script></body></html>)HTML";
+</script></body></html>)HTML";
 
+  localizeLocalHtml(html, lang, "title_settings");
   server.send(200, "text/html", html);
 }
 
@@ -876,17 +1251,24 @@ static void handleConfigSave() {
 
   saveConfig(*gCfg);
   clearTelemetryServerStatus();
-  server.sendHeader("Location", "/config");
+  server.sendHeader("Location", String("/config?lang=") + currentLocalLangCode());
   server.send(302, "text/plain", "");
 }
 
 // ── /reset/wifi ───────────────────────────────────────────────────────────
 
 static void handleResetWifi() {
-  server.send(200, "text/html",
-    "<html><body style='font-family:sans-serif;background:#0f1117;color:#e8e8e8;padding:20px'>"
-    "<h2>Reconectando Wi-Fi...</h2><p>Aguarde alguns segundos.</p>"
-    "<script>setTimeout(()=>location='/',5000)</script></body></html>");
+  Language lang = currentLocalLanguage();
+  String langCode = currentLocalLangCode();
+  String html = "<!DOCTYPE html><html lang='" + String(localHtmlLang(lang)) + "'><body style='font-family:sans-serif;background:#0f1117;color:#e8e8e8;padding:20px'>";
+  html += "<h2>";
+  html += localText(lang, "reset_wifi_title");
+  html += "...</h2><p>";
+  html += localText(lang, "reset_wifi_body");
+  html += "</p><script>setTimeout(()=>location='/?lang=";
+  html += langCode;
+  html += "',5000)</script></body></html>";
+  server.send(200, "text/html", html);
   delay(200);
   WiFi.disconnect(false);
   delay(300);
@@ -896,10 +1278,17 @@ static void handleResetWifi() {
 // ── /reset/factory (GET - confirmation page) ──────────────────────────────
 
 static void handleResetFactoryPage() {
-  server.send(200, "text/html", R"HTML(<!DOCTYPE html>
-<html lang="pt-BR"><head>
+  Language lang = currentLocalLanguage();
+  String langCode = currentLocalLangCode();
+  String html = R"HTML(<!DOCTYPE html>
+<html lang=")HTML";
+  html += localHtmlLang(lang);
+  html += R"HTML("><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Reset de Fábrica</title>
+<title>)HTML";
+  html += localText(lang, "factory_title");
+  html += R"HTML(</title>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
 :root { --bg:#f4f1ea; --fg:#1d231e; --line:#d8d2bf; --bad:#a83a2a; }
 [data-theme="dark"] { --bg:#0d1310; --fg:#d8e3d4; --line:#20281f; --bad:#d36e63; }
@@ -912,33 +1301,56 @@ input{width:100%;padding:12px;background:transparent;border:1px solid var(--line
 button{margin-top:16px;padding:14px;background:var(--bad);border:none;border-radius:2px;color:#fff;cursor:pointer;width:100%;opacity:.4;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
 button.active{opacity:1}
 </style></head><body>
-<a href="/config">← Voltar</a>
+<a href="/config?lang=)HTML";
+  html += langCode;
+  html += R"HTML(">)HTML";
+  html += localText(lang, "factory_back");
+  html += R"HTML(</a>
 <div class="box">
-  <h2>Reset de fábrica</h2>
-  <p>Esta ação vai <strong>apagar permanentemente</strong> a identidade criptográfica e as configurações.</p>
-  <p>Para confirmar, digite <strong>CONFIRMAR</strong>:</p>
-  <input type="text" id="pin" oninput="check()" placeholder="CONFIRMAR">
-  <form method="POST" action="/reset/factory/confirm" id="f">
-    <button type="submit" id="btn" disabled>Apagar e reiniciar</button>
+  <h2>)HTML";
+  html += localText(lang, "factory_title");
+  html += R"HTML(</h2>
+  <p>)HTML";
+  html += localText(lang, "factory_warning");
+  html += R"HTML(</p>
+  <p>)HTML";
+  html += localText(lang, "factory_confirm_hint");
+  html += R"HTML(</p>
+  <input type="text" id="pin" oninput="check()" placeholder=")HTML";
+  html += localText(lang, "factory_placeholder");
+  html += R"HTML(">
+  <form method="POST" action="/reset/factory/confirm?lang=)HTML";
+  html += langCode;
+  html += R"HTML(" id="f">
+    <button type="submit" id="btn" disabled>)HTML";
+  html += localText(lang, "factory_button");
+  html += R"HTML(</button>
   </form>
 </div>
 <script>
-document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||'light');
+document.documentElement.setAttribute('data-theme',localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
 function check(){
-  const ok=document.getElementById('pin').value==='CONFIRMAR';
+  const ok=document.getElementById('pin').value===')HTML";
+  html += localText(lang, "factory_placeholder");
+  html += R"HTML(';
   document.getElementById('btn').disabled=!ok;
   document.getElementById('btn').className=ok?'active':'';
 }
-</script></body></html>)HTML");
+</script></body></html>)HTML";
+  server.send(200, "text/html", html);
 }
 
 // ── /reset/factory/confirm (POST) ─────────────────────────────────────────
 
 static void handleResetFactoryConfirm() {
-  server.send(200, "text/html",
-    "<html><body style='font-family:sans-serif;background:#0f1117;color:#e8e8e8;padding:20px'>"
-    "<h2>Resetando...</h2><p>O dispositivo vai reiniciar e gerar uma nova identidade.</p>"
-    "</body></html>");
+  Language lang = currentLocalLanguage();
+  String html = "<!DOCTYPE html><html lang='" + String(localHtmlLang(lang)) + "'><body style='font-family:sans-serif;background:#0f1117;color:#e8e8e8;padding:20px'>";
+  html += "<h2>";
+  html += localText(lang, "factory_running_title");
+  html += "</h2><p>";
+  html += localText(lang, "factory_running_body");
+  html += "</p></body></html>";
+  server.send(200, "text/html", html);
   delay(500);
   gPendingAction = ACTION_FACTORY_RESET;  // main.cpp executes it on the next loop
 }
@@ -951,6 +1363,7 @@ static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Manual — SafraSense Aqua</title>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head>
 <body>
@@ -958,38 +1371,38 @@ static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
   <a class="local-brand" href="/">
     <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
   </a>
-  <nav class="local-tabs" aria-label="Navegação principal">
-    <a class="local-tab" href="/">Início</a>
-    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none">Raiznet</a>
-    <a class="local-tab" href="/config">Configurações</a>
-    <a class="local-tab" href="/docs">Manual</a>
+  <nav class="local-tabs" aria-label="Navegação principal" data-i18n-aria-label="nav_main">
+    <a class="local-tab" href="/" data-i18n="nav_home">Início</a>
+    <a class="local-tab" id="raiznet-menu-item" href="/raiznet" style="display:none" data-i18n="nav_raiznet">Raiznet</a>
+    <a class="local-tab" href="/config" data-i18n="nav_config">Configurações</a>
+    <a class="local-tab" href="/docs" data-i18n="nav_docs">Manual</a>
   </nav>
   <div class="header-actions">
-    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
-      <option value="pt">PT</option>
-      <option value="en">EN</option>
-      <option value="es">ES</option>
-      <option value="ja">JA</option>
-      <option value="zh">ZH</option>
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma" data-i18n-aria-label="select_language">
+      <option value="1">PT</option>
+      <option value="0">EN</option>
+      <option value="2">ES</option>
+      <option value="3">JA</option>
+      <option value="4">ZH</option>
     </select>
-    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema" data-i18n-aria-label="toggle_theme"></button>
   </div>
 </header>
 <div class="portal-shell">
 <main class="main doc-wrap">
 <div class="topbar">
   <div class="title">
-    <div class="eyebrow">M A N U A L</div>
+    <div class="eyebrow" data-i18n="manual_label">M A N U A L</div>
     <h1 class="serif" style="display:inline-flex;align-items:center;gap:10px">
-      Guia SafraSense
-      <button class="copy-btn" id="copy-docs-btn" onclick="window.copyDocs(this)" title="Copiar manual completo" style="margin:0;width:30px;height:30px">
+      <span data-i18n="docs_title">Guia SafraSense</span>
+      <button class="copy-btn" id="copy-docs-btn" onclick="window.copyDocs(this)" title="Copiar manual completo" data-i18n-title="copy_docs_title" style="margin:0;width:30px;height:30px">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
         </svg>
       </button>
     </h1>
-    <p>Referência rápida para configuração, monitoramento e cultivo hidropônico.</p>
+    <p data-i18n="docs_subtitle">Referência rápida para configuração, monitoramento e cultivo hidropônico.</p>
   </div>
 </div>
 )rawliteral";
@@ -1003,7 +1416,7 @@ static const char DOCS_FOOTER_HTML[] PROGMEM = R"rawliteral(
   var moon="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z'/></svg>";
   var sun="<svg viewBox='0 0 24 24' width='20' height='20' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='4'/><line x1='12' y1='2' x2='12' y2='6'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='4.93' y1='4.93' x2='7.76' y2='7.76'/><line x1='16.24' y1='16.24' x2='19.07' y2='19.07'/><line x1='2' y1='12' x2='6' y2='12'/><line x1='18' y1='12' x2='22' y2='12'/><line x1='4.93' y1='19.07' x2='7.76' y2='16.24'/><line x1='16.24' y1='7.76' x2='19.07' y2='4.93'/></svg>";
   function setIcon(t){if(btn)btn.innerHTML=t==='dark'?sun:moon;}
-  var stored=localStorage.getItem('theme')||'light';
+  var stored=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
   doc.setAttribute('data-theme',stored);
   setIcon(stored);
   if(btn)btn.onclick=function(){
@@ -1088,8 +1501,9 @@ if(location.hash)openDocHash(location.hash,false);
 </html>)rawliteral";
 
 static void handleRaiznet() {
+  Language lang = currentLocalLanguage();
   if (gCfg->servers_external.empty()) {
-    server.sendHeader("Location", "/");
+    server.sendHeader("Location", String("/?lang=") + currentLocalLangCode());
     server.send(302, "text/plain", "");
     return;
   }
@@ -1098,60 +1512,64 @@ static void handleRaiznet() {
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Raiznet - SafraSense</title>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head><body>
 <header class="local-header">
   <a class="local-brand" href="/">
     <span class="local-brand-title">S A F R A S E N S E <span class="brand-aqua">A Q U A</span></span>
   </a>
-  <nav class="local-tabs" aria-label="Navegação principal">
-    <a class="local-tab" href="/">Início</a>
-    <a class="local-tab is-active" id="raiznet-menu-item" href="/raiznet">Raiznet</a>
-    <a class="local-tab" href="/config">Configurações</a>
-    <a class="local-tab" href="/docs">Manual</a>
+  <nav class="local-tabs" aria-label="Navegação principal" data-i18n-aria-label="nav_main">
+    <a class="local-tab" href="/" data-i18n="nav_home">Início</a>
+    <a class="local-tab is-active" id="raiznet-menu-item" href="/raiznet" data-i18n="nav_raiznet">Raiznet</a>
+    <a class="local-tab" href="/config" data-i18n="nav_config">Configurações</a>
+    <a class="local-tab" href="/docs" data-i18n="nav_docs">Manual</a>
   </nav>
   <div class="header-actions">
-    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma">
-      <option value="pt">PT</option><option value="en">EN</option><option value="es">ES</option><option value="ja">JA</option><option value="zh">ZH</option>
+    <select class="lang-select" id="langSelect" aria-label="Selecionar idioma" data-i18n-aria-label="select_language">
+      <option value="1">PT</option><option value="0">EN</option><option value="2">ES</option><option value="3">JA</option><option value="4">ZH</option>
     </select>
-    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema"></button>
+    <button class="theme-btn local-theme" id="themeBtn" type="button" aria-label="Alternar tema" data-i18n-aria-label="toggle_theme"></button>
   </div>
 </header>
 <div class="portal-shell">
   <main class="main">
     <div class="topbar">
       <div class="title">
-        <div class="eyebrow">R E D E   D E S C E N T R A L I Z A D A</div>
-        <h1 class="serif">Status Raiznet</h1>
+        <div class="eyebrow" data-i18n="raiznet_label">R E D E   D E S C E N T R A L I Z A D A</div>
+        <h1 class="serif" data-i18n="raiznet_heading">Status Raiznet</h1>
       </div>
     </div>
     <div class="content-grid" style="grid-template-columns: 1fr;">
       <div class="panel">
-        <div class="section-head"><div class="eyebrow">Servidores Conectados</div></div>
+        <div class="section-head"><div class="eyebrow" data-i18n="connected_servers">Servidores Conectados</div></div>
         <div id="externalServers" class="server-list">
-          <div class="empty">Carregando status...</div>
+          <div class="empty" data-i18n="loading_status">Carregando status...</div>
         </div>
       </div>
     </div>
   </main>
 </div>
-<script src="/dashboard.js"></script>
 <script src="/local-nav.js"></script>
+<script src="/dashboard.js"></script>
 </body></html>)HTML";
 
+  localizeLocalHtml(html, lang, "title_raiznet");
   server.send(200, "text/html", html);
 }
 
 static void handleDocs() {
+  Language lang = currentLocalLanguage();
   String html;
   html.reserve(22000);
   html += FPSTR(DOCS_HEADER_HTML);
   if (!gCfg->servers_external.empty()) {
     html.replace("id=\"raiznet-menu-item\" href=\"/raiznet\" style=\"display:none\"", "id=\"raiznet-menu-item\" href=\"/raiznet\"");
   }
-  html.replace("class=\"local-tab\" href=\"/docs\">Manual</a>", "class=\"local-tab is-active\" href=\"/docs\">Manual</a>");
-  appendDocsContent(html);
+  html.replace("class=\"local-tab\" href=\"/docs\"", "class=\"local-tab is-active\" href=\"/docs\"");
+  appendDocsContent(html, lang);
   html += FPSTR(DOCS_FOOTER_HTML);
+  localizeLocalHtml(html, lang, "title_manual");
   server.send(200, "text/html", html);
 }
 
@@ -1166,6 +1584,7 @@ static void handleNotFound() {
 void initHttpServer(DeviceConfig* cfg, const DeviceIdentity* id) {
   gCfg = cfg;
   gId  = id;
+  server.collectHeaders(LOCAL_HEADER_KEYS, 1);
 
   server.on("/",                      handleRoot);
   server.on("/raiznet",               handleRaiznet);

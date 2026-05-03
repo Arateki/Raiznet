@@ -304,20 +304,292 @@ static const DocLang DOCS_PT = {
   /* s4_body       */ S4_BODY_PT,
 };
 
-// ── EN (not yet translated — falls back to PT) ─────────────────────────────
-// static const DocLang DOCS_EN = { ... };
+// ── EN ─────────────────────────────────────────────────────────────────────
 
-// ── ES (not yet translated — falls back to PT) ─────────────────────────────
+static const char S1_BODY_EN[] PROGMEM = R"HTML(
+<div class="doc-h4">What it is</div>
+<p>SafraSense Aqua is a device for hydroponic growing. It stays near the plants, turns the crop into easy-to-follow data, measures signals from the environment and nutrient solution, keeps the device identity, and can optionally send readings to Raiznet servers when a network is available. This data can also be connected to the AI of your choice for growing recommendations based on the real history of your production.</p>
+<p>The idea is simple: instead of discovering too late that the water is gone, the solution is too strong, or the air is bad for the plant, the grower can see these signals while there is still time to correct them.</p>
+<p>Keeping the crop within recommended ranges helps the plant spend less energy defending itself from the environment and more energy growing, rooting, and producing. The expected result is steadier management, faster growth, and more consistent harvests.</p>
+<p>You can also run a Raiznet server on your own computer. This means the product does not depend on external infrastructure to deliver 100% of the promised functionality: data stays local, queryable, and ready to use even if no public service is available.</p>
+<div class="doc-h4">What it measures</div>
+<ul>
+<li><strong>Air</strong> — temperature and humidity, which affect transpiration and growth.</li>
+<li><strong>pH</strong> — solution acidity, essential for nutrient absorption.</li>
+<li><strong>Nutrient solution</strong> — EC/TDS, a signal of how much nutrient is in the water.</li>
+<li><strong>Reservoir</strong> — distance to the water surface, used to estimate level.</li>
+<li><strong>Power</strong> — battery voltage and percentage when the model uses battery power.</li>
+</ul>
+<p>When a sensor is not present, the system can accept manual input for the corresponding value, especially pH measured with strips, reagent drops, or a handheld meter.</p>
+<div class="doc-h4">Daily use</div>
+<p>SafraSense does not replace looking at leaves and roots. It works like a vital signs panel for the crop: it shows trends, flags changes, and helps compare different cycles. One isolated reading can mislead; a sequence of readings usually tells a better story.</p>
+<p>When connected to a Raiznet server, history becomes learning material: you can review what happened before a good or bad harvest and, in the future, compare your crop with public data from your region.</p>
+<div class="doc-h4">First setup</div>
+<ol>
+<li>Turn on the device — the LED blinks between yellow and red to indicate setup mode.</li>
+<li>Connect to the <code>SafraSense-XXXX</code> Wi-Fi network (no password).</li>
+<li>The portal opens automatically; or open <code>192.168.4.1</code>.</li>
+<li>Choose the language and click Configure.</li>
+<li>Select your Wi-Fi network and enter the password.</li>
+<li>Optionally enable connection to Raiznet servers and enter their addresses. If you do this, write down the generated 12 words: they are the backup for the owner identity on the network.</li>
+<li>Click Save. The device restarts and begins reading.</li>
+</ol>
+<div class="doc-h4">Identity and backup</div>
+<p>This setup is optional and makes sense when you decide to use Raiznet servers. In that case, the 12 words work as the backup key for the owner's network identity. Keep them on paper, in a safe, or in another offline place. Whoever has these words can recover the identity; whoever loses the words loses that recovery path.</p>
+<div class="doc-h4">Status LED</div>
+<ul>
+<li><span class="doc-badge doc-good">Green</span> — operating normally</li>
+<li><span class="doc-badge doc-warn">Yellow</span> — no Wi-Fi or no server</li>
+<li><span class="doc-badge doc-bad">Red</span> — critical error or setup mode</li>
+</ul>
+<div class="doc-h4">Local dashboard</div>
+<p>On the same Wi-Fi network, open <code>safrasense-aqua.local/</code> to see real-time readings, server status, and settings. If there is more than one device on the network, the others use the format <code>safrasense-aqua-{code}.local/</code>. Type the trailing slash to help the browser search for the local address.</p>
+<div class="doc-h4">Reset</div>
+<ul>
+<li><strong>Reconnect Wi-Fi</strong> — in Settings -> Reconnect Wi-Fi. Keeps keys and identity if there is at least one connected Raiznet server.</li>
+<li><strong>Full reset</strong> — in Settings -> Danger zone. Erases identity, keys, and Wi-Fi. Irreversible.</li>
+</ul>
+)HTML";
+
+static const char S2_BODY_EN[] PROGMEM = R"HTML(
+<div class="doc-h4">What it is</div>
+<p>Raiznet is the network that receives, protects, and shares crop data without depending on a mandatory central server. A SafraSense and a computer on the same Wi-Fi network already form a local Raiznet; if you want, this data can also participate in a public network.</p>
+<p>Think of it as a crop notebook that can stay only on your bench or be shared with a community. The difference is that each reading is signed by the device, so other nodes can verify where it came from and whether it was changed.</p>
+<p>You can run your own Raiznet server on a regular computer and keep the operation inside your network. This reduces dependency on external infrastructure and keeps 100% of the promised functionality under the user's control, including history, local dashboards, automations, and AI integrations.</p>
+<p>The projects are open on GitHub: <a href="https://github.com/Arateki/Raiznet" target="_blank" rel="noopener">Raiznet</a> and <a href="https://github.com/Arateki/Safrasense" target="_blank" rel="noopener">SafraSense</a>.</p>
+<div class="doc-h4">Why it exists</div>
+<p>The goal is not only to see numbers in real time. Raiznet was designed to create agricultural memory: what was planted, under which conditions, in which region, and with which result. Over time, this memory can help growers, technicians, and researchers understand each crop better.</p>
+<p>Public data can feed regional comparisons and studies. Private data stays local or encrypted. The grower chooses field by field what leaves, what stays private, and what never leaves the device.</p>
+<div class="doc-h4">Operating modes</div>
+<ul>
+<li><strong>Local</strong> — works on the grower's Wi-Fi network, without internet.</li>
+<li><strong>Public</strong> — data chosen as public can circulate between nodes over the internet.</li>
+<li><strong>Hybrid</strong> — part stays local and another part helps the public network.</li>
+</ul>
+<div class="doc-h4">Servers</div>
+<p>A Raiznet server is a network node. It can run on a notebook, Raspberry Pi, Mini PC, or VPS. It receives readings, stores history, and answers queries from apps, dashboards, and analysis tools.</p>
+<ul>
+<li><strong>External (public)</strong> — full URL: <code>https://node.arateki.com</code></li>
+<li><strong>Local (LAN)</strong> — IP and port: <code>192.168.1.100:3000</code></li>
+</ul>
+<div class="doc-h4">Identity and security</div>
+<p>Each device has its own identity made of digital keys. It signs readings before sending them. This allows a server to accept data from a known device without depending on a traditional login or shared password.</p>
+<ul>
+<li><strong>Public ID</strong> — identifies the device on the network.</li>
+<li><strong>Private key</strong> — stays protected on the device and signs packets.</li>
+<li><strong>12 words</strong> — owner identity backup; never share them.</li>
+</ul>
+<div class="doc-h4">Data privacy</div>
+<ul>
+<li><span class="doc-badge">public</span> — can be used in maps, averages, and network studies.</li>
+<li><span class="doc-badge">encrypted</span> — travels protected; only the owner can read it.</li>
+<li><span class="doc-badge">omitted</span> — is not sent to that destination.</li>
+</ul>
+<div class="doc-h4">How data reaches the server</div>
+<p>On each cycle, the device reads the sensors, builds a telemetry packet, signs that packet, and sends it to the configured server. The server checks the signature, separates public data from private data, and stores the history for future queries.</p>
+<div class="doc-h4">Collective intelligence</div>
+<p>When many growers share public data, the network starts revealing patterns: better EC ranges for a crop in a certain region, stress signals before productivity drops, or differences between varieties. The proposal is for this knowledge to return to growers as recommendations, regional catalogs, and learning material.</p>
+)HTML";
+
+static const char S3_BODY_EN[] PROGMEM = R"HTML(
+<div class="doc-h4">What hydroponics is</div>
+<p>Hydroponics is growing plants without soil, using nutrient water instead. Roots stay in contact with a nutrient solution prepared to deliver what the plant needs to grow.</p>
+<p>Think of the reservoir as the plant's pantry and kitchen at the same time: water carries nutrients, oxygen helps the root breathe, and pH decides whether the plant can use that food.</p>
+<div class="doc-h4">How the system works</div>
+<p>The solution leaves the reservoir, passes through the roots, and returns or remains available to them. In systems with a pump, movement prevents stagnant water; in aerated systems, bubbles keep enough oxygen around the roots.</p>
+<p>SafraSense tracks important signals in this environment. It does not replace looking at plants and roots, but it helps notice changes early: water running low, solution too weak, excess nutrients, reservoir heat, or air that is too dry.</p>
+<div class="doc-h4">How to read measurements</div>
+<p>pH shows whether the solution is in a range where the plant can absorb nutrients. EC/TDS shows whether there are too many or too few nutrient salts in the water. Temperature and humidity indicate whether the environment is comfortable for growth and transpiration.</p>
+<p>The tables below are starting points. The ideal range changes with plant age, climate, variety, water quality, and nutrient brand. Make small corrections, wait for the solution to mix, and observe the trend before correcting again.</p>
+<div class="doc-h4">Manual pH measurement</div>
+<p>pH can also be measured manually with strips, reagent drops, a handheld meter, or another reliable method. When you enter this value in the system, the next reading can be updated with this manual data, making the crop history more complete.</p>
+<p>This is useful when no automatic pH sensor is installed, when you want to check a suspicious reading, or when you have just adjusted the solution. Recording the measurement with the time helps you understand how pH changes during the day and after corrections.</p>
+<p>The references below are approximations to guide initial management. Use them carefully: variety, plant phase, climate, source water, and nutrient used can change the ideal range substantially.</p>
+<div class="doc-h4">Essential parameters</div>
+<table>
+<thead><tr><th>Parameter</th><th>Ideal range</th><th>Impact</th></tr></thead>
+<tbody>
+<tr><td>pH</td><td>5.5 - 6.5</td><td>Nutrient absorption</td></tr>
+<tr><td>EC / TDS</td><td>500 - 1,500 ppm</td><td>Nutrient concentration</td></tr>
+<tr><td>Water temp.</td><td>18 - 22 °C</td><td>Oxygenation and roots</td></tr>
+<tr><td>Air temp.</td><td>18 - 28 °C</td><td>Photosynthesis and growth</td></tr>
+<tr><td>Air humidity</td><td>50 - 70 %</td><td>Transpiration and fungi</td></tr>
+</tbody>
+</table>
+<div class="doc-h4">Crop reference</div>
+<table>
+<thead><tr><th>Crop</th><th>pH</th><th>EC (ppm)</th></tr></thead>
+<tbody>
+<tr><td>Lettuce</td><td>5.5 - 6.5</td><td>500 - 1,200</td></tr>
+<tr><td>Basil</td><td>5.5 - 6.5</td><td>500 - 1,200</td></tr>
+<tr><td>Arugula</td><td>5.5 - 6.8</td><td>500 - 1,200</td></tr>
+<tr><td>Cilantro</td><td>6.0 - 7.0</td><td>500 - 1,200</td></tr>
+<tr><td>Tomato</td><td>5.5 - 6.5</td><td>500 - 1,200</td></tr>
+<tr><td>Bell pepper</td><td>5.5 - 6.5</td><td>500 - 1,200</td></tr>
+<tr><td>Cucumber</td><td>5.5 - 6.5</td><td>500 - 1,200</td></tr>
+<tr><td>Strawberry</td><td>5.5 - 6.5</td><td>500 - 1,200</td></tr>
+</tbody>
+</table>
+<p>Use the crop table as an initial reference, not as an absolute rule. Leafy greens usually use a lighter solution; fruiting plants such as tomato and bell pepper generally need more nutrients when producing.</p>
+<div class="doc-h4">Quick diagnosis</div>
+<ul>
+<li><strong>High pH (&gt;6.5)</strong> — add pH Down. May indicate excess limestone.</li>
+<li><strong>Low pH (&lt;5.5)</strong> — add pH Up. May cause calcium deficiency.</li>
+<li><strong>High EC</strong> — dilute with clean water. Excess salt can burn roots.</li>
+<li><strong>Low EC</strong> — replenish with concentrated nutrient solution.</li>
+<li><strong>Low level</strong> — refill with pH-adjusted water; dry roots cause irreversible stress.</li>
+<li><strong>High water temp. (&gt;24 °C)</strong> — less dissolved oxygen; Pythium risk.</li>
+</ul>
+<div class="doc-h4">Good practices</div>
+<p>A simple routine prevents most problems: check water level, pH, and EC; see whether the pump or aeration is working; observe root color, smell, and texture. Healthy roots are usually light, firm, and free of bad smell.</p>
+<ul>
+<li>Check pH and EC together — they influence each other.</li>
+<li>Replace the nutrient solution every 7-14 days to avoid salt buildup.</li>
+<li>Keep the reservoir covered to avoid algae and evaporation.</li>
+<li>Calibrate sensors periodically with reference solutions.</li>
+</ul>
+)HTML";
+
+static const char S4_BODY_EN[] PROGMEM = R"HTML(
+<p>These terms appear because they make SafraSense and Raiznet possible. The first idea is always simple; the details help anyone who wants to go deeper.</p>
+<div class="doc-h4">Network technology</div>
+<dl>
+<dt>AES-256-GCM</dt>
+<dd>AES-256-GCM is a way to lock digital data before sending it. Think of it as a padlock that also reports if someone tried to tamper with the package. In Raiznet, it protects readings marked as private; only someone with the correct key can open them. The number 256 indicates key size, and GCM helps detect content changes.</dd>
+
+<dt>Digital signature</dt>
+<dd>A digital signature is mathematical proof that a message came from who it claims to have come from. In SafraSense, each data packet is signed by the device before it reaches the server. It is similar to signing a document, but the server can verify it automatically and reject fake or altered packets.</dd>
+
+<dt>Append-only log</dt>
+<dd>An append-only log is a list where information is only added at the end. It works like a notebook of records: you can write a new line, but should not erase previous ones. In Hypercore, each record is linked to the previous one by cryptographic verification; if someone changes an old page, the network notices.</dd>
+
+<dt>BIP-39</dt>
+<dd>BIP-39 is a standard way to turn a key into words a person can write down. In SafraSense, the 12 words are the backup for the owner identity, like a spare copy of a very important key. Order matters: swapping two words creates another identity. Keep them offline and do not share them, because there is no centralized recovery if the words are lost.</dd>
+
+<dt>Public key and private key</dt>
+<dd>The public key is the address that can be shown; the private key is the secret that must stay protected. The public one identifies, the private one signs or opens information. In Raiznet, this replaces much of traditional login: the holder of the right key proves ownership without giving a password to a central server.</dd>
+
+<dt>Local data</dt>
+<dd>Local data is data that stays on your network or device. It does not need to go to the internet to be useful. This is a central part of Raiznet: the grower can monitor and query history even without cloud access, and only publishes what makes sense to share.</dd>
+
+<dt>Ed25519</dt>
+<dd>Ed25519 is a digital signature used to prove that a message came from the right device. It works like a paper signature, but made with math. The ESP32 signs each telemetry packet with its private key, and the server checks it with the public key. This way, fake or altered data can be rejected before entering the network.</dd>
+
+<dt>ESP32</dt>
+<dd>ESP32 is the small computer that controls SafraSense. It reads sensors, connects to Wi-Fi, stores settings, and sends data to Raiznet. Think of it as a control board similar to Arduino, but with built-in Wi-Fi. The model used has limited memory, so pages, text, and functions need to be planned carefully.</dd>
+
+<dt>H3</dt>
+<dd>H3 is a way to represent location using hexagon-shaped areas on the map. Instead of publishing an exact address, the device can report only the hexagonal cell it is in. In Raiznet, the owner chooses the size of that area: larger for more privacy, smaller for more agricultural precision. This enables regional analysis without requiring exact coordinates.</dd>
+
+<dt>HTTP POST</dt>
+<dd>HTTP POST is a simple way to send data over the network. SafraSense uses this path to deliver readings to the Raiznet server. It is practical for sensors: the device wakes, measures, sends the packet, and can go back to saving energy without keeping a connection open all the time.</dd>
+
+<dt>Hypercore</dt>
+<dd>Hypercore is a data log that can be copied between computers with integrity verification. Think of it as a shared journal: new pages are added, and other servers can copy those pages without depending on a central server. Each device can have its own Hypercore, and cryptography helps verify that pages are authentic.</dd>
+
+<dt>Hyperswarm</dt>
+<dd>Hyperswarm is the mechanism that helps Raiznet servers find each other on the internet. It works like a distributed meeting list: participants that know the same topic can find each other. After they meet, servers exchange Hypercore data. This reduces dependency on a central point to keep the public network running.</dd>
+
+<dt>Local-first</dt>
+<dd>Local-first means the system must work near the grower before depending on the internet. One SafraSense and one server on the same Wi-Fi network are enough to operate. The internet becomes an option for backup, collaboration, and collective intelligence, not a requirement to see the crop.</dd>
+
+<dt>mDNS</dt>
+<dd>mDNS is the feature that lets you open the device by a local name, such as <code>safrasense-aqua.local/</code>. It avoids having to memorize the SafraSense IP address on the Wi-Fi network. It is like calling someone by name instead of by number. On some phones, especially Android, you may need to use the direct IP shown in the dashboard.</dd>
+
+<dt>Raiznet node</dt>
+<dd>A Raiznet node is any server that participates in the network. It can be public, local, or hybrid. A node receives readings, stores history, answers queries, and, when it participates in the public network, helps other nodes keep verifiable copies of shared data.</dd>
+
+<dt>OTA — Over-The-Air Update</dt>
+<dd>OTA is updating firmware over Wi-Fi, without a USB cable. It is like updating an app, but for the device's internal program. The ESP32 can write the new version to a separate memory area and only switch after verification. If the update fails, the system can return to the previous version instead of making SafraSense unusable.</dd>
+
+<dt>Field-level privacy</dt>
+<dd>Field-level privacy means each reading can have its own rule. pH can be public, location can be approximate, and another value can stay only on the device. This avoids the bad choice between "show everything" and "do not participate in the network".</dd>
+
+<dt>SEQ — Sequence Number</dt>
+<dd>SEQ is the order number of each packet sent by the device. It works like page numbering: if a page is missing, the server notices; if a page arrives repeated, it notices too. SafraSense reserves sequence blocks to avoid reusing numbers after a restart. Small gaps may appear, but the priority is never duplicating a packet.</dd>
+
+<dt>Telemetry</dt>
+<dd>Telemetry is the set of readings the device sends to the server. In SafraSense, this can include pH, EC/TDS, temperature, humidity, water level, and battery. Telemetry becomes history, alerts, comparison between growing cycles, and a base for future recommendations.</dd>
+
+<dt>TRNG — True Random Number Generator</dt>
+<dd>TRNG is the part that generates truly random numbers on the ESP32. These numbers are used when SafraSense creates keys and the 12 backup words. Think of it as shuffling cards using physical noise from the hardware itself, not a predictable list. For better quality, the firmware generates this randomness while the Wi-Fi radio is active.</dd>
+</dl>
+
+<div class="doc-h4">Hydroponics and sensors</div>
+<dl>
+<dt>Nutrient lockout</dt>
+<dd>Nutrient lockout happens when the plant cannot absorb nutrients that are present in the water. The most common case is pH outside the range. It is like having food on the plate, but the kitchen door is locked: the solution may look correct, but the root cannot use it well.</dd>
+
+<dt>Aeration</dt>
+<dd>Aeration means adding oxygen to the nutrient solution. Roots also breathe, and stagnant or warm water holds less oxygen. In DWC, the air pump is as important as the solution itself: without it, the plant can wilt and roots can rot.</dd>
+
+<dt>DWC — Deep Water Culture</dt>
+<dd>DWC is a type of hydroponics where roots stay inside nutrient water. The water must receive air, usually from a pump with an air stone, so roots can breathe. It is simple and good for leafy greens and herbs, but warm water, a stopped pump, or weak aeration increases root-rot risk.</dd>
+
+<dt>Vertical hydroponic tower</dt>
+<dd>A vertical hydroponic tower is a system where plants grow on several levels, one above another, while the nutrient solution circulates through the structure. It uses small spaces better and can produce more per square meter. The main care point is keeping flow, level, pH, and nutrients stable at every point in the tower.</dd>
+
+<dt>EC — Electrical Conductivity</dt>
+<dd>EC indicates the concentration of dissolved nutrients in the water. The more nutrient salts are dissolved, the more the water conducts electricity. It is like measuring whether the plant's "soup" is weak, right, or too salty. EC is easier to compare between devices than PPM.</dd>
+
+<dt>NFT — Nutrient Film Technique</dt>
+<dd>NFT is a type of hydroponics where a thin film of nutrient water passes over the roots. Roots stay partly in air and partly receiving solution, as if the plant were drinking from a constant thread of water. It uses little water and nutrients, but depends heavily on the pump.</dd>
+
+<dt>pH</dt>
+<dd>pH shows whether the solution is more acidic or more alkaline. For the plant, it is like the setting of the nutrient entry door: if it is outside the range, food may be in the water, but the root cannot use it well. In many hydroponic systems, the practical range is close to 5.5 to 6.5.</dd>
+
+<dt>PPM — Parts Per Million</dt>
+<dd>PPM is a way to show concentration, meaning how much material is mixed in the water. In hydroponics, it appears often in TDS meters to indicate dissolved nutrients. Because meters can use different scales, always compare with the same scale or prefer EC.</dd>
+
+<dt>Pythium</dt>
+<dd>Pythium is a problem that can rot roots in hydroponic systems. It spreads better in warm, low-oxygen, or poorly cleaned water. Roots can darken, soften, and smell bad. Prevention is easier than correction: good aeration, a cool reservoir, and cleaning between growing cycles.</dd>
+
+<dt>Reservoir</dt>
+<dd>The reservoir is the tank that holds the nutrient solution. It is the base of the system: if it gets too warm, loses oxygen, catches light, or accumulates dirt, roots feel it quickly. Keeping the reservoir covered and clean reduces algae, evaporation, and sudden changes.</dd>
+
+<dt>Nutrient solution</dt>
+<dd>Nutrient solution is water mixed with nutrients that replace part of the soil's role. It must be strong enough to feed the plant, but not so concentrated that it stresses the roots. pH, EC/TDS, temperature, and oxygen help evaluate this mixture.</dd>
+
+<dt>TDS — Total Dissolved Solids</dt>
+<dd>TDS indicates the estimated amount of solids dissolved in the water. In hydroponics, it is used as shorthand for nutrient concentration. The meter usually calculates TDS from EC and displays it in PPM. Because of that, TDS and EC are looking at the same thing through different paths.</dd>
+
+<dt>DHT22</dt>
+<dd>DHT22 is the sensor that measures air temperature and humidity. It helps know whether the environment is comfortable for the plant to transpire and grow. It is like a thermometer with a hygrometer connected to the ESP32. It needs a few seconds between readings; readings that are too fast can be wrong.</dd>
+
+<dt>ToF — Time-of-Flight</dt>
+<dd>ToF is a way to measure distance using the travel time of light. In SafraSense, this sensor points at the water in the reservoir. Shorter distance means higher level; longer distance means lower level. Direct sunlight or strong reflections can interfere.</dd>
+
+<dt>Transpiration</dt>
+<dd>Transpiration is water loss from the plant through leaves. It helps pull nutrients through roots, but depends on the surrounding climate. Air that is too dry can make the plant lose water too quickly; humidity that is too high can favor fungi and reduce water exchange.</dd>
+</dl>
+)HTML";
+
+static const DocLang DOCS_EN = {
+  /* page_title    */ "SafraSense Guide",
+  /* page_subtitle */ "Quick reference for setup, monitoring, and hydroponic growing.",
+  /* back_link     */ "\xe2\x86\x90 Settings",
+  /* toc_title     */ "On this page",
+  /* s1_title      */ "SafraSense Aqua",
+  /* s2_title      */ "Raiznet Network",
+  /* s3_title      */ "Hydroponic Growing",
+  /* s4_title      */ "Glossary",
+  /* s1_body       */ S1_BODY_EN,
+  /* s2_body       */ S2_BODY_EN,
+  /* s3_body       */ S3_BODY_EN,
+  /* s4_body       */ S4_BODY_EN,
+};
+
+// ── ES (not yet translated — falls back to EN) ─────────────────────────────
 // static const DocLang DOCS_ES = { ... };
 
 // ── Language selector ──────────────────────────────────────────────────────
 
 static const DocLang& getDocLang(Language lang) {
   switch (lang) {
-    // Add cases here as translations are completed:
-    // case LANG_EN: return DOCS_EN;
+    case LANG_PT: return DOCS_PT;
+    case LANG_EN: return DOCS_EN;
     // case LANG_ES: return DOCS_ES;
-    default:      return DOCS_PT;
+    default:      return DOCS_EN;
   }
 }
 
@@ -516,10 +788,14 @@ String buildDocsPortalPage(Language lang) {
   const DocLang& d = getDocLang(lang);
   String html;
   html.reserve(22000);
-  html += F("<!DOCTYPE html><html lang='pt-BR'><head>"
+  html += F("<!DOCTYPE html><html lang='");
+  html += (lang == LANG_PT) ? "pt-BR" : "en";
+  html += F("'><head>"
             "<meta charset='UTF-8'>"
             "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-            "<title>Manual \xe2\x80\x94 SafraSense Aqua</title>"
+            "<title>");
+  html += d.page_title;
+  html += F(" \xe2\x80\x94 SafraSense Aqua</title>"
             "<style>");
   appendProgmem(html, DOCS_PORTAL_CSS);
   html += F("</style></head><body>"
