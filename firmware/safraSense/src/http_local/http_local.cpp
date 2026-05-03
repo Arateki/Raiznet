@@ -27,6 +27,8 @@ static String normalizeLocalLangCode(String code) {
   code.toLowerCase();
   if (code == "pt" || code.startsWith("pt-") || code == "1") return "1";
   if (code == "en" || code.startsWith("en-") || code == "0") return "0";
+  if (code == "es" || code.startsWith("es-") || code == "2") return "2";
+  if (code == "zh" || code.startsWith("zh-") || code == "4") return "4";
   return "0";
 }
 
@@ -43,6 +45,8 @@ static String systemLocalLangCode() {
     item.trim();
     if (item == "pt" || item.startsWith("pt-")) return "1";
     if (item == "en" || item.startsWith("en-")) return "0";
+    if (item == "es" || item.startsWith("es-")) return "2";
+    if (item == "zh" || item.startsWith("zh-")) return "4";
     start = end + 1;
   }
   return "0";
@@ -57,82 +61,93 @@ static String currentLocalLangCode() {
 static Language currentLocalLanguage() {
   String code = currentLocalLangCode();
   if (code == "1") return LANG_PT;
+  if (code == "2") return LANG_ES;
+  if (code == "4") return LANG_ZH;
   return LANG_EN;
 }
 
 static const char* localHtmlLang(Language lang) {
-  return lang == LANG_PT ? "pt-BR" : "en";
+  if (lang == LANG_PT) return "pt-BR";
+  if (lang == LANG_ES) return "es";
+  if (lang == LANG_ZH) return "zh-CN";
+  return "en";
+}
+
+static const char* localChoice(Language lang, const char* en, const char* pt, const char* es, const char* zh) {
+  if (lang == LANG_PT) return pt;
+  if (lang == LANG_ES) return es;
+  if (lang == LANG_ZH) return zh;
+  return en;
 }
 
 static const char* localText(Language lang, const char* key) {
-  const bool pt = (lang == LANG_PT);
-  if (strcmp(key, "select_language") == 0) return pt ? "Selecionar idioma" : "Select language";
-  if (strcmp(key, "toggle_theme") == 0) return pt ? "Alternar tema" : "Toggle theme";
-  if (strcmp(key, "nav_main") == 0) return pt ? "Navegação principal" : "Main navigation";
+  if (strcmp(key, "select_language") == 0) return localChoice(lang, "Select language", "Selecionar idioma", "Seleccionar idioma", "选择语言");
+  if (strcmp(key, "toggle_theme") == 0) return localChoice(lang, "Toggle theme", "Alternar tema", "Alternar tema", "切换主题");
+  if (strcmp(key, "nav_main") == 0) return localChoice(lang, "Main navigation", "Navegação principal", "Navegación principal", "主导航");
   if (strcmp(key, "title_dashboard") == 0) return "SafraSense Aqua";
-  if (strcmp(key, "title_settings") == 0) return pt ? "Configurações" : "Settings";
-  if (strcmp(key, "title_manual") == 0) return pt ? "Manual — SafraSense Aqua" : "Guide - SafraSense Aqua";
+  if (strcmp(key, "title_settings") == 0) return localChoice(lang, "Settings", "Configurações", "Configuración", "设置");
+  if (strcmp(key, "title_manual") == 0) return localChoice(lang, "Guide - SafraSense Aqua", "Manual — SafraSense Aqua", "Manual — SafraSense Aqua", "手册 — SafraSense Aqua");
   if (strcmp(key, "title_raiznet") == 0) return "Raiznet - SafraSense";
-  if (strcmp(key, "nav_home") == 0) return pt ? "Início" : "Home";
+  if (strcmp(key, "nav_home") == 0) return localChoice(lang, "Home", "Início", "Inicio", "首页");
   if (strcmp(key, "nav_raiznet") == 0) return "Raiznet";
-  if (strcmp(key, "nav_config") == 0) return pt ? "Configurações" : "Settings";
-  if (strcmp(key, "nav_docs") == 0) return pt ? "Manual" : "Guide";
-  if (strcmp(key, "overview_label") == 0) return pt ? "V I S Ã O   G E R A L" : "O V E R V I E W";
-  if (strcmp(key, "dashboard_empty_summary") == 0) return pt ? "Aguardando a primeira leitura local do sensor." : "Waiting for the first local sensor reading.";
+  if (strcmp(key, "nav_config") == 0) return localChoice(lang, "Settings", "Configurações", "Configuración", "设置");
+  if (strcmp(key, "nav_docs") == 0) return localChoice(lang, "Guide", "Manual", "Manual", "手册");
+  if (strcmp(key, "overview_label") == 0) return localChoice(lang, "O V E R V I E W", "V I S Ã O   G E R A L", "V I S I Ó N   G E N E R A L", "总览");
+  if (strcmp(key, "dashboard_empty_summary") == 0) return localChoice(lang, "Waiting for the first local sensor reading.", "Aguardando a primeira leitura local do sensor.", "Esperando la primera lectura local del sensor.", "正在等待第一次本地传感器读数。");
   if (strcmp(key, "wifi_pending") == 0) return "Wi-Fi --";
-  if (strcmp(key, "server_pending") == 0) return pt ? "Servidor --" : "Server --";
+  if (strcmp(key, "server_pending") == 0) return localChoice(lang, "Server --", "Servidor --", "Servidor --", "服务器 --");
   if (strcmp(key, "buffer_pending") == 0) return "Buffer --";
-  if (strcmp(key, "send_pending") == 0) return pt ? "Último envio --" : "Last send --";
-  if (strcmp(key, "force_read") == 0) return pt ? "+ Fazer nova leitura" : "+ Take new reading";
-  if (strcmp(key, "metric_temp") == 0) return pt ? "Temperatura" : "Temperature";
-  if (strcmp(key, "metric_humidity") == 0) return pt ? "Umidade do ar" : "Air humidity";
-  if (strcmp(key, "metric_tds") == 0) return pt ? "Sólidos dissolvidos" : "Dissolved solids";
-  if (strcmp(key, "metric_ph") == 0) return pt ? "Potencial Hidrog." : "Hydrogen pot.";
-  if (strcmp(key, "metric_water") == 0) return pt ? "Nível da água" : "Water level";
-  if (strcmp(key, "metric_battery") == 0) return pt ? "Bateria" : "Battery";
-  if (strcmp(key, "no_reading") == 0) return pt ? "sem leitura" : "no reading";
-  if (strcmp(key, "manual_input") == 0) return pt ? "entrada manual" : "manual input";
-  if (strcmp(key, "servers_label") == 0) return pt ? "S E R V I D O R E S" : "S E R V E R S";
-  if (strcmp(key, "external_label") == 0) return pt ? "E X T E R N O S" : "E X T E R N A L";
-  if (strcmp(key, "local_label") == 0) return pt ? "L O C A I S" : "L O C A L";
-  if (strcmp(key, "system_label") == 0) return pt ? "S I S T E M A" : "S Y S T E M";
-  if (strcmp(key, "config_label") == 0) return pt ? "C O N F I G U R A Ç Õ E S" : "S E T T I N G S";
-  if (strcmp(key, "config_heading") == 0) return pt ? "Destinos e Sistema" : "Destinations and System";
-  if (strcmp(key, "sensor_name") == 0) return pt ? "Nome do sensor" : "Sensor name";
-  if (strcmp(key, "public_servers") == 0) return pt ? "Servidores Públicos" : "Public servers";
-  if (strcmp(key, "local_server") == 0) return pt ? "Servidor Local" : "Local server";
-  if (strcmp(key, "other_btn") == 0) return pt ? "+ Outro" : "+ Other";
-  if (strcmp(key, "use_arateki") == 0) return pt ? "Usar Arateki" : "Use Arateki";
-  if (strcmp(key, "save") == 0) return pt ? "Salvar" : "Save";
-  if (strcmp(key, "tools") == 0) return pt ? "Ferramentas" : "Tools";
+  if (strcmp(key, "send_pending") == 0) return localChoice(lang, "Last send --", "Último envio --", "Último envío --", "上次发送 --");
+  if (strcmp(key, "force_read") == 0) return localChoice(lang, "+ Take new reading", "+ Fazer nova leitura", "+ Hacer nueva lectura", "+ 立即读取");
+  if (strcmp(key, "metric_temp") == 0) return localChoice(lang, "Temperature", "Temperatura", "Temperatura", "温度");
+  if (strcmp(key, "metric_humidity") == 0) return localChoice(lang, "Air humidity", "Umidade do ar", "Humedad del aire", "空气湿度");
+  if (strcmp(key, "metric_tds") == 0) return localChoice(lang, "Dissolved solids", "Sólidos dissolvidos", "Sólidos disueltos", "溶解固体");
+  if (strcmp(key, "metric_ph") == 0) return localChoice(lang, "Hydrogen pot.", "Potencial Hidrog.", "Potencial hidrog.", "氢离子浓度");
+  if (strcmp(key, "metric_water") == 0) return localChoice(lang, "Water level", "Nível da água", "Nivel del agua", "水位");
+  if (strcmp(key, "metric_battery") == 0) return localChoice(lang, "Battery", "Bateria", "Batería", "电池");
+  if (strcmp(key, "no_reading") == 0) return localChoice(lang, "no reading", "sem leitura", "sin lectura", "无读数");
+  if (strcmp(key, "manual_input") == 0) return localChoice(lang, "manual input", "entrada manual", "entrada manual", "手动输入");
+  if (strcmp(key, "servers_label") == 0) return localChoice(lang, "S E R V E R S", "S E R V I D O R E S", "S E R V I D O R E S", "服务器");
+  if (strcmp(key, "external_label") == 0) return localChoice(lang, "E X T E R N A L", "E X T E R N O S", "E X T E R N O S", "外部");
+  if (strcmp(key, "local_label") == 0) return localChoice(lang, "L O C A L", "L O C A I S", "L O C A L E S", "本地");
+  if (strcmp(key, "system_label") == 0) return localChoice(lang, "S Y S T E M", "S I S T E M A", "S I S T E M A", "系统");
+  if (strcmp(key, "config_label") == 0) return localChoice(lang, "S E T T I N G S", "C O N F I G U R A Ç Õ E S", "C O N F I G U R A C I Ó N", "设置");
+  if (strcmp(key, "config_heading") == 0) return localChoice(lang, "Destinations and System", "Destinos e Sistema", "Destinos y Sistema", "目标与系统");
+  if (strcmp(key, "sensor_name") == 0) return localChoice(lang, "Sensor name", "Nome do sensor", "Nombre del sensor", "传感器名称");
+  if (strcmp(key, "public_servers") == 0) return localChoice(lang, "Public servers", "Servidores Públicos", "Servidores públicos", "公共服务器");
+  if (strcmp(key, "local_server") == 0) return localChoice(lang, "Local server", "Servidor Local", "Servidor local", "本地服务器");
+  if (strcmp(key, "other_btn") == 0) return localChoice(lang, "+ Other", "+ Outro", "+ Otro", "+ 其他");
+  if (strcmp(key, "use_arateki") == 0) return localChoice(lang, "Use Arateki", "Usar Arateki", "Usar Arateki", "使用 Arateki");
+  if (strcmp(key, "save") == 0) return localChoice(lang, "Save", "Salvar", "Guardar", "保存");
+  if (strcmp(key, "tools") == 0) return localChoice(lang, "Tools", "Ferramentas", "Herramientas", "工具");
   if (strcmp(key, "status_api") == 0) return "Status API";
   if (strcmp(key, "json") == 0) return "JSON";
-  if (strcmp(key, "reconnect_wifi") == 0) return pt ? "Reconectar Wi-Fi" : "Reconnect Wi-Fi";
-  if (strcmp(key, "reconnect_confirm") == 0) return pt ? "Reconectar Wi-Fi?" : "Reconnect Wi-Fi?";
-  if (strcmp(key, "danger_zone") == 0) return pt ? "Zona de perigo" : "Danger zone";
-  if (strcmp(key, "factory_reset") == 0) return pt ? "Reset Completo (Apagar Chaves)" : "Full Reset (Erase Keys)";
-  if (strcmp(key, "name_placeholder") == 0) return pt ? "Nome" : "Name";
-  if (strcmp(key, "url_or_ip_port_placeholder") == 0) return pt ? "URL ou IP:porta" : "URL or IP:port";
-  if (strcmp(key, "ip_port_placeholder") == 0) return pt ? "IP:porta" : "IP:port";
+  if (strcmp(key, "reconnect_wifi") == 0) return localChoice(lang, "Reconnect Wi-Fi", "Reconectar Wi-Fi", "Reconectar Wi-Fi", "重新连接 Wi-Fi");
+  if (strcmp(key, "reconnect_confirm") == 0) return localChoice(lang, "Reconnect Wi-Fi?", "Reconectar Wi-Fi?", "¿Reconectar Wi-Fi?", "重新连接 Wi-Fi？");
+  if (strcmp(key, "danger_zone") == 0) return localChoice(lang, "Danger zone", "Zona de perigo", "Zona de peligro", "危险区域");
+  if (strcmp(key, "factory_reset") == 0) return localChoice(lang, "Full Reset (Erase Keys)", "Reset Completo (Apagar Chaves)", "Reset completo (borrar claves)", "完全重置（删除密钥）");
+  if (strcmp(key, "name_placeholder") == 0) return localChoice(lang, "Name", "Nome", "Nombre", "名称");
+  if (strcmp(key, "url_or_ip_port_placeholder") == 0) return localChoice(lang, "URL or IP:port", "URL ou IP:porta", "URL o IP:puerto", "URL 或 IP:端口");
+  if (strcmp(key, "ip_port_placeholder") == 0) return localChoice(lang, "IP:port", "IP:porta", "IP:puerto", "IP:端口");
   if (strcmp(key, "url_placeholder") == 0) return "URL";
-  if (strcmp(key, "manual_label") == 0) return pt ? "M A N U A L" : "G U I D E";
-  if (strcmp(key, "docs_title") == 0) return pt ? "Guia SafraSense" : "SafraSense Guide";
-  if (strcmp(key, "docs_subtitle") == 0) return pt ? "Referência rápida para configuração, monitoramento e cultivo hidropônico." : "Quick reference for setup, monitoring, and hydroponic growing.";
-  if (strcmp(key, "copy_docs_title") == 0) return pt ? "Copiar manual completo" : "Copy full guide";
-  if (strcmp(key, "raiznet_label") == 0) return pt ? "R E D E   D E S C E N T R A L I Z A D A" : "D E C E N T R A L I Z E D   N E T W O R K";
-  if (strcmp(key, "raiznet_heading") == 0) return pt ? "Status Raiznet" : "Raiznet Status";
-  if (strcmp(key, "connected_servers") == 0) return pt ? "Servidores Conectados" : "Connected servers";
-  if (strcmp(key, "loading_status") == 0) return pt ? "Carregando status..." : "Loading status...";
-  if (strcmp(key, "reset_wifi_title") == 0) return pt ? "Reconectando Wi-Fi" : "Reconnecting Wi-Fi";
-  if (strcmp(key, "reset_wifi_body") == 0) return pt ? "Aguarde alguns segundos." : "Wait a few seconds.";
-  if (strcmp(key, "factory_title") == 0) return pt ? "Reset de fábrica" : "Factory reset";
-  if (strcmp(key, "factory_warning") == 0) return pt ? "Esta ação vai <strong>apagar permanentemente</strong> a identidade criptográfica e as configurações." : "This action will <strong>permanently erase</strong> the cryptographic identity and settings.";
-  if (strcmp(key, "factory_confirm_hint") == 0) return pt ? "Para confirmar, digite <strong>CONFIRMAR</strong>:" : "To confirm, type <strong>CONFIRM</strong>:";
-  if (strcmp(key, "factory_placeholder") == 0) return pt ? "CONFIRMAR" : "CONFIRM";
-  if (strcmp(key, "factory_button") == 0) return pt ? "Apagar e reiniciar" : "Erase and restart";
-  if (strcmp(key, "factory_back") == 0) return pt ? "← Voltar" : "← Back";
-  if (strcmp(key, "factory_running_title") == 0) return pt ? "Resetando..." : "Resetting...";
-  if (strcmp(key, "factory_running_body") == 0) return pt ? "O dispositivo vai reiniciar e gerar uma nova identidade." : "The device will restart and generate a new identity.";
+  if (strcmp(key, "manual_label") == 0) return localChoice(lang, "G U I D E", "M A N U A L", "M A N U A L", "手册");
+  if (strcmp(key, "docs_title") == 0) return localChoice(lang, "SafraSense Guide", "Guia SafraSense", "Guía SafraSense", "SafraSense 指南");
+  if (strcmp(key, "docs_subtitle") == 0) return localChoice(lang, "Quick reference for setup, monitoring, and hydroponic growing.", "Referência rápida para configuração, monitoramento e cultivo hidropônico.", "Referencia rápida para configuración, monitoreo y cultivo hidropónico.", "配置、监测和水培种植的快速参考。");
+  if (strcmp(key, "copy_docs_title") == 0) return localChoice(lang, "Copy full guide", "Copiar manual completo", "Copiar manual completo", "复制完整手册");
+  if (strcmp(key, "raiznet_label") == 0) return localChoice(lang, "D E C E N T R A L I Z E D   N E T W O R K", "R E D E   D E S C E N T R A L I Z A D A", "R E D   D E S C E N T R A L I Z A D A", "去中心化网络");
+  if (strcmp(key, "raiznet_heading") == 0) return localChoice(lang, "Raiznet Status", "Status Raiznet", "Estado Raiznet", "Raiznet 状态");
+  if (strcmp(key, "connected_servers") == 0) return localChoice(lang, "Connected servers", "Servidores Conectados", "Servidores conectados", "已连接服务器");
+  if (strcmp(key, "loading_status") == 0) return localChoice(lang, "Loading status...", "Carregando status...", "Cargando estado...", "正在加载状态...");
+  if (strcmp(key, "reset_wifi_title") == 0) return localChoice(lang, "Reconnecting Wi-Fi", "Reconectando Wi-Fi", "Reconectando Wi-Fi", "正在重新连接 Wi-Fi");
+  if (strcmp(key, "reset_wifi_body") == 0) return localChoice(lang, "Wait a few seconds.", "Aguarde alguns segundos.", "Espere unos segundos.", "请等待几秒钟。");
+  if (strcmp(key, "factory_title") == 0) return localChoice(lang, "Factory reset", "Reset de fábrica", "Restablecimiento de fábrica", "恢复出厂设置");
+  if (strcmp(key, "factory_warning") == 0) return localChoice(lang, "This action will <strong>permanently erase</strong> the cryptographic identity and settings.", "Esta ação vai <strong>apagar permanentemente</strong> a identidade criptográfica e as configurações.", "Esta acción va a <strong>borrar permanentemente</strong> la identidad criptográfica y la configuración.", "此操作将<strong>永久删除</strong>加密身份和设置。");
+  if (strcmp(key, "factory_confirm_hint") == 0) return localChoice(lang, "To confirm, type <strong>CONFIRM</strong>:", "Para confirmar, digite <strong>CONFIRMAR</strong>:", "Para confirmar, escriba <strong>CONFIRMAR</strong>:", "如需确认，请输入 <strong>CONFIRM</strong>：");
+  if (strcmp(key, "factory_placeholder") == 0) return localChoice(lang, "CONFIRM", "CONFIRMAR", "CONFIRMAR", "CONFIRM");
+  if (strcmp(key, "factory_button") == 0) return localChoice(lang, "Erase and restart", "Apagar e reiniciar", "Borrar y reiniciar", "删除并重启");
+  if (strcmp(key, "factory_back") == 0) return localChoice(lang, "← Back", "← Voltar", "← Volver", "← 返回");
+  if (strcmp(key, "factory_running_title") == 0) return localChoice(lang, "Resetting...", "Resetando...", "Restableciendo...", "正在重置...");
+  if (strcmp(key, "factory_running_body") == 0) return localChoice(lang, "The device will restart and generate a new identity.", "O dispositivo vai reiniciar e gerar uma nova identidade.", "El dispositivo se reiniciará y generará una nueva identidad.", "设备将重启并生成新的身份。");
   return key;
 }
 
@@ -384,7 +399,7 @@ const char LOCAL_DASHBOARD_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SafraSense Aqua</title>
-<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=String(l).toLowerCase();l=(l==='1'||l==='pt')?'1':((l==='2'||l==='es')?'2':((l==='4'||l==='zh'||l.indexOf('zh-')===0)?'4':'0'));u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head>
 <body>
@@ -542,12 +557,84 @@ const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
       help_ph_title:'Potencial Hidrogeniônico',help_ph_text:'Mede a acidez ou alcalinidade da água. O pH correto é crucial para que a planta consiga absorver os nutrientes presentes na solução.',help_ph_range:'Faixa ideal geral: 5.5 a 6.5.',
       help_water_title:'Nível da água',help_water_text:'Mostra a altura disponível no reservatório. Nível baixo pode secar raízes, parar circulação ou concentrar demais os nutrientes.',help_water_range:'Faixa ideal: acima do mínimo seguro do reservatório.',
       help_battery_title:'Bateria',help_battery_text:'Indica a energia restante do dispositivo. Bateria baixa pode interromper leituras e atrasar o envio dos dados para os servidores.',help_battery_range:'Faixa ideal: acima de 40%.'
+    },
+    '2':{
+      select_language:'Seleccionar idioma',toggle_theme:'Alternar tema',nav_main:'Navegación principal',
+      title_dashboard:'SafraSense Aqua',title_settings:'Configuración',title_manual:'Manual — SafraSense Aqua',title_raiznet:'Raiznet - SafraSense',
+      nav_home:'Inicio',nav_raiznet:'Raiznet',nav_config:'Configuración',nav_docs:'Manual',
+      overview_label:'V I S I Ó N   G E N E R A L',dashboard_empty_summary:'Esperando la primera lectura local del sensor.',
+      wifi_pending:'Wi-Fi --',server_pending:'Servidor --',buffer_pending:'Buffer --',send_pending:'Último envío --',
+      force_read:'+ Hacer nueva lectura',reading_sensors:'Leyendo sensores...',
+      metric_temp:'Temperatura',metric_humidity:'Humedad del aire',metric_tds:'Sólidos disueltos',
+      metric_ph:'Potencial hidrog.',metric_water:'Nivel del agua',metric_battery:'Batería',
+      no_reading:'sin lectura',manual_input:'entrada manual',servers_label:'S E R V I D O R E S',
+      external_label:'E X T E R N O S',local_label:'L O C A L E S',system_label:'S I S T E M A',
+      config_label:'C O N F I G U R A C I Ó N',config_heading:'Destinos y Sistema',sensor_name:'Nombre del sensor',
+      public_servers:'Servidores públicos',local_server:'Servidor local',other_btn:'+ Otro',use_arateki:'Usar Arateki',
+      save:'Guardar',tools:'Herramientas',status_api:'Status API',json:'JSON',reconnect_wifi:'Reconectar Wi-Fi',
+      reconnect_confirm:'¿Reconectar Wi-Fi?',danger_zone:'Zona de peligro',factory_reset:'Reset completo (borrar claves)',
+      name_placeholder:'Nombre',url_or_ip_port_placeholder:'URL o IP:puerto',ip_port_placeholder:'IP:puerto',url_placeholder:'URL',
+      manual_label:'M A N U A L',docs_title:'Guía SafraSense',
+      docs_subtitle:'Referencia rápida para configuración, monitoreo y cultivo hidropónico.',copy_docs_title:'Copiar manual completo',
+      raiznet_label:'R E D   D E S C E N T R A L I Z A D A',raiznet_heading:'Estado Raiznet',
+      connected_servers:'Servidores conectados',loading_status:'Cargando estado...',
+      wifi_connected:'Wi-Fi conectado',wifi_offline:'Wi-Fi offline',server_online:'Servidor online',
+      server_offline:'Servidor offline',pending_suffix:' pendiente(s)',last_send:'Último envío ',local_no_response:'Sin respuesta local',
+      sensor_offline:'sensor offline',dht_active:'DHT activo',tds_active:'TDS activo',laser_active:'láser activo',
+      public_key:'Clave pública',copy:'Copiar',copy_public_key:'Copiar clave pública',
+      uptime:'Uptime',free_heap:'Heap libre',minutes_suffix:' min',kb_suffix:' KB',
+      no_servers:'Ningún servidor configurado',server_default:'Servidor',online:'online',offline:'offline',
+      ph_prompt:'Escriba el valor de pH (0-14):',invalid_ph_alert:'Valor inválido. Ingrese un número entre 0 y 14.',
+      show_details:'Mostrar detalles: ',
+      help_temp_title:'Temperatura',help_temp_text:'Indica el calor alrededor de la planta. Temperaturas fuera del rango ideal reducen el crecimiento, la absorción de agua y la respuesta a los nutrientes.',help_temp_range:'Rango ideal general: 20 a 28 °C.',
+      help_hum_title:'Humedad del aire',help_hum_text:'Muestra cuánta humedad hay en el aire. La humedad muy baja aumenta la pérdida de agua; la muy alta favorece hongos y dificulta la transpiración de la planta.',help_hum_range:'Rango ideal general: 50 a 70%.',
+      help_ec_title:'Sólidos disueltos',help_ec_text:'Estima la cantidad de sales y nutrientes disueltos en el agua. Valores bajos indican poca nutrición; valores altos pueden causar estrés en las raíces.',help_ec_range:'Rango ideal general: 500 a 1200 ppm, según el cultivo.',
+      help_ph_title:'Potencial hidrogeniónico',help_ph_text:'Mide la acidez o alcalinidad del agua. El pH correcto es crucial para que la planta pueda absorber los nutrientes presentes en la solución.',help_ph_range:'Rango ideal general: 5.5 a 6.5.',
+      help_water_title:'Nivel del agua',help_water_text:'Muestra la altura disponible en el reservorio. Un nivel bajo puede secar raíces, detener la circulación o concentrar demasiado los nutrientes.',help_water_range:'Rango ideal: por encima del mínimo seguro del reservorio.',
+      help_battery_title:'Batería',help_battery_text:'Indica la energía restante del dispositivo. Batería baja puede interrumpir lecturas y retrasar el envío de datos a los servidores.',help_battery_range:'Rango ideal: por encima de 40%.'
+    },
+    '4':{
+      select_language:'选择语言',toggle_theme:'切换主题',nav_main:'主导航',
+      title_dashboard:'SafraSense Aqua',title_settings:'设置',title_manual:'手册 — SafraSense Aqua',title_raiznet:'Raiznet - SafraSense',
+      nav_home:'首页',nav_raiznet:'Raiznet',nav_config:'设置',nav_docs:'手册',
+      overview_label:'总览',dashboard_empty_summary:'正在等待第一次本地传感器读数。',
+      wifi_pending:'Wi-Fi --',server_pending:'服务器 --',buffer_pending:'Buffer --',send_pending:'上次发送 --',
+      force_read:'+ 立即读取',reading_sensors:'正在读取传感器...',
+      metric_temp:'温度',metric_humidity:'空气湿度',metric_tds:'溶解固体',
+      metric_ph:'氢离子浓度',metric_water:'水位',metric_battery:'电池',
+      no_reading:'无读数',manual_input:'手动输入',servers_label:'服务器',
+      external_label:'外部',local_label:'本地',system_label:'系统',
+      config_label:'设置',config_heading:'目标与系统',sensor_name:'传感器名称',
+      public_servers:'公共服务器',local_server:'本地服务器',other_btn:'+ 其他',use_arateki:'使用 Arateki',
+      save:'保存',tools:'工具',status_api:'Status API',json:'JSON',reconnect_wifi:'重新连接 Wi-Fi',
+      reconnect_confirm:'重新连接 Wi-Fi？',danger_zone:'危险区域',factory_reset:'完全重置（删除密钥）',
+      name_placeholder:'名称',url_or_ip_port_placeholder:'URL 或 IP:端口',ip_port_placeholder:'IP:端口',url_placeholder:'URL',
+      manual_label:'手册',docs_title:'SafraSense 指南',
+      docs_subtitle:'配置、监测和水培种植的快速参考。',copy_docs_title:'复制完整手册',
+      raiznet_label:'去中心化网络',raiznet_heading:'Raiznet 状态',
+      connected_servers:'已连接服务器',loading_status:'正在加载状态...',
+      wifi_connected:'Wi-Fi 已连接',wifi_offline:'Wi-Fi 离线',server_online:'服务器在线',
+      server_offline:'服务器离线',pending_suffix:' 待处理',last_send:'上次发送 ',local_no_response:'无本地响应',
+      sensor_offline:'传感器离线',dht_active:'DHT 正常',tds_active:'TDS 正常',laser_active:'激光正常',
+      public_key:'公钥',copy:'复制',copy_public_key:'复制公钥',
+      uptime:'运行时间',free_heap:'可用堆内存',minutes_suffix:' 分钟',kb_suffix:' KB',
+      no_servers:'未配置服务器',server_default:'服务器',online:'在线',offline:'离线',
+      ph_prompt:'输入 pH 值 (0-14):',invalid_ph_alert:'数值无效。请输入 0 到 14 之间的数字。',
+      show_details:'显示详情：',
+      help_temp_title:'温度',help_temp_text:'显示植物周围的热量。温度超出理想范围会降低生长、吸水和对养分的反应。',help_temp_range:'一般理想范围：20 到 28 °C。',
+      help_hum_title:'空气湿度',help_hum_text:'显示空气中的水分含量。湿度过低会增加失水；湿度过高会促进真菌并让植物蒸腾更困难。',help_hum_range:'一般理想范围：50 到 70%。',
+      help_ec_title:'溶解固体',help_ec_text:'估算水中溶解的盐分和养分数量。数值低表示营养不足；数值高可能使根系受压。',help_ec_range:'一般理想范围：500 到 1200 ppm，取决于作物。',
+      help_ph_title:'氢离子浓度',help_ph_text:'测量水的酸碱度。正确的 pH 对植物吸收溶液中的养分至关重要。',help_ph_range:'一般理想范围：5.5 到 6.5。',
+      help_water_title:'水位',help_water_text:'显示储液槽中的可用高度。水位过低可能让根系干燥、停止循环或让养分过度浓缩。',help_water_range:'理想范围：高于储液槽安全最低线。',
+      help_battery_title:'电池',help_battery_text:'显示设备剩余电量。电量低可能中断读数并延迟数据发送到服务器。',help_battery_range:'理想范围：高于 40%。'
     }
   };
   function normalizeLang(value){
     if(value==='pt')return'1';
     if(value==='en')return'0';
-    return value==='1'?'1':'0';
+    if(value==='es')return'2';
+    if(value==='zh'||value==='zh-cn'||value==='zh-tw')return'4';
+    return value==='1'||value==='2'||value==='4'?value:'0';
   }
   function systemLang(){
     var langs=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||navigator.userLanguage||''];
@@ -555,6 +642,8 @@ const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
       var v=String(langs[i]||'').toLowerCase();
       if(v==='pt'||v.indexOf('pt-')===0)return'1';
       if(v==='en'||v.indexOf('en-')===0)return'0';
+      if(v==='es'||v.indexOf('es-')===0)return'2';
+      if(v==='zh'||v.indexOf('zh-')===0)return'4';
     }
     return'0';
   }
@@ -588,7 +677,7 @@ const char LOCAL_NAV_JS[] PROGMEM = R"rawliteral(
   };
   function applyTranslations(){
     var t=textFor(window.localLang);
-    document.documentElement.lang=window.localLang==='1'?'pt-BR':'en';
+    document.documentElement.lang=window.localLang==='1'?'pt-BR':(window.localLang==='2'?'es':(window.localLang==='4'?'zh-CN':'en'));
     if(location.pathname==='/')document.title=t.title_dashboard;
     else if(location.pathname==='/config')document.title=t.title_settings;
     else if(location.pathname==='/docs')document.title=t.title_manual;
@@ -1005,7 +1094,7 @@ static void handleApiTelemetry() {
   if (!gHasReading) {
     Language lang = currentLocalLanguage();
     String body = "{\"error\":\"";
-    body += (lang == LANG_PT) ? "sem leituras ainda" : "no readings yet";
+    body += localChoice(lang, "no readings yet", "sem leituras ainda", "sin lecturas todavía", "还没有读数");
     body += "\"}";
     server.send(503, "application/json", body);
     return;
@@ -1080,7 +1169,7 @@ static void handleConfig() {
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Configurações</title>
-<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=String(l).toLowerCase();l=(l==='1'||l==='pt')?'1':((l==='2'||l==='es')?'2':((l==='4'||l==='zh'||l.indexOf('zh-')===0)?'4':'0'));u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head><body>
 <header class="local-header">
@@ -1288,7 +1377,7 @@ static void handleResetFactoryPage() {
 <title>)HTML";
   html += localText(lang, "factory_title");
   html += R"HTML(</title>
-<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=String(l).toLowerCase();l=(l==='1'||l==='pt')?'1':((l==='2'||l==='es')?'2':((l==='4'||l==='zh'||l.indexOf('zh-')===0)?'4':'0'));u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <style>
 :root { --bg:#f4f1ea; --fg:#1d231e; --line:#d8d2bf; --bad:#a83a2a; }
 [data-theme="dark"] { --bg:#0d1310; --fg:#d8e3d4; --line:#20281f; --bad:#d36e63; }
@@ -1363,7 +1452,7 @@ static const char DOCS_HEADER_HTML[] PROGMEM = R"rawliteral(<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Manual — SafraSense Aqua</title>
-<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=String(l).toLowerCase();l=(l==='1'||l==='pt')?'1':((l==='2'||l==='es')?'2':((l==='4'||l==='zh'||l.indexOf('zh-')===0)?'4':'0'));u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head>
 <body>
@@ -1512,7 +1601,7 @@ static void handleRaiznet() {
 <html lang="pt-BR"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Raiznet - SafraSense</title>
-<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=(l==='1'||l==='pt')?'1':'0';u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
+<script>(function(){try{var u=new URL(location.href);if(!u.searchParams.has('lang')){var l=localStorage.getItem('lang');if(l){l=String(l).toLowerCase();l=(l==='1'||l==='pt')?'1':((l==='2'||l==='es')?'2':((l==='4'||l==='zh'||l.indexOf('zh-')===0)?'4':'0'));u.searchParams.set('lang',l);location.replace(u.pathname+u.search+u.hash);return;}}}catch(_){}var t='light';try{t=localStorage.getItem('theme')||(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}catch(_){}document.documentElement.setAttribute('data-theme',t);})();</script>
 <link rel="stylesheet" href="/local.css">
 </head><body>
 <header class="local-header">
