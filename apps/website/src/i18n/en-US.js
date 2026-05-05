@@ -2,6 +2,11 @@ export const enUS = {
   brand: {
     name: 'Raiznet',
   },
+  seo: {
+    title: 'Raiznet | Decentralized network for connected agriculture',
+    description:
+      'Raiznet connects sensors, servers, and growers in a local-first network for crop monitoring and collective agricultural intelligence.',
+  },
   nav: {
     label: 'Main navigation',
     home: 'Raiznet home',

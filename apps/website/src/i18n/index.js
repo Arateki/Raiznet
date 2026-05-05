@@ -3,8 +3,7 @@ import { esES } from './es-ES.js';
 import { jaJP } from './ja-JP.js';
 import { ptBR } from './pt-BR.js';
 import { zhCN } from './zh-CN.js';
-
-export const DEFAULT_LOCALE = 'pt-BR';
+export { DEFAULT_LOCALE } from '../lib/i18n-routing.js';
 
 export const dictionaries = {
   'en-US': enUS,

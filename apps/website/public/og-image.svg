@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Raiznet">
+  <rect width="1200" height="630" fill="#f4ecd8"/>
+  <path d="M0 504c146-58 263-60 421-8 154 51 294 45 435-20 131-61 236-61 344-8v162H0z" fill="#ede2c4"/>
+  <path d="M140 118c210-70 413-72 612-5 120 40 217 42 308 5" fill="none" stroke="#3a7d44" stroke-width="5" stroke-linecap="round" opacity=".28"/>
+  <g fill="none" stroke="#1a3a28" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M246 116v164"/>
+    <path d="M246 280c-70 52-123 108-158 196"/>
+    <path d="M246 280c72 54 125 111 158 196"/>
+    <path d="M246 280v196"/>
+    <path d="M176 514h140"/>
+  </g>
+  <circle cx="246" cy="280" r="24" fill="#c2613a"/>
+  <text x="462" y="244" fill="#1d231e" font-family="Inter, Arial, sans-serif" font-size="112" font-weight="800" letter-spacing="8">RAIZNET</text>
+  <text x="466" y="326" fill="#1a3a28" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="700">rede descentralizada para agricultura conectada</text>
+  <text x="466" y="389" fill="#5b5e52" font-family="Inter, Arial, sans-serif" font-size="26">sensores assinados · dados locais · inteligencia coletiva</text>
+  <g fill="none" stroke="#c2613a" stroke-width="4" stroke-linecap="round" opacity=".75">
+    <circle cx="868" cy="486" r="17"/>
+    <circle cx="948" cy="456" r="13"/>
+    <circle cx="1030" cy="498" r="20"/>
+    <path d="M885 482l50-20M960 462l52 28"/>
+  </g>
+</svg>

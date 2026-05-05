@@ -2,6 +2,11 @@ export const esES = {
   brand: {
     name: 'Raiznet',
   },
+  seo: {
+    title: 'Raiznet | Red descentralizada para agricultura conectada',
+    description:
+      'Raiznet conecta sensores, servidores y productores en una red local-first para monitoreo de cultivos e inteligencia agricola colectiva.',
+  },
   nav: {
     label: 'Navegación principal',
     home: 'Inicio de Raiznet',

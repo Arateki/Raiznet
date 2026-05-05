@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173",
-    "build": "vite build",
+    "build": "vite build && pnpm run prerender && pnpm run validate:seo",
+    "build:no-prerender": "vite build",
+    "prerender": "node scripts/prerender.mjs",
+    "validate:seo": "node scripts/validate-seo.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {

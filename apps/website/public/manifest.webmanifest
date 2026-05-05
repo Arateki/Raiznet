@@ -1,0 +1,16 @@
+{
+  "name": "Raiznet",
+  "short_name": "Raiznet",
+  "description": "Rede descentralizada para monitoramento de cultivos e inteligencia agricola coletiva.",
+  "start_url": "/pt",
+  "display": "standalone",
+  "background_color": "#f4ecd8",
+  "theme_color": "#1a3a28",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml"
+    }
+  ]
+}

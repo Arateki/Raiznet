@@ -2,6 +2,11 @@ export const jaJP = {
   brand: {
     name: 'Raiznet',
   },
+  seo: {
+    title: 'Raiznet | つながる農業のための分散ネットワーク',
+    description:
+      'Raiznet はセンサー、サーバー、栽培者を local-first ネットワークでつなぎ、栽培監視と集合的な農業知能を支えます。',
+  },
   nav: {
     label: 'メインナビゲーション',
     home: 'Raiznet ホーム',

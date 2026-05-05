@@ -4,3 +4,4 @@ apps/server/data
 docs/.vitepress
 .env
 .codex
+apps/website/.seo-ssr-*

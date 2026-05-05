@@ -1,14 +1,24 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { DEFAULT_LOCALE, dictionaries } from './i18n/index.js';
+import {
+  HTML_LANG,
+  LANG_TO_LOCALE,
+  langFromLocale,
+  langPath,
+  localeFromPathname,
+  localizedPathForLocale,
+  preferredLocaleFromNavigator,
+} from './lib/i18n-routing.js';
+import { Seo, buildHomeSeo } from './lib/seo.jsx';
 import './styles.css';
 
 const LOCALE_OPTIONS = [
-  { code: 'pt-BR', label: 'PT' },
-  { code: 'en-US', label: 'EN' },
-  { code: 'es-ES', label: 'ES' },
-  { code: 'ja-JP', label: 'JA' },
-  { code: 'zh-CN', label: 'ZH' },
+  { code: LANG_TO_LOCALE.pt, label: 'PT' },
+  { code: LANG_TO_LOCALE.en, label: 'EN' },
+  { code: LANG_TO_LOCALE.es, label: 'ES' },
+  { code: LANG_TO_LOCALE.ja, label: 'JA' },
+  { code: LANG_TO_LOCALE.zh, label: 'ZH' },
 ];
 
 function getDefaultDashboardUrl() {
@@ -639,14 +649,54 @@ function Download({ copy }) {
   );
 }
 
-function App() {
+function getBrowserPath() {
+  if (typeof window === 'undefined') return '/';
+  return window.location.pathname || '/';
+}
+
+function getStoredLocale() {
+  if (typeof window === 'undefined') return null;
+  const stored = window.localStorage.getItem('raiznet-locale');
+  return dictionaries[stored] ? stored : null;
+}
+
+function getStartupLocale(pathname, initialLocale) {
+  if (dictionaries[initialLocale]) return initialLocale;
+
+  const routeLocale = localeFromPathname(pathname);
+  if (routeLocale && dictionaries[routeLocale]) return routeLocale;
+
+  const stored = getStoredLocale();
+  if (stored) return stored;
+
+  if (typeof navigator !== 'undefined') {
+    return preferredLocaleFromNavigator(navigator.languages || [navigator.language]);
+  }
+
+  return DEFAULT_LOCALE;
+}
+
+function updateBrowserUrlForLocale(locale) {
+  if (typeof window === 'undefined') return getBrowserPath();
+
+  const targetPath = localizedPathForLocale(locale, window.location.pathname);
+  const nextUrl = `${targetPath}${window.location.search}${window.location.hash}`;
+  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+  if (nextUrl !== currentUrl) {
+    window.history.pushState(null, '', nextUrl);
+  }
+
+  return targetPath;
+}
+
+export function App({ initialLocale, initialTheme = 'light', routePath: initialRoutePath } = {}) {
+  const [routePath, setRoutePath] = React.useState(() => initialRoutePath || getBrowserPath());
   const [locale, setLocale] = React.useState(() => {
-    if (typeof window === 'undefined') return DEFAULT_LOCALE;
-    const stored = window.localStorage.getItem('raiznet-locale');
-    return dictionaries[stored] ? stored : DEFAULT_LOCALE;
+    return getStartupLocale(initialRoutePath || getBrowserPath(), initialLocale);
   });
   const [theme, setTheme] = React.useState(() => {
-    if (typeof window === 'undefined') return 'light';
+    if (typeof window === 'undefined') return initialTheme;
     return window.localStorage.getItem('raiznet-theme') || 'light';
   });
   const toggleTheme = () => {
@@ -661,18 +711,50 @@ function App() {
       const currentIndex = LOCALE_OPTIONS.findIndex((option) => option.code === value);
       const next = LOCALE_OPTIONS[(currentIndex + 1) % LOCALE_OPTIONS.length] || LOCALE_OPTIONS[0];
       window.localStorage.setItem('raiznet-locale', next.code);
-      document.documentElement.lang = next.code;
+      const nextPath = updateBrowserUrlForLocale(next.code);
+      setRoutePath(nextPath);
       return next.code;
     });
   };
   const copy = dictionaries[locale] || dictionaries[DEFAULT_LOCALE];
+  const seo = buildHomeSeo(copy, locale, routePath);
 
   React.useEffect(() => {
-    document.documentElement.lang = locale;
+    const lang = langFromLocale(locale);
+    document.documentElement.lang = HTML_LANG[lang];
   }, [locale]);
+
+  React.useEffect(() => {
+    const routeLocale = localeFromPathname(window.location.pathname);
+    if (!routeLocale) {
+      const targetPath = langPath(langFromLocale(locale));
+      window.history.replaceState(null, '', `${targetPath}${window.location.search}${window.location.hash}`);
+      setRoutePath(targetPath);
+      return;
+    }
+
+    setRoutePath(window.location.pathname || '/');
+  }, []);
+
+  React.useEffect(() => {
+    const handlePopState = () => {
+      const nextPath = window.location.pathname || '/';
+      const routeLocale = localeFromPathname(nextPath);
+      setRoutePath(nextPath);
+
+      if (routeLocale && dictionaries[routeLocale]) {
+        window.localStorage.setItem('raiznet-locale', routeLocale);
+        setLocale(routeLocale);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   return (
     <div className="page-shell" data-theme={theme} data-locale={locale}>
+      <Seo seo={seo} />
       <NatureBackground theme={theme} />
       <Header copy={copy} locale={locale} onToggleLocale={toggleLocale} theme={theme} onToggleTheme={toggleTheme} />
       <TopBand copy={copy} />
@@ -688,4 +770,7 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+if (typeof document !== 'undefined') {
+  const root = document.getElementById('root');
+  if (root) createRoot(root).render(<App />);
+}

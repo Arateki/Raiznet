@@ -2,6 +2,11 @@ export const zhCN = {
   brand: {
     name: 'Raiznet',
   },
+  seo: {
+    title: 'Raiznet | 面向互联农业的去中心化网络',
+    description:
+      'Raiznet 通过 local-first 网络连接传感器、服务器和种植者，用于作物监测和集体农业智能。',
+  },
   nav: {
     label: '主导航',
     home: 'Raiznet 首页',
