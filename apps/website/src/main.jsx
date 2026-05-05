@@ -274,7 +274,7 @@ function TopBand({ copy }) {
 
 function NetworkCard({ copy, slide }) {
   return (
-    <article className="tilt-card">
+    <article className="tilt-card network-card">
       <header>
         <span>{slide.visualTitle}</span>
         <em>{slide.metricLabel}</em>
@@ -312,6 +312,201 @@ function NetworkCard({ copy, slide }) {
   );
 }
 
+function AccessCard({ slide }) {
+  return (
+    <article className="hero-visual access-card" aria-label={slide.visualTitle}>
+      <div className="browser-window">
+        <header>
+          <span className="window-dots"><i /><i /><i /></span>
+          <code>app.arateki.com/v1/devices</code>
+        </header>
+        <div className="endpoint-body">
+          <p><strong>GET</strong> /v1/devices <em>// public</em></p>
+          <p>[</p>
+          <p className="indent">{'{ "id": "4b8f...c2a1", "crop": "lettuce",'}</p>
+          <p className="indent">{'  "h3": "8a2a107fffff", "owner": "arateki" }'}</p>
+          <p>]</p>
+          <p className="private-line"><strong>GET</strong> :3001/v1/devices/4b8f.../telemetry</p>
+          <p className="indent muted">// local owner endpoint</p>
+        </div>
+      </div>
+      <div className="phone-card">
+        <div><span>14:32</span><span>live</span></div>
+        <small>TOWER-01 · LETTUCE</small>
+        <strong>{slide.metric}</strong>
+        <span>{slide.metricLabel}</span>
+        <svg viewBox="0 0 148 36" aria-hidden="true">
+          <path d="M0 26 L18 22 L36 24 L54 18 L72 14 L90 16 L108 10 L126 12 L148 8" />
+          <path className="area" d="M0 26 L18 22 L36 24 L54 18 L72 14 L90 16 L108 10 L126 12 L148 8 L148 36 L0 36 Z" />
+        </svg>
+      </div>
+      <span className="endpoint-chip public">:3000 public</span>
+      <span className="endpoint-chip local">:3001 local-auth</span>
+      <footer>{slide.visualMeta}</footer>
+    </article>
+  );
+}
+
+function PrivacyCard({ slide }) {
+  const policies = [
+    ['water_ph', 'plain', 'leaf'],
+    ['air_humidity', 'encrypted', 'terra'],
+    ['owner_notes', 'omit', 'muted'],
+  ];
+
+  return (
+    <article className="hero-visual privacy-card" aria-label={slide.visualTitle}>
+      <header>
+        <span>{slide.visualTitle}</span>
+        <em>{slide.metricLabel}</em>
+      </header>
+      <div className="policy-board">
+        {policies.map(([field, mode, tone]) => (
+          <div className={`policy-row ${tone}`} key={field}>
+            <code>{field}</code>
+            <span>{mode}</span>
+          </div>
+        ))}
+      </div>
+      <div className="policy-route">
+        <span>sensor</span>
+        <i />
+        <span>local</span>
+        <i />
+        <span>public core</span>
+      </div>
+      <div className="policy-note">
+        <strong>{slide.metric}</strong>
+        <span>{slide.visualMeta}</span>
+      </div>
+    </article>
+  );
+}
+
+function MapCard({ slide }) {
+  const radius = 22;
+  const cells = [];
+
+  for (let row = 0; row < 6; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      cells.push({
+        cx: 50 + col * 38 + (row % 2 ? 19 : 0),
+        cy: 50 + row * 33,
+        seed: ((row * 9 + col * 7) % 11) / 11,
+      });
+    }
+  }
+
+  const highlighted = cells[Math.floor(cells.length / 2) + 1];
+  const pointsFor = (cell, extra = 0) => {
+    const r = radius + extra;
+    return `${cell.cx},${cell.cy - r} ${cell.cx + r * 0.866},${cell.cy - r / 2} ${cell.cx + r * 0.866},${cell.cy + r / 2} ${cell.cx},${cell.cy + r} ${cell.cx - r * 0.866},${cell.cy + r / 2} ${cell.cx - r * 0.866},${cell.cy - r / 2}`;
+  };
+
+  return (
+    <article className="tilt-card map-card" aria-label={slide.visualTitle}>
+      <header>
+        <span>{slide.visualTitle}</span>
+        <em>{slide.metricLabel}</em>
+      </header>
+      <svg viewBox="0 0 440 280" aria-hidden="true">
+        {cells.map((cell, index) => (
+          <polygon
+            key={`${cell.cx}-${cell.cy}`}
+            className={`hex hex-${index % 3}`}
+            points={pointsFor(cell)}
+            opacity={0.25 + cell.seed * 0.55}
+          />
+        ))}
+        <polygon className="hex-current" points={pointsFor(highlighted, 3)} />
+        <line x1={highlighted.cx} y1={highlighted.cy - radius - 18} x2={highlighted.cx} y2={highlighted.cy - radius - 4} />
+        <text x={highlighted.cx} y={highlighted.cy - radius - 24}>{slide.metric}</text>
+        <text className="map-code" x="278" y="270">8a2a107fffff</text>
+      </svg>
+      <div className="resolution-bar">
+        <div><span>RES 5</span><span>RES 7</span><span>RES 11</span></div>
+        <i><b /></i>
+        <small>{slide.visualMeta}</small>
+      </div>
+    </article>
+  );
+}
+
+function KnowledgeCard({ slide }) {
+  const materials = [
+    ['guide', 'Lettuce · semiarid', 'material'],
+    ['report', 'pH drift · Cariri', 'report'],
+    ['practice', 'EC targets · hydro', 'practice'],
+  ];
+
+  return (
+    <article className="tilt-card knowledge-card" aria-label={slide.visualTitle}>
+      <header>
+        <span>{slide.visualTitle}</span>
+        <em>{slide.metricLabel}</em>
+      </header>
+      <div className="knowledge-flow">
+        <div className="mcp-panel">
+          <span>MCP tools</span>
+          <code>get_telemetry</code>
+          <code>get_safra</code>
+          <code>get_regional_stats</code>
+        </div>
+        <div className="ai-panel">
+          <small>{slide.metric}</small>
+          <strong>assistente local</strong>
+          <p>gera recomendacoes, relatorios e materiais a partir dos dados autorizados.</p>
+        </div>
+      </div>
+      <div className="material-stack">
+        {materials.map(([kind, title, tone], index) => (
+          <div className={`material-card ${tone}`} key={title} style={{ '--lift': `${index * 9}px` }}>
+            <span>{kind}</span>
+            <strong>{title}</strong>
+            <small>signed · offline</small>
+          </div>
+        ))}
+      </div>
+      <footer>{slide.visualMeta}</footer>
+    </article>
+  );
+}
+
+function IdentityCard({ slide }) {
+  const words = ['root', 'leaf', 'rain', 'wind', 'seed', 'field', 'water', 'soil', 'harvest', 'node', 'tower', 'key'];
+
+  return (
+    <article className="tilt-card identity-card" aria-label={slide.visualTitle}>
+      <header>
+        <span>{slide.visualTitle}</span>
+        <em>{slide.metricLabel}</em>
+      </header>
+      <div className="seed-grid">
+        {words.map((word, index) => (
+          <div key={word}>
+            <span>{String(index + 1).padStart(2, '0')}.</span>
+            <strong>{word}</strong>
+          </div>
+        ))}
+      </div>
+      <p>
+        <strong>{slide.metric}</strong>
+        <span>{slide.visualMeta}</span>
+      </p>
+      <footer><span>pubkey: 4b8f...c2a1</span><span>ed25519</span></footer>
+    </article>
+  );
+}
+
+function HeroCard({ copy, slide, index }) {
+  if (index === 1) return <AccessCard slide={slide} />;
+  if (index === 2) return <PrivacyCard slide={slide} />;
+  if (index === 3) return <MapCard slide={slide} />;
+  if (index === 4) return <KnowledgeCard slide={slide} />;
+  if (index === 5) return <IdentityCard slide={slide} />;
+  return <NetworkCard copy={copy} slide={slide} />;
+}
+
 function Hero({ copy }) {
   const slides = copy.hero.slides;
   const [slide, setSlide] = React.useState(0);
@@ -347,7 +542,7 @@ function Hero({ copy }) {
           </div>
         </div>
         <div key={current.visualTitle} className="card-shell">
-          <NetworkCard copy={copy} slide={current} />
+          <HeroCard copy={copy} slide={current} index={slide} />
         </div>
       </div>
       <div className="carousel-dots">

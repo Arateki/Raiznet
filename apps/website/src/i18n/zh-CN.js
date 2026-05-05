@@ -49,7 +49,7 @@ export const zhCN = {
     slides: [
       {
         eyebrow: '面向互联农业的 Arateki 开放网络',
-        title: '一个没有所有者、由种植者共同构建的网络。',
+        title: '为种植者而生的鲜活网络，数据始终由他们自己掌握。',
         copy:
           '面向传感器、服务器和种植者的 local-first 网状网络。每条读数都可以签名、在节点之间复制，并且无需依赖中心云即可读取。',
         visualTitle: 'raiznet:public:arateki:v1',
@@ -86,6 +86,16 @@ export const zhCN = {
         visualMeta: '区域集群 · k-anon 作为产品规则',
         metric: 'H3',
         metricLabel: '私有地图',
+      },
+      {
+        eyebrow: 'AI · MCP · 资料',
+        title: 'AI 把数据变成指南、答案和种植知识。',
+        copy:
+          'MCP 让 AI 查询读数、种植周期和区域统计，生成建议、报告以及带签名的教学资料，并通过网络本身提供访问。',
+        visualTitle: '@raiznet/mcp',
+        visualMeta: '指南 · 报告 · 最佳实践',
+        metric: 'AI',
+        metricLabel: '应用知识',
       },
       {
         eyebrow: '无需注册的身份',

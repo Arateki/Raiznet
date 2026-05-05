@@ -1,0 +1,39 @@
+name: Deploy Raiznet Website
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  DEPLOY_DIR: /opt/home-server/websites/raiznet/website/dist-front
+
+jobs:
+  deploy-website:
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build website
+        run: pnpm --filter @raiznet/website build
+
+      - name: Deploy website
+        run: |
+          mkdir -p "$DEPLOY_DIR"
+          rsync -a --delete apps/website/dist/ "$DEPLOY_DIR/"

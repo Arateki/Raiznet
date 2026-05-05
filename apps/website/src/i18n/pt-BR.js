@@ -49,7 +49,7 @@ export const ptBR = {
     slides: [
       {
         eyebrow: 'Rede aberta da Arateki para agricultura conectada',
-        title: 'Uma rede sem dono, feita por quem planta.',
+        title: 'Uma rede viva para quem planta, com dados sempre sob seu cuidado.',
         copy:
           'Uma malha local-first para sensores, servidores e pessoas que cultivam. Cada leitura pode ser assinada, replicada entre nos e lida sem depender de uma nuvem central.',
         visualTitle: 'raiznet:public:arateki:v1',
@@ -86,6 +86,16 @@ export const ptBR = {
         visualMeta: 'cluster regional · k-anon como regra de produto',
         metric: 'H3',
         metricLabel: 'mapa privado',
+      },
+      {
+        eyebrow: 'IA · MCP · MATERIAIS',
+        title: 'IA para transformar dados em guias, respostas e conhecimento de cultivo.',
+        copy:
+          'MCPs permitem que IAs consultem leituras, safras e estatisticas regionais para produzir recomendacoes, relatorios e materiais didaticos assinados, acessiveis pela propria rede.',
+        visualTitle: '@raiznet/mcp',
+        visualMeta: 'guias · relatorios · boas praticas',
+        metric: 'IA',
+        metricLabel: 'conhecimento aplicado',
       },
       {
         eyebrow: 'Identidade sem cadastro',

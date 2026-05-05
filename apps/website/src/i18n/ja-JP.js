@@ -49,7 +49,7 @@ export const jaJP = {
     slides: [
       {
         eyebrow: '接続農業のための Arateki オープンネットワーク',
-        title: '所有者のいない、栽培する人たちが作るネットワーク。',
+        title: '栽培する人のための生きたネットワーク。データはいつも自分の手元に。',
         copy:
           'センサー、サーバー、栽培者のための local-first メッシュです。各読み取りは署名でき、ノード間で複製でき、中央クラウドに依存せず読めます。',
         visualTitle: 'raiznet:public:arateki:v1',
@@ -86,6 +86,16 @@ export const jaJP = {
         visualMeta: '地域クラスター · k-anon を製品ルールに',
         metric: 'H3',
         metricLabel: 'プライベート地図',
+      },
+      {
+        eyebrow: 'AI · MCP · 教材',
+        title: 'AI がデータをガイド、回答、栽培知識へ変えます。',
+        copy:
+          'MCP により、AI は読み取り、栽培サイクル、地域統計を参照し、推奨、レポート、署名付き教材をネットワーク上で生成・共有できます。',
+        visualTitle: '@raiznet/mcp',
+        visualMeta: 'ガイド · レポート · ベストプラクティス',
+        metric: 'AI',
+        metricLabel: '応用知識',
       },
       {
         eyebrow: '登録のいらないアイデンティティ',

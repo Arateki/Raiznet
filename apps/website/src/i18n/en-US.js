@@ -49,7 +49,7 @@ export const enUS = {
     slides: [
       {
         eyebrow: 'Arateki open network for connected agriculture',
-        title: 'A network with no owner, built by the people who grow.',
+        title: 'A living network for growers, with data always under their care.',
         copy:
           'A local-first mesh for sensors, servers, and growers. Each reading can be signed, replicated between nodes, and read without depending on a central cloud.',
         visualTitle: 'raiznet:public:arateki:v1',
@@ -86,6 +86,16 @@ export const enUS = {
         visualMeta: 'regional cluster · k-anon as product rule',
         metric: 'H3',
         metricLabel: 'private map',
+      },
+      {
+        eyebrow: 'AI · MCP · MATERIALS',
+        title: 'AI turns data into guides, answers, and crop knowledge.',
+        copy:
+          'MCPs let AI tools query readings, growing cycles, and regional stats to produce recommendations, reports, and signed educational materials available through the network itself.',
+        visualTitle: '@raiznet/mcp',
+        visualMeta: 'guides · reports · best practices',
+        metric: 'AI',
+        metricLabel: 'applied knowledge',
       },
       {
         eyebrow: 'Identity without sign-up',
