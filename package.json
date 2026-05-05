@@ -8,11 +8,17 @@
   },
   "scripts": {
     "build": "pnpm -r build",
+    "dashboard:build": "pnpm --filter @raiznet/dashboard build",
+    "dashboard:dev": "pnpm --filter @raiznet/dashboard dev",
+    "dashboard:preview": "pnpm --filter @raiznet/dashboard preview",
     "prototype:build": "pnpm --filter @raiznet/prototype build",
     "prototype:dev": "pnpm --filter @raiznet/prototype dev",
     "prototype:preview": "pnpm --filter @raiznet/prototype preview",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "website:build": "pnpm --filter @raiznet/website build",
+    "website:dev": "pnpm --filter @raiznet/website dev",
+    "website:preview": "pnpm --filter @raiznet/website preview"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.6.0",
