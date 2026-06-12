@@ -61,6 +61,10 @@ export function stripLangFromPath(pathname = '/') {
 export function langPath(lang, path = '/') {
   const normalizedLang = isSupportedLang(lang) ? lang : DEFAULT_LANG;
   const cleaned = path.startsWith('/') ? path : `/${path}`;
+  // O idioma padrão (PT) vive na RAIZ, sem prefixo: a home PT é `/` e uma
+  // futura página PT é `/about`. Idiomas alternativos usam prefixo (/en, ...).
+  // Isso concentra os sinais de SEO do idioma principal na raiz do domínio.
+  if (normalizedLang === DEFAULT_LANG) return cleaned;
   if (cleaned === '/') return `/${normalizedLang}`;
   return `/${normalizedLang}${cleaned}`;
 }

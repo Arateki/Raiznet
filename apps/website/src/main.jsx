@@ -2,13 +2,15 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { DEFAULT_LOCALE, dictionaries } from './i18n/index.js';
 import {
+  DEFAULT_LANG,
   HTML_LANG,
   LANG_TO_LOCALE,
   langFromLocale,
+  langFromPathname,
   langPath,
   localeFromPathname,
   localizedPathForLocale,
-  preferredLocaleFromNavigator,
+  stripLangFromPath,
 } from './lib/i18n-routing.js';
 import { Seo, buildHomeSeo } from './lib/seo.jsx';
 import './styles.css';
@@ -669,10 +671,11 @@ function getStartupLocale(pathname, initialLocale) {
   const stored = getStoredLocale();
   if (stored) return stored;
 
-  if (typeof navigator !== 'undefined') {
-    return preferredLocaleFromNavigator(navigator.languages || [navigator.language]);
-  }
-
+  // Sem preferência salva, a raiz é SEMPRE o idioma padrão (PT). Não usamos
+  // navigator.language aqui de propósito: auto-trocar o idioma da raiz
+  // confunde crawlers (o Googlebot renderiza como en-US e veria a página
+  // "mudar" de idioma) e o Google desaconselha redirect por locale. O
+  // visitante troca pelo botão de idioma, e a escolha fica salva.
   return DEFAULT_LOCALE;
 }
 
@@ -725,15 +728,28 @@ export function App({ initialLocale, initialTheme = 'light', routePath: initialR
   }, [locale]);
 
   React.useEffect(() => {
-    const routeLocale = localeFromPathname(window.location.pathname);
-    if (!routeLocale) {
-      const targetPath = langPath(langFromLocale(locale));
+    const pathname = window.location.pathname || '/';
+    const routeLang = langFromPathname(pathname);
+
+    // URL legada do idioma padrão (/pt, /pt/...): normaliza para a raiz, que
+    // é a casa canônica do PT. replaceState não cria entrada no histórico.
+    if (routeLang === DEFAULT_LANG) {
+      const targetPath = stripLangFromPath(pathname);
       window.history.replaceState(null, '', `${targetPath}${window.location.search}${window.location.hash}`);
       setRoutePath(targetPath);
       return;
     }
 
-    setRoutePath(window.location.pathname || '/');
+    if (!routeLang) {
+      const targetPath = langPath(langFromLocale(locale));
+      if (targetPath !== pathname) {
+        window.history.replaceState(null, '', `${targetPath}${window.location.search}${window.location.hash}`);
+      }
+      setRoutePath(targetPath);
+      return;
+    }
+
+    setRoutePath(pathname);
   }, []);
 
   React.useEffect(() => {

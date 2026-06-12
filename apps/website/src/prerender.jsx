@@ -11,9 +11,10 @@ import {
   localeFromPathname,
 } from './lib/i18n-routing.js';
 
+// PT (idioma padrão) vive na raiz; os demais idiomas têm prefixo próprio.
+// O Set remove a duplicata: langPath('pt') === '/'.
 export const PRERENDER_PATHS = [
-  ...SUPPORTED_LANGS.map((lang) => langPath(lang)),
-  '/',
+  ...new Set(['/', ...SUPPORTED_LANGS.map((lang) => langPath(lang))]),
 ];
 
 export function renderPage(path) {
@@ -43,6 +44,7 @@ export function robotsTxt() {
 }
 
 export function sitemapXml() {
-  const sitemapPaths = ['/', ...SUPPORTED_LANGS.map((lang) => langPath(lang))];
-  return buildSitemapXml(sitemapPaths);
+  // Mesmas rotas do prerender: a raiz é a versão PT canônica; /pt não existe
+  // como URL canônica e portanto não entra no sitemap.
+  return buildSitemapXml(PRERENDER_PATHS);
 }

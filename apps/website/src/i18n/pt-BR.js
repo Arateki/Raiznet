@@ -5,7 +5,7 @@ export const ptBR = {
   seo: {
     title: 'Raiznet | Rede descentralizada para agricultura conectada',
     description:
-      'Raiznet conecta sensores, servidores e produtores em uma rede local-first para monitoramento de cultivos e inteligencia agricola coletiva.',
+      'A Raiznet conecta sensores, servidores e produtores em uma rede local-first para monitoramento de cultivos e inteligência agrícola coletiva.',
   },
   nav: {
     label: 'Navegacao principal',

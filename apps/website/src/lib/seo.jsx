@@ -12,12 +12,14 @@ import {
 const envSiteUrl = (() => {
   if (import.meta.env?.VITE_PUBLIC_SITE_URL) return import.meta.env.VITE_PUBLIC_SITE_URL;
   if (typeof process !== 'undefined' && process.env?.VITE_PUBLIC_SITE_URL) return process.env.VITE_PUBLIC_SITE_URL;
-  return 'https://raiznet.arateki.com';
+  return 'https://raiznet.com';
 })();
 
 export const SITE_URL = envSiteUrl.replace(/\/+$/, '');
 export const SITE_NAME = 'Raiznet';
-export const DEFAULT_OG_IMAGE = '/og-image.svg';
+// PNG gerado a partir de public/og-image.svg (rsvg-convert, 1200x630).
+// Redes sociais não renderizam SVG como og:image.
+export const DEFAULT_OG_IMAGE = '/og-image.png';
 
 let preparedHead = false;
 
@@ -32,7 +34,9 @@ export function canonical(path) {
 
 export function alternateLinks(path) {
   const stripped = stripLangFromPath(path);
-  const xDefaultPath = stripped === '/' ? '/' : langPath(DEFAULT_LANG, stripped);
+  // x-default = a versão do idioma padrão (PT, que vive na raiz): é a página
+  // que buscadores mostram a quem não casa com nenhum idioma listado.
+  const xDefaultPath = langPath(DEFAULT_LANG, stripped);
 
   return [
     ...SUPPORTED_LANGS.map((lang) => ({
@@ -48,7 +52,9 @@ export function alternateLinks(path) {
 
 export function buildHomeSeo(copy, locale, path = '/') {
   const lang = langFromLocale(locale);
-  const canonicalPath = path === '/' ? '/' : langPath(lang, stripLangFromPath(path));
+  // Canonical sempre normalizado por langPath: PT cai na raiz (/), os demais
+  // no prefixo do idioma — mesmo que a URL visitada seja /pt (legado).
+  const canonicalPath = langPath(lang, stripLangFromPath(path));
 
   return {
     title: copy.seo.title,
@@ -107,6 +113,10 @@ export function HeadTags({ seo }) {
       <meta data-rz-seo="true" property="og:site_name" content={SITE_NAME} />
       <meta data-rz-seo="true" property="og:locale" content={ogLocale} />
       <meta data-rz-seo="true" property="og:image" content={ogImage} />
+      <meta data-rz-seo="true" property="og:image:type" content="image/png" />
+      <meta data-rz-seo="true" property="og:image:width" content="1200" />
+      <meta data-rz-seo="true" property="og:image:height" content="630" />
+      <meta data-rz-seo="true" property="og:image:alt" content={seo.title} />
       <meta data-rz-seo="true" name="twitter:card" content="summary_large_image" />
       <meta data-rz-seo="true" name="twitter:title" content={seo.title} />
       <meta data-rz-seo="true" name="twitter:description" content={seo.description} />
