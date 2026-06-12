@@ -1,5 +1,5 @@
 # Crate de criptografia do Raiznet: derivação de chaves, assinatura Ed25519
-# e cifra simétrica AES-256-GCM. Implementado na Fase 2 da migração.
+# e cifra simétrica AES-256-GCM. Contratos normativos: RUST_MIGRATION_PLAN.md §7.
 [package]
 name = "raiznet-crypto"
 version = "0.1.0"
@@ -7,3 +7,11 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+ed25519-dalek.workspace = true
+bip39.workspace = true
+sha2.workspace = true
+aes-gcm.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true

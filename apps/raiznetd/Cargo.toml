@@ -8,9 +8,17 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+# Crates do próprio workspace (path = dependência local, como workspace:* do pnpm)
+raiznet-crypto = { path = "../../crates/raiznet-crypto" }
+
 tokio.workspace = true
 axum.workspace = true
 serde_json.workspace = true
+hex.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 anyhow.workspace = true
+
+[dev-dependencies]
+# tempfile: diretórios temporários autodeletados nos testes (registrado no plano §6)
+tempfile = "3"

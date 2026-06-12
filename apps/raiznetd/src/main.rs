@@ -1,14 +1,16 @@
 // raiznetd — ponto de entrada do nó Raiznet em Rust.
 //
-// Fase 1 da migração: o mínimo que sobe um servidor HTTP e responde
-// GET /health igual ao servidor TS ({"status":"ok","ts":<unix_ms>}).
-// As fases seguintes adicionam identidade, SQLite, devices e telemetria.
+// Fase 2 da migração: servidor HTTP com /health + identidade Ed25519 do nó
+// carregada/criada em <data_dir>/identity.mnemonic (compatível com o TS).
+// As fases seguintes adicionam SQLite, devices e telemetria.
+
+mod identity;
 
 use axum::{Json, Router, routing::get};
+use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Timestamp atual em milissegundos Unix — mesmo formato do Date.now() do JS.
-/// `u64` é um inteiro sem sinal de 64 bits; `as u64` converte o resultado.
 pub fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -16,26 +18,30 @@ pub fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
-/// Handler do GET /health. `async fn` = função assíncrona (como async no JS).
-/// O retorno `Json<...>` faz o axum serializar o valor e setar o Content-Type.
+/// Handler do GET /health — mesmo shape do servidor TS.
 async fn health() -> Json<serde_json::Value> {
-    // json!{} é uma macro que monta um valor JSON, parecido com um literal JS.
     Json(serde_json::json!({ "status": "ok", "ts": now_ms() }))
 }
 
-// #[tokio::main] transforma o main síncrono em assíncrono: inicializa o
-// runtime do tokio (o "event loop" do Rust) e executa o corpo dentro dele.
+// #[tokio::main] inicializa o runtime async (o "event loop" do Rust)
+// e executa o corpo do main dentro dele.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Logs estruturados em JSON no stdout — equivalente ao pino do servidor TS.
+    // Logs estruturados em JSON no stdout — equivalente ao pino do TS.
     tracing_subscriber::fmt().json().init();
 
-    let app = Router::new().route("/health", get(health));
+    // Identidade do nó: mesmo arquivo e formato do servidor TS, então um nó
+    // migrado mantém a pubkey. RAIZNET_DATA_DIR default ./data (config
+    // completa por env chega na Fase 4).
+    let data_dir: PathBuf = std::env::var("RAIZNET_DATA_DIR")
+        .unwrap_or_else(|_| "./data".into())
+        .into();
+    let node = identity::load_or_create_identity(&data_dir)?;
+    tracing::info!(pubkey = %node.pubkey_hex(), "raiznet server started");
 
-    // `await` suspende até a operação completar, sem travar a thread.
-    // O `?` propaga o erro para cima (como um throw) se o bind falhar.
+    let app = Router::new().route("/health", get(health));
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::info!("raiznetd started on :3000");
+    tracing::info!("raiznetd listening on :3000");
     axum::serve(listener, app).await?;
     Ok(())
 }
