@@ -151,6 +151,27 @@ andamento, o que falta, e quem fez o quê.
 
 ## Log de trabalho (append-only, mais recente primeiro)
 
+### 2026-06-12 (2) — Claude (Fable 5, Claude Code) — SEO do website corrigido e verificado em produção
+
+- Bugs achados na análise da `apps/website/SEO_SPEC.md` e corrigidos
+  (`48b4a7d`): host canônico era o legado `raiznet.arateki.com` (fallback
+  do seo.jsx + `.env.production` trackeado + workflow sem env) → agora
+  `https://raiznet.com` nos três níveis, com o validador travando o build
+  se o host divergir; PT virou dono da raiz (`/` canônica PT, pt-BR e
+  x-default → `/`, `/pt` fora do sitemap, sem auto-troca por navigator);
+  og:image SVG → PNG 1200×630.
+- Spec reescrita (`e224be9`) para o modelo real: SSG renderToString (sem
+  Playwright), PT na raiz, precedência de env do Vite documentada.
+- Verificado em produção pós-deploy: canonical/hreflang/sitemap/robots/
+  og-image todos em raiznet.com, zero menções ao domínio antigo.
+- **Pendência (1 linha, manual no servidor)**: nginx responde
+  `301 /en → /en/`; trocar o try_files do site para
+  `try_files $uri $uri/index.html $uri/ /index.html;` para servir as URLs
+  canônicas sem barra com 200 direto. Snippet também na SEO_SPEC.
+- Pendência menor: copy PT do site quase todo sem acentos (pt-BR.js) —
+  corrigido só o bloco seo; revisão completa aguarda ok do Yan.
+- Pós-deploy manual: enviar sitemap no Google Search Console.
+
 ### 2026-06-12 — Claude (Fable 5, Claude Code) — Fases 0–5 da migração Rust executadas
 
 - Executou o plano fase a fase, com commit por fase (Conventional Commits):

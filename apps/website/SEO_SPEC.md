@@ -181,7 +181,10 @@ location /assets/ {
 }
 
 location / {
-    try_files $uri $uri/ /index.html;
+    # $uri/index.html ANTES de $uri/: serve /en com 200 direto.
+    # Sem isso, o nginx emite 301 /en -> /en/ (redirect de diretório),
+    # e o canonical sem barra fica apontando para uma URL que redireciona.
+    try_files $uri $uri/index.html $uri/ /index.html;
 }
 ```
 
