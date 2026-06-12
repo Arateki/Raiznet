@@ -1,16 +1,13 @@
 <p align="center">
   <!-- logo -->
-  <img src="docs/assets/raiznet-logo.svg" alt="Raiznet" width="160" />
+  <img src="apps/website/public/raiznet-wordmark.svg" alt="Raiznet" width="220" />
 </p>
 
 <h1 align="center">raiznet</h1>
 
 <p align="center">
-  <strong>Português</strong> ·
-  <a href="README.en.md">English</a> ·
-  <a href="README.es.md">Español</a> ·
-  <a href="README.ja.md">日本語</a> ·
-  <a href="README.zh.md">中文</a>
+  <a href="https://raiznet.com/docs/">Documentação</a> ·
+  <a href="https://raiznet.com">raiznet.com</a>
 </p>
 
 <p align="center">
@@ -45,7 +42,7 @@
 
 A Raiznet é uma rede descentralizada para monitoramento de cultivos e geração de inteligência agrícola coletiva. É parte do ecossistema **SafraSense**, desenvolvido pela [Arateki](https://arateki.com).
 
-Sensores ESP32 instalados em torres, estufas ou canteiros enviam leituras de pH, condutividade elétrica, umidade, temperatura e nível de água para servidores locais. Esses servidores se comunicam entre si via protocolo Hypercore, formando uma malha P2P onde cada nó mantém cópias dos dados públicos da rede. Quando a internet cai, a rede continua funcionando localmente. Quando volta, tudo se sincroniza sozinho.
+Sensores ESP32 instalados em torres, estufas ou canteiros enviam leituras de pH, condutividade elétrica, umidade, temperatura e nível de água para servidores locais. Esses servidores são projetados para se comunicar entre si por um protocolo de replicação próprio — logs de eventos assinados e append-only ([ADR-004](docs/adr/004-raiznet-native-replication.md)) — formando uma malha P2P onde cada nó mantém cópias dos dados públicos da rede. Quando a internet cai, a rede continua funcionando localmente. Quando volta, tudo se sincroniza sozinho. (A camada de replicação está em desenvolvimento — veja o [Roadmap](#roadmap).)
 
 Além do monitoramento, a Raiznet é projetada como infraestrutura de dados de qualidade científica: cada leitura é assinada, imutável, geolocalizada e vinculada ao resultado real da safra. Isso cria as condições para que LLMs — inclusive modelos locais rodando no próprio servidor do agricultor — extraiam conhecimento acionável diretamente dos dados da rede, sem intermediários e sem que os dados saiam do controle do dono.
 
@@ -61,7 +58,7 @@ Além do monitoramento, a Raiznet é projetada como infraestrutura de dados de q
 
 **ID público, valor com política própria.** A única informação garantida como pública é a existência do dispositivo na rede — pubkey, MAC e metadados básicos. Cada campo de cada leitura tem uma política de visibilidade individual: publicar em claro, publicar cifrado, ou omitir completamente.
 
-**Dados privados ficam locais.** O que é marcado como privado não entra no swarm — fica no servidor local do dono ou no próprio ESP32, acessível apenas por quem tem acesso físico ou a chave privada.
+**Dados privados ficam locais.** O que é marcado como privado nunca sai da infraestrutura do dono — fica no servidor local ou no próprio ESP32, acessível apenas por quem tem acesso físico ou a chave privada.
 
 **Escrita sempre assinada.** Ler é consequência de estar na rede. Escrever exige a chave privada do dispositivo que gerou o dado — impede spam sem depender de permissão central.
 
@@ -81,9 +78,9 @@ Além do monitoramento, a Raiznet é projetada como infraestrutura de dados de q
                          │
                          ▼
 ┌──────────────────────────────────────────────────────┐
-│  Malha P2P — servidores Node.js federados             │
-│  Hypercore + Hyperswarm · SQLite · Fastify            │
-│  (Raspberry Pi · VPS · Android/Termux · Tauri)        │
+│  Malha P2P — nós federados                            │
+│  Log de eventos assinado · SQLite · HTTP              │
+│  (Raspberry Pi · VPS · Android/Termux · ARM pequeno)  │
 └──────────────────────────────────────────────────────┘
                          │
                          ▼
@@ -115,13 +112,13 @@ Um único processo `raiznet-server` expõe duas APIs simultâneas:
 | Endpoint | Porta padrão | Acesso | Banco |
 |---|---|---|---|
 | Público | `:3000` | Qualquer um | `raiznet_public.db` |
-| Local | `:3001` | Dono autenticado | `raiznet_public.db` + `raiznet_private.db` |
+| Local | `:3001` | Loopback (auth do dono planejada) | `raiznet_private.db` (visão combinada planejada) |
 
 O isolamento é no nível da conexão: uma query no endpoint público simplesmente não tem acesso ao banco privado.
 
 ### Filtros composáveis
 
-Qualquer servidor pode publicar um filtro de MACs — uma lista de dispositivos verificados, sinalizados ou banidos. Os filtros são Hypercores append-only, descobertos automaticamente no handshake da rede. Clientes combinam os filtros que escolherem (união, interseção, negação) para definir quais dispositivos aparecem em mapas e agregações.
+Qualquer servidor pode publicar um filtro de MACs — uma lista de dispositivos verificados, sinalizados ou banidos. Os filtros são logs de eventos append-only, descobertos automaticamente no handshake da rede. Clientes combinam os filtros que escolherem (união, interseção, negação) para definir quais dispositivos aparecem em mapas e agregações.
 
 A Arateki mantém o filtro padrão da rede oficial por ser a fundadora. Qualquer outra rede tem a mesma relação com seu fundador. Ninguém tem monopólio de curadoria.
 
@@ -145,32 +142,42 @@ Se produtores de uma região consistentemente operam fora dos ranges ideais de u
 
 ### Pesquisa acadêmica e publicação
 
-A Raiznet é projetada para ser infraestrutura de pesquisa de qualidade científica. Está planejada a disponibilização de conjuntos de dados agregados e anonimizados para universidades e instituições (como a Embrapa), publicação de estudos em periódicos revisados por pares, e distribuição de materiais técnicos e guias de cultivo diretamente pela rede via Hyperdrive — assinados pelos autores, acessíveis offline.
+A Raiznet é projetada para ser infraestrutura de pesquisa de qualidade científica. Está planejada a disponibilização de conjuntos de dados agregados e anonimizados para universidades e instituições (como a Embrapa), publicação de estudos em periódicos revisados por pares, e distribuição de materiais técnicos e guias de cultivo diretamente pela camada de conteúdo da rede — assinados pelos autores, acessíveis offline.
 
 ---
 
 ## Tecnologias
+
+**Nó atual (TypeScript — congelado como referência de comportamento):**
 
 | Camada | Tecnologia | Versão |
 |---|---|---|
 | Runtime | Node.js | 24 LTS |
 | Linguagem | TypeScript | 5.x |
 | HTTP | Fastify | 5.x |
-| Log P2P | hypercore | 11.x |
-| Descoberta de peers | hyperswarm | 4.x |
-| Índice P2P | hyperbee | 2.x |
-| Sistema de arquivos P2P | hyperdrive | 11.x |
-| Multi-writer | autobase | 7.x |
-| Criptografia | hypercore-crypto + sodium-universal | — |
-| Serialização (Node.js) | @bufbuild/protobuf | — |
-| Serialização (ESP32) | nanopb | — |
-| Índice SQL | better-sqlite3 | — |
+| Armazenamento SQL | better-sqlite3 | 11.x |
+| Criptografia | hypercore-crypto (libsodium) | 3.x |
+| Seeds BIP-39 | @scure/bip39 | 1.x |
 | Validação | zod | 3.x |
 | Logger | pino | 9.x |
+
+**Nó alvo (`raiznetd`, Rust — em migração):**
+
+| Camada | Tecnologia | Versão |
+|---|---|---|
+| Runtime / HTTP | tokio + axum | 1.x / 0.8 |
+| SQLite | rusqlite (`bundled`) | 0.32+ |
+| Criptografia | ed25519-dalek + aes-gcm + bip39 | 2.x / 0.10 / 2.x |
+| Conectividade P2P (Fase 8) | iroh (candidato primário) / rust-libp2p (alternativa) | [ADR-004](docs/adr/004-raiznet-native-replication.md) |
+
+**Comum / planejado:**
+
+| Camada | Tecnologia | Status |
+|---|---|---|
+| Serialização canônica | Protobuf (@bufbuild · prost · nanopb) | planejado, ADR-001 |
 | Monorepo | pnpm workspaces | 9.x |
+| Geolocalização | h3-js | planejado |
 | Desktop | Tauri | 2.x (futuro) |
-| Geolocalização | h3-js | — |
-| Seeds BIP-39 | @scure/bip39 | — |
 | Firmware | PlatformIO + Arduino framework | — |
 
 ---
@@ -180,15 +187,21 @@ A Raiznet é projetada para ser infraestrutura de pesquisa de qualidade científ
 ```
 raiznet/
 ├── apps/
-│   ├── server/          # Nó completo Fastify
-│   └── cli/             # Ferramenta de operação e debug
+│   ├── server/          # Nó Fastify (TS) — congelado como referência
+│   ├── raiznetd/        # Nó Rust (criado na migração)
+│   ├── cli/             # Ferramenta de operação e debug
+│   ├── website/         # Landing page raiznet.com
+│   ├── dashboard/       # Dashboard web
+│   └── prototype/       # Design canvas (React + Vite)
+├── crates/              # Bibliotecas Rust (criadas na migração)
 ├── packages/
-│   ├── protocol/        # Schemas .proto + TS gerado + validadores Zod
+│   ├── protocol/        # Schemas .proto (formato canônico planejado)
 │   ├── crypto/          # Geração de chaves, assinatura, AES-256-GCM
-│   └── core/            # Abstrações sobre hypercore/autobase (futuro)
+│   └── core/            # Abstrações compartilhadas
 ├── firmware/
-│   └── esp32-sample/    # Implementação de referência (firmware de produção fica no repo SafraSense)
-└── docs/                # Documentação VitePress
+│   ├── safraSense/      # Sensor de referência completo
+│   └── esp32-sensor/    # Exemplo mínimo (firmware de produção fica no repo SafraSense)
+└── docs/                # Documentação VitePress → raiznet.com/docs
 ```
 
 ---
@@ -236,17 +249,17 @@ Modo desenvolvimento (reinicia em mudanças de arquivo):
 pnpm --filter @raiznet/server dev
 ```
 
-Consulte [Running a Node](https://raiznet.arateki.com/guide/running-a-node) para a lista completa de variáveis de ambiente.
+Consulte [Running a Node](https://raiznet.com/docs/guide/running-a-node) para a lista completa de variáveis de ambiente.
 
 ---
 
 ## Roadmap
 
-- [x] **Fase 1** — Monorepo, TypeScript estrito, identidade Ed25519/BIP-39, protocolo Protobuf, ingestão de telemetria, dual endpoints (público + local), testes unitários e de integração.
-- [ ] **Fase 2** — Integração Hypercore/Hyperswarm: replicação P2P real, indexador Hypercore → SQLite, filtros de MAC como Hypercores, CropCatalog publicados por servidores.
-- [ ] **Fase 3** — Firmware ESP32: sensor real enviando telemetria assinada, avaliação offline de Cultura, alertas físicos (LED/buzzer), buffer circular.
-- [ ] **Fase 4** — Mesh ESP-NOW: gateways, janelas de sincronização para sensores a bateria, relay entre dispositivos sem Wi-Fi direto.
-- [ ] **Fase 5** — App e conteúdo: Tauri desktop, Hyperdrive para materiais instrutivos, app mobile.
+- [x] **Fase 1** — Monorepo, TypeScript estrito, identidade Ed25519/BIP-39, ingestão de telemetria assinada (JSON + string `raw` assinada), dual endpoints (público + local), dois bancos SQLite, testes unitários e de integração, firmware de referência (captive portal, registro lazy, retransmissão até confirmação).
+- [ ] **Fase 2** — Nó Rust (`raiznetd`): paridade de comportamento com o nó TS provada por corpus de fixtures, binário estático para ARM pequeno, perfil `small-node` (ver `RUST_MIGRATION_PLAN.md`).
+- [ ] **Fase 3** — Replicação Raiznet-native ([ADR-004](docs/adr/004-raiznet-native-replication.md)): log de eventos assinado como fonte de verdade, sync v1 entre peers configurados, sync v2 dial-by-pubkey (iroh como candidato primário), redes/filtros/CropCatalog.
+- [ ] **Fase 4** — Mesh ESP-NOW: gateways, janelas de sincronização para sensores a bateria, relay entre dispositivos sem Wi-Fi direto; Protobuf como formato canônico.
+- [ ] **Fase 5** — App e conteúdo: Tauri desktop, materiais instrutivos pela camada de conteúdo da rede, app mobile.
 - [ ] **Fase 6** — Camada de inteligência: MCP server (`@raiznet/mcp`), agregações regionais por H3, calibração coletiva de Cultura, parcerias de pesquisa acadêmica.
 
 ---

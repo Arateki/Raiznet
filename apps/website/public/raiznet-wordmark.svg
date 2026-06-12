@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="178" height="40" viewBox="0 0 178 40" role="img" aria-labelledby="title" color="#1d231e">
+  <title id="title">Raiznet</title>
+  <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" transform="translate(8 8)">
+    <path d="M12 3v8"/>
+    <path d="M12 11c-2 2-5 3-6 6"/>
+    <path d="M12 11c2 2 5 3 6 6"/>
+    <path d="M12 11v8"/>
+    <path d="M9 21h6"/>
+  </g>
+  <text x="42" y="27" fill="currentColor" font-family="Montserrat, Arial, sans-serif" font-size="23" font-weight="700" letter-spacing=".04em">raiznet</text>
+</svg>

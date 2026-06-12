@@ -6,9 +6,11 @@ This document is the source of truth for Raiznet development. Read it in full be
 
 ## 1. Overview
 
-Raiznet is a decentralized network for crop monitoring and collective agricultural intelligence. It is part of Arateki's SafraSense product. Data comes from ESP32 sensors installed in PVC towers (or equivalent), flows through a mesh of Node.js servers that sync with each other via the Hypercore protocol, and can be read by the members of each network — with or without their own node.
+Raiznet is a decentralized network for crop monitoring and collective agricultural intelligence. It is part of Arateki's SafraSense product. Data comes from ESP32 sensors installed in PVC towers (or equivalent), flows through a mesh of server nodes that sync with each other via the **Raiznet-native replication protocol** (signed append-only event logs — see `docs/adr/004-raiznet-native-replication.md`), and can be read by the members of each network — with or without their own node.
 
 Beyond monitoring, Raiznet is designed as a research-grade data infrastructure: signed, tamper-evident, geolocated, and outcome-tracked. The long-term vision is a feedback loop where growers generate data, LLMs and researchers extract knowledge from it, and that knowledge returns to the network as improved Crops, regional catalogs, and published Materials — owned by no one, available to everyone.
+
+**Implementation status (2026-06):** the node today is the TypeScript server in `apps/server` — HTTP ingestion + SQLite, JSON wire format with a signed `raw` string, no replication yet. That server is **frozen as the behavioural reference**: the node is being reimplemented in Rust (`raiznetd`) for behaviour parity and small ARM targets — see `RUST_MIGRATION_PLAN.md` and `HANDOFF.md`. The event log and replication land after parity (plan Phases 7–9). The public docs (`docs/`, published at raiznet.com/docs) mark every design-stage feature accordingly.
 
 **Non-negotiable principles:**
 
@@ -16,8 +18,8 @@ Beyond monitoring, Raiznet is designed as a research-grade data infrastructure: 
 2. **Data sovereignty.** The user owns the keys. If Arateki disappears tomorrow, the grower's data stays alive in their node.
 3. **No traditional login.** Identity is an Ed25519 keypair generated on the client. There is no central authentication server.
 4. **Device ID is always public.** The only information guaranteed as public is the existence of the device in the network it participates in — its pubkey, MAC and basic metadata. Everything else (including each value of each reading) has individual visibility policy, defined by the owner.
-5. **Private data is local data.** What is marked as public goes to the Hypercore replicated to the network. What is marked as private **does not enter the swarm** — it stays in local storage of the owner's server, or in the ESP32 itself, and is only visible to whoever has direct physical/logical access (private key in the app, local IP of the ESP, Bluetooth).
-6. **Public network or local network.** The public Raiznet is the global (or regional) mesh discovered via Hyperswarm. "Private network" means local network: the server doesn't announce on the swarm, it only serves connections from the local Wi-Fi network. A device can publish to both.
+5. **Private data is local data.** What is marked as public goes to the node's public store and is replicated to the network (event log). What is marked as private **never leaves the owner's infrastructure** — it stays in local storage of the owner's server, or in the ESP32 itself, and is only visible to whoever has direct physical/logical access (private key in the app, local IP of the ESP, Bluetooth).
+6. **Public network or local network.** The public Raiznet is the global (or regional) mesh of public nodes. "Private network" means local network: the server doesn't announce itself to any discovery layer, it only serves connections from the local Wi-Fi network. A device can publish to both.
 7. **Writes are always signed.** Reading is a consequence of belonging to the network. Writing requires the private key of the emitting device — prevents spam without depending on central permission.
 8. **Server is optional.** No one is required to run a node. But whoever runs one strengthens the network.
 
@@ -36,17 +38,17 @@ All devices use the same base firmware. The difference is configuration:
 
 **Firmware is a separate product repo.** The production firmware for Arateki's SafraSense hardware lives in a dedicated repository outside Raiznet. The `firmware/` folder in this repo is a **reference implementation** — a minimal working ESP32 sensor that demonstrates how to speak the Raiznet protocol (Ed25519 signing, HTTP POST to `/v1/telemetry`, automatic registration). It serves as a starting point for anyone building a Raiznet-compatible device without using Arateki hardware.
 
-### Mesh layer — Node.js servers
+### Mesh layer — server nodes
 
-Each server is a peer of the network. There is no "main server". A server:
+Each server is a peer of the network. There is no "main server". A node:
 
-- Stores one or more **Hypercores** (append-only logs).
-- Discovers other peers via **Hyperswarm** using SHA-256 topics.
-- Replicates data on demand and in the background.
-- Indexes readings in **local SQLite** to serve fast queries via API.
-- Exposes **Fastify HTTP/WebSocket** for consumers (apps, web, other scripts).
+- Receives signed telemetry over HTTP and validates every signature (implemented).
+- Indexes readings in **local SQLite** (two databases, public/private) to serve fast queries via API (implemented).
+- Persists public data as a **signed append-only event log** — the future source of truth (Phase 7).
+- Discovers and syncs with peers in layers (ADR-004): configured peers / mDNS first (sync v1), then dial-by-pubkey transport — **iroh** as primary candidate, rust-libp2p as fallback (sync v2, gated by a 4G/CGNAT field spike).
+- Exposes HTTP for consumers (apps, web, other scripts).
 
-A server can run on: VPS, Raspberry Pi, Mini PC, Android via Termux, desktop as part of a Tauri app.
+A node can run on: VPS, Raspberry Pi, Mini PC, Android via Termux, desktop as part of a Tauri app — and, with the Rust `raiznetd`, very small ARM boards (OpenStick-class, static binary).
 
 ### Client layer — visualization
 
@@ -61,7 +63,7 @@ A server can run on: VPS, Raspberry Pi, Mini PC, Android via Termux, desktop as 
 
 Key generation on first use of any client:
 
-- Library: `hypercore-crypto` (or `sodium-universal` directly).
+- Library: `hypercore-crypto` (libsodium) on the TypeScript server; `ed25519-dalek` on the Rust node. Cross-validated test vectors live in `RUST_MIGRATION_PLAN.md` §7.
 - Algorithm: Ed25519.
 - The **public key** is the user's ID and appears everywhere.
 - The **private key** is stored encrypted by the OS:
@@ -70,7 +72,7 @@ Key generation on first use of any client:
   - Server: file on disk with permission 0600, protected by passphrase or environment variable.
 - BIP-39 seed phrase **must** be shown to the user on creation, for backup.
 
-ESP32 provisioning: the device receives the user's private key via BLE or Serial in a setup flow. From then on, it signs all telemetry.
+ESP32 provisioning (as implemented in the reference firmware): the device generates its own keypair from the hardware TRNG and generates/imports the owner's mnemonic in its captive portal — private keys are born on-device and never travel. From then on, it signs all telemetry with the device key. ⚠️ The firmware's standalone owner derivation is SHA-256 of the mnemonic string, **not** standard BIP-39 — incompatible with the server derivation; unification requires an ADR (see `RUST_MIGRATION_PLAN.md` §7.1).
 
 ---
 
@@ -112,9 +114,9 @@ Server operation modes:
 - `local_only`: doesn't touch swarm. Invisible externally.
 - `hybrid`: is connected to public topics, but each individual device decides via `publish_to` whether it publishes outward or not.
 
-**Founder and manifest.** Whoever creates a network is the founder: publishes in their own public core a `NetworkManifest` event signed with their User key, containing readable name, description, and optionally the pubkey of the default filter that new members activate upon joining. The manifest can be updated over time (new append-only events overwrite the state). If someone disagrees with the manifest or wants different rules, they create their own network with another topic — it's a light fork.
+**Founder and manifest.** Whoever creates a network is the founder: publishes in their own public event log a `NetworkManifest` event signed with their User key, containing readable name, description, and optionally the pubkey of the default filter that new members activate upon joining. The manifest can be updated over time (new append-only events overwrite the state). If someone disagrees with the manifest or wants different rules, they create their own network with another topic — it's a light fork.
 
-**Replication is always total.** Every server replicates all device cores it discovers in a network. There is no per-device replication filter. Filters are a query-time lens — they control what appears in API responses, maps, and aggregations, but do not affect what is stored. This keeps the network robust and avoids data fragmentation where only "approved" nodes hold certain data.
+**Replication is always total.** Every server replicates all device event logs it discovers in a network. There is no per-device replication filter. Filters are a query-time lens — they control what appears in API responses, maps, and aggregations, but do not affect what is stored. This keeps the network robust and avoids data fragmentation where only "approved" nodes hold certain data.
 
 The founder's `default_filter_pubkey` is activated by default on new servers joining the network and receives UI priority (shown first in filter lists). This is the only distinction a founder has — there is no technical privilege beyond authoring the manifest.
 
@@ -131,7 +133,7 @@ location: h3_cell?         // H3 cell, granularity chosen by the owner
 publish_to: enum           // local_only | public | both
 networks: string[]         // topics of public networks where it publishes (if public|both)
 encryption_key_version: uint16  // current version of the device's symmetric key
-privacy_policy: {          // visibility policy per field, with dual dimension
+privacy_policy: {          // visibility policy per field
   ph: field_policy,
   ec: field_policy,
   water_level: field_policy,
@@ -196,7 +198,7 @@ When the device has `publish_to: local_only`, only local destinations (entries i
 
 ### Filter  (composable MAC curation)
 
-Only **server nodes** (not client-only apps) can publish filters. Each filter is a dedicated Hypercore — an append-only list of curation events signed with the User key of the server's maintainer.
+Only **server nodes** (not client-only apps) can publish filters. Each filter is a dedicated event log — an append-only list of curation events signed with the User key of the server's maintainer.
 
 Each filter is a sequence of events:
 ```
@@ -210,9 +212,9 @@ signature: bytes(64)       // signed by the filter author's User key
 
 The current state of the filter is the projection of events up to the moment. Adding or removing MACs is just publishing a new event — there is never "destructive" editing.
 
-**Filter metadata** (initial event or updatable in the core itself):
+**Filter metadata** (initial event or updatable in the log itself):
 ```
-id: bytes(32)              // pubkey of the filter's core
+id: bytes(32)              // pubkey of the filter's log
 author_pubkey: bytes(32)   // author's User key
 name: string               // "Official Arateki filter"
 description: string?
@@ -237,7 +239,7 @@ created_at: uint64
 
 ### DeviceClaim and DeviceTransfer  (User key authority)
 
-Events signed by the User key that establish or transfer authority over a device. Both are published in the User's public core:
+Events signed by the User key that establish or transfer authority over a device. Both are published in the User's public event log:
 
 ```
 type DeviceClaim {
@@ -271,12 +273,9 @@ Each device generates a stream of telemetry readings that the server receives, v
 To prevent replay attacks and ensure order, each reading has a monotonic `seq`. To protect the ESP32's flash memory from wear, the device uses a **block reservation strategy**:
 - It reserves a block of 100 sequences (configurable via `TELEMETRY_SEQ_BLOCK_SIZE`) and saves the *next* block's start to NVS.
 - If the device reboots, it resumes from the start of the next reserved block, potentially leaving a small gap in the sequence but never duplicating a `seq`.
-- **Lazy Registration**: The device performs a `POST /v1/devices` automatically during setup or if a telemetry send fails with HTTP 404 (indicating the server does not recognize the device).
+- **Lazy Registration**: The device performs a `POST /v1/devices` automatically during setup; a `409 device_already_exists` response counts as success. Note: telemetry for an unknown device returns **207** (per-block error), never 404 — the firmware's 404 retry path never fires against this server.
 
-**Packet sent by ESP32.** At each reading, the firmware assembles one packet per active destination, applying the policy:
-
-- To the local server (if `publish_to: local_only | both`): assembles a packet looking at the `in_local_network` column of the policy. For each field: if `plain`, includes clear value; if `encrypted`, encrypts with the device's symmetric key; if `omit`, doesn't include.
-- To public networks (if `publish_to: public | both`): assembles a packet looking at `in_public_networks`, with the same logic. This packet can have different composition than the one sent to the local server.
+**Packet sent by ESP32.** At each reading, the firmware assembles one packet per active destination, applying the policy. For each destination, a field's disposition is resolved as `per_destination[<destination>] ?? default_disposition`: if `plain`, the clear value is included; if `encrypted`, the value is encrypted with the device's symmetric key; if `omit`, the field is not included. The packet for the local server can therefore differ from the one sent to public networks.
 
 Block structure (identical for both destinations; only field composition changes):
 ```
@@ -294,14 +293,17 @@ readings: {                // composition according to policy
   humidity?: float | { cipher: bytes, nonce: bytes },
   ...
 }
-signature: bytes(64)       // Ed25519 signature of the packet by the device
+signature: bytes(64)       // Ed25519 signature by the device — covers the raw string (below)
+raw: bytes                 // pipe-delimited ASCII string actually signed
 ```
 
 Omitted fields don't appear in the `readings` object. Clear fields are `float`. Encrypted fields are `{ cipher, nonce }` — the original float value, encrypted with AES-256-GCM using the versioned symmetric key.
 
+**What is signed (current wire contract):** the signature covers a deterministic pipe-delimited string, not the JSON — `pubkey|seq|timestamp|key_version[|ec=…][|ph=…][|waterLevel=…][|tempAmbient=…][|humidity=…]`, fixed field order and fixed decimal places. The JSON carries both `raw` (hex of that string) and `signature`. Full grammar in `RUST_MIGRATION_PLAN.md` §7.2 and `docs/protocol/telemetry.md`.
+
 **SQLite schema (wide table, high performance):**
 
-For each database (`raiznet.db` and `raiznet_private.db`), the `telemetry` table uses fixed columns with `_plain` and `_cipher` pairs per sensor. NULL in both indicates field absent in that reading.
+For each database (`raiznet_public.db` and `raiznet_private.db`), the `telemetry` table uses fixed columns with `_plain` and `_cipher` pairs per sensor. NULL in both indicates field absent in that reading.
 ```
 CREATE TABLE telemetry (
   device_pubkey BLOB NOT NULL,
@@ -324,21 +326,21 @@ New sensor types require migration (addition of three columns). This is the trad
 
 **Separate databases:**
 
-- **`raiznet_public.db`** — fed exclusively by the Hypercore. Contains only data that has been replicated (or is replicable) via Hyperswarm: users, devices, and telemetry from devices with `publish_to: public | both`. Replicated by the swarm when the server is in `public` or `hybrid` mode. Serves the public endpoint and the local endpoint.
-- **`raiznet_private.db`** — fed by local ingest only. Full schema (users, devices, telemetry). Stores: (1) all data from `local_only` devices; (2) fields with `in_local_network: plain | encrypted` that are `omit` in `in_public_networks` for `both` devices. Never exposed externally. Serves only the authenticated local endpoint.
+- **`raiznet_public.db`** — holds publicly publishable data: users, devices, and telemetry from devices with `publish_to: public | both`. Today it is fed by public ingest; once the event log and replication ship (Phases 7–8), it becomes a derived index of replicated logs. Serves the public endpoint.
+- **`raiznet_private.db`** — fed by local ingest only. Full schema (users, devices, telemetry). Stores: (1) all data from `local_only` devices; (2) fields whose disposition for local destinations is `plain | encrypted` while being `omit` for public networks (`both` devices). Never exposed externally. Serves only the local endpoint.
 
 This separation ensures *security by isolation*: local-only sensor data never appears in `raiznet_public.db` — the isolation is enforced at the database level, not the API layer. A poorly written query on the public endpoint cannot return data from `raiznet_private.db` because the database connection is not available to it.
 
 **Buffer on ESP32.** Currently, the reference implementation keeps the last N readings in a circular buffer in **RAM** (defined by `TELEMETRY_BUFFER_SIZE`). The architectural goal is to eventually migrate this to a circular binary buffer in **flash** to survive deep sleep and power loss.
 
 **Operational Parameters (Debug):**
-In the current development phase, the telemetry interval is set to **30 seconds** (defined in `config.h`) to facilitate real-time testing and debugging.
+In the current development phase, the telemetry interval is set to **60 seconds** (`TELEMETRY_INTERVAL_MS` in `config.h`) to facilitate real-time testing and debugging. RAM ring buffer: 50 readings (`TELEMETRY_BUFFER_SIZE`).
 
-**Reading by the owner.** The authenticated app consults the local endpoint and receives the UNION of `raiznet.db` + `raiznet_private.db` by `(device_pubkey, seq)`. For each field: if `_plain`, direct value; if `_cipher`, the app decrypts with the symmetric key (resolved by `key_version`); if both NULL, field absent in the reading. Field gaps in the graph are expected when the policy omitted them — they function as visual audit of the policy itself.
+**Reading by the owner** *(target flow — local auth and the combined view are not implemented yet)*. The authenticated app consults the local endpoint and receives the UNION of `raiznet_public.db` + `raiznet_private.db` by `(device_pubkey, seq)`. For each field: if `_plain`, direct value; if `_cipher`, the app decrypts with the symmetric key (resolved by `key_version`); if both NULL, field absent in the reading. Field gaps in the graph are expected when the policy omitted them — they function as visual audit of the policy itself.
 
-**Reading by third parties.** They consult the public endpoint and receive only `raiznet.db`, respecting the active compound filter. `plain` fields are visible; `cipher` fields arrive as blobs that the third party cannot decrypt; `omit` fields simply are not in the database.
+**Reading by third parties.** They consult the public endpoint and receive only `raiznet_public.db`, respecting the active compound filter. `plain` fields are visible; `cipher` fields arrive as blobs that the third party cannot decrypt; `omit` fields simply are not in the database.
 
-**ESP32 ↔ server consistency.** The `seq` is generated monotonically by the ESP32 and traverses the entire pipeline. On connection, the server reports the last `seq` seen and the ESP32 retransmits what is in the buffer above that. Readings that left the buffer before syncing (case of prolonged poor connectivity) are lost — unless the owner dumps directly from the ESP32 via BLE or serial before. Among public peers, consistency is automatic since it's the same replicated Hypercore.
+**ESP32 ↔ server consistency.** The `seq` is generated monotonically by the ESP32 and traverses the entire pipeline. The firmware re-sends everything in its buffer that was not confirmed with an HTTP `200`; the server deduplicates with `INSERT OR IGNORE` on `(device_pubkey, seq)` — **duplicates are success**, and there is no monotonicity check (rejecting old seqs would break recovery). Readings that left the buffer before syncing (case of prolonged poor connectivity) are lost — unless the owner dumps directly from the ESP32 via BLE or serial before. Among public peers, consistency will be automatic once they replicate the same event log (Phase 8).
 
 ### Crop (with climate adjustments)
 
@@ -394,7 +396,7 @@ This keeps the calculation local, works offline, and avoids the server having to
 **Crop origins:**
 
 - **Builtin**: embedded in the `@raiznet/protocol` package as JSON, versioned as `builtin:<slug>:v<N>`. Offline fallback and public knowledge base.
-- **Third-party catalogs**: Hypercores published by server nodes (analogous to filters), following the same discovery pattern. An Embrapa Nordeste can publish a `CropCatalog` with adjustments specific for semiarid climate.
+- **Third-party catalogs**: event logs published by server nodes (analogous to filters), following the same discovery pattern. An Embrapa Nordeste can publish a `CropCatalog` with adjustments specific for semiarid climate.
 - **Personal override**: the owner can edit any metric in their own app; these edits stay local (private SQLite) and apply only to the owner's Safras.
 
 **Resolution in the owner's app:**
@@ -411,7 +413,7 @@ If two active catalogs define the same cultura, the user defines priority order 
 
 ### CropCatalog (published by server nodes)
 
-Append-only Hypercore of events:
+Append-only event log:
 ```
 type: enum                 // cultura_added | cultura_updated | cultura_removed
 cultura: Crop           // complete object with adjustments
@@ -421,7 +423,7 @@ signature: bytes(64)       // signed by the maintainer's User key
 
 Catalog metadata (initial event):
 ```
-id: bytes(32)              // pubkey of the catalog's core
+id: bytes(32)              // pubkey of the catalog's log
 author_pubkey: bytes(32)
 name: string               // "Embrapa Nordeste Catalog"
 description: string?
@@ -444,12 +446,12 @@ yield_kg: float?
 notes: string?
 ```
 
-### Material  (instructional content — stored in Hyperdrive)
+### Material  (instructional content — distributed via the network's content layer; to be specified after Phase 8)
 ```
 id: bytes(32)
 author_pubkey: bytes(32)
 title: string
-content_path: string       // path in Hyperdrive
+content_path: string       // path in the content store
 tags: string[]
 related_culturas: bytes[]
 created_at: uint64
@@ -459,34 +461,35 @@ created_at: uint64
 
 - IDs are always `bytes(32)` (hash or pubkey) — never auto-incremental integers.
 - Timestamps are `uint64` in Unix milliseconds.
-- Hypercore stores events in **Protobuf** format with `valueEncoding: 'binary'` — schemas in `.proto` files under `packages/protocol/proto/`, compiled via `@bufbuild/protoc-gen-es`.
-- SQLite is **derived cache**. If corrupted, delete and rebuild from the core.
+- The event log will store events in canonical **Protobuf** (Phase 9 / ADR-001) — schemas in `.proto` files under `packages/protocol/proto/`. Today the wire format is JSON and codegen is not active.
+- SQLite is a **derived index** by design. Today ingest writes to it directly (Phase 1); once the event log ships, it is rebuilt by replaying events.
 
 ---
 
 ## 5. Protocols and transport
 
-### Between ESP32 and ESP32 (local mesh)
+### Between ESP32 and ESP32 (local mesh — planned)
 - Protocol: **ESP-NOW** on the same channel as the configured Wi-Fi.
 - Payload: **Protobuf** with `nanopb` — schemas shared from `packages/protocol/proto/`.
 - Each packet is **signed** by the device's private key.
 
 ### Between ESP32 and server
-- **HTTP POST with Protobuf binary** (`Content-Type: application/x-protobuf`) from day one.
+- **HTTP POST with JSON body** carrying the hex-encoded signed `raw` string (current wire contract — see the Telemetry section). **Protobuf binary is the planned canonical format** (Phase 9 / ADR-001); JSON stays supported for the current firmware generation.
 - WebSocket is not used here: devices send infrequently (battery devices every ~30 min, mains-powered at low frequency) and the server never needs to push back — HTTP POST stateless fits perfectly.
-- Endpoint: `POST /v1/telemetry` receives a batch of signed readings serialized as Protobuf.
-- The server validates signature, inserts into the device's Hypercore, updates the SQLite index.
+- Endpoint: `POST /v1/telemetry` receives a batch of 1–100 signed blocks. Duplicates are success (idempotent ingest); unknown device → 207, never 404.
+- The server validates the signature against the **registered** device pubkey and indexes into SQLite. (Appending to the event log lands in Phase 7.)
 
-### Between servers (federated mesh)
-- Discovery: **Hyperswarm** on topics. Each public network is a distinct topic (`raiznet:public:arateki:v1`, `raiznet:public:coop-verdao:v1`, etc).
-- Arateki maintains the initial official network. Other entities can create new networks without asking permission.
-- Only servers configured as `public` or `hybrid` enter topics. `local_only` servers stay out of all.
-- A server can participate in N topics simultaneously. When connecting to a topic, it discovers the peers of that network and exchanges information about devices it hosts with `publish_to: public | both` and that list that network in `Device.networks`.
-- Replication: native Hypercore/Corestore. Only the public cores of authorized devices are replicated.
-- Multi-writer (public custom Crops catalog): **Autobase** per network, with writers authorized by the founder.
+### Between servers (federated mesh — ADR-004, Phases 7–8)
+- Replication model: **Raiznet-native**. Each author publishes a signed, hash-chained append-only event log; peers sync per `(author_pubkey, seq)`. No Hypercore, no port of Holepunch.
+- **Sync v1 — configured peers**: HTTP(S) pull (`heads` summary, then fetch missing event ranges). Covers LAN, VPN/Tailscale and public-IP nodes with zero new dependencies. Ships first.
+- **Sync v2 — dial-by-pubkey transport**: built on an existing Rust P2P foundation. Primary candidate **iroh** (Ed25519 node IDs, QUIC, hole punching with self-hostable relays, topic gossip); fallback **rust-libp2p**. Commitment gated by a field spike on real 4G/CGNAT links. Relays are community-runnable nodes, never a privileged gateway.
+- Each public network is a distinct topic (`raiznet:public:arateki:v1`, `raiznet:public:coop-verdao:v1`, etc). Arateki maintains the initial official network; other entities create networks without asking permission.
+- Only servers configured as `public` or `hybrid` join topics. `local_only` servers stay out of all.
+- A server can participate in N topics simultaneously, exchanging device metadata for devices with `publish_to: public | both` that list that network in `Device.networks`.
+- Multi-writer (public custom Crops catalog): per-event-type merge rules over single-author logs — no Autobase.
 
 ### Server in local-only mode
-- Does not open connection to Hyperswarm. Not discovered by external nodes.
+- Does not announce itself to any discovery layer. Not discovered by external nodes.
 - Listens only on the local Wi-Fi interface (`0.0.0.0` or LAN IP).
 - Indexes local telemetry normally. Serves the API to the owner's app.
 - Useful for installations where the grower doesn't want any external exposure.
@@ -500,136 +503,121 @@ created_at: uint64
   - res 9 (~0.1 km²): farm
   - res 11 (~2,500 m²): specific bed
 - The app presents a map where the owner visually selects the granularity. Larger (coarser) resolutions preserve more privacy; smaller (finer) allow more precise maps.
-- Text names ("Fortaleza-CE", "West zone") are derived via **reverse geocoding** with Nominatim (OpenStreetMap) on the client — never stored in the Hypercore. The source of truth is the H3 cell.
+- Text names ("Fortaleza-CE", "West zone") are derived via **reverse geocoding** with Nominatim (OpenStreetMap) on the client — never stored in the network. The source of truth is the H3 cell.
 - If the owner needs the exact real-world location (to operate the sensor physically), this information is in SafraSense's local software, out of scope of the network.
 
 ### Dual endpoints on the same server
-A single `raiznet-server` process exposes **two simultaneous HTTP interfaces** in the same binary, each with its own access policy:
+A single node process exposes **two simultaneous HTTP interfaces** in the same binary, each with its own access policy:
 
-- **Public endpoint** (e.g., `:3000`): queries exclusively `raiznet_public.db`. Only serves data from devices with `publish_to: public | both`. Replicates via Hyperswarm when server is in `public` or `hybrid` mode.
-- **Local endpoint** (e.g., `:3001`, bind on `127.0.0.1` or LAN IP): queries both databases and combines by `(device_pubkey, seq)`. Requires authentication with the owner's User key (challenge-response). Never exposed to Hyperswarm. Accessible remotely via tunnel (Tailscale, VPN).
+- **Public endpoint** (e.g., `:3000`, bind `0.0.0.0`): device routes query exclusively `raiznet_public.db`. Only serves data from devices with `publish_to: public | both`.
+- **Local endpoint** (e.g., `:3001`, bind `127.0.0.1`): today its device routes use `raiznet_private.db` and there is **no authentication yet** — isolation relies on the loopback bind; reach it remotely via tunnel (Tailscale, VPN). Planned: challenge-response auth with the owner's User key and a combined view of both databases by `(device_pubkey, seq)`.
 
-Both share the same corestore and the same identity, but are strictly separated in terms of data access. This allows the owner to run a single instance, instead of two processes.
+Both share the same storage and the same identity, but are strictly separated in terms of data access. This allows the owner to run a single instance, instead of two processes.
 
-### Core topology and databases
-- **Per device**: **1 public Hypercore** for telemetry. Write-only by the owner. Contains only the fields marked as `public` in the device policy.
-- **Public database** (`raiznet_public.db`): fed by the replicated Hypercores. Read cache of the public endpoint.
-- **Private database** (`raiznet_private.db`): fed exclusively by the owner's local server, via telemetry ingestion before the public/private separation. Never exposed externally. Also stores personal Crop overrides.
-- **ESP32 buffer**: local flash with last N complete readings, accessible via local HTTP, BLE or serial — alternative channel to the server.
-- **Per server**: 1 Hyperbee indexing `device_pubkey → metadata` known, reconstructible from events.
-- **Network catalogs**: Hypercores published by servers (MAC filters, `CropCatalog`, Materials Hyperdrive). Discovered in the network handshake.
+### Log topology and databases
+- **Per device**: **1 public event log** for telemetry (Phase 7). Write-only by the owner. Contains only the fields publishable per the device policy.
+- **Public database** (`raiznet_public.db`): today fed by public ingest; becomes the derived index of replicated event logs (Phases 7–8). Read store of the public endpoint.
+- **Private database** (`raiznet_private.db`): fed exclusively by local ingest. Never exposed externally. Also stores personal Crop overrides.
+- **ESP32 buffer**: RAM ring buffer today (flash buffer is an architectural goal), accessible via local HTTP, BLE or serial — alternative channel to the server.
+- **Per server**: a `device_pubkey → metadata` index in SQLite, reconstructible from events.
+- **Network catalogs**: event logs published by servers (MAC filters, `CropCatalog`, Materials). Discovered in the network handshake (Phase 8).
 - **Builtin**: embedded in the `@raiznet/protocol` package as JSON. Updates with software releases.
 
 ---
 
 ## 6. Frozen tech stack
 
-| Layer | Technology | Target version |
+**Current TypeScript node** (`apps/server` — frozen as behavioural reference; do not edit during the Rust migration):
+
+| Layer | Technology | Version |
 |---|---|---|
 | Runtime | Node.js | 24 LTS |
 | Language | TypeScript | 5.x |
 | HTTP | Fastify | 5.x |
-| P2P core | hypercore | 11.x |
-| P2P swarm | hyperswarm | 4.x |
-| P2P index | hyperbee | 2.x |
-| P2P multi-writer | autobase | 7.x |
-| P2P filesystem | hyperdrive | 11.x |
-| Core manager | corestore | 7.x |
-| Crypto | hypercore-crypto + sodium-universal | latest |
-| Serialization (Node.js) | @bufbuild/protobuf + @bufbuild/protoc-gen-es | latest |
-| Serialization (ESP32) | nanopb | latest |
-| SQL index | better-sqlite3 | latest |
+| SQL storage | better-sqlite3 | 11.x |
+| Crypto | hypercore-crypto (libsodium) | 3.x |
+| BIP-39 seeds | @scure/bip39 | 1.x |
 | Validation | zod | 3.x |
 | Logger | pino | 9.x |
-| Monorepo | pnpm workspaces | 9.x |
-| Tests | vitest | latest |
-| Desktop | Tauri | 2.x (future phase) |
-| Geolocation | h3-js | latest |
-| BIP-39 seeds | @scure/bip39 | latest |
-| Set operations for filters | roaring | latest |
-| Firmware | PlatformIO + Arduino framework | — |
 
-**Do not introduce without discussion:** NestJS (too heavy), Express (obsolete vs Fastify), ORMs (better-sqlite3 directly), Redis (doesn't justify at this stage), Kafka (not necessary), Docker in dev (runs local).
+**Rust node target** (`raiznetd` — see `RUST_MIGRATION_PLAN.md` §6 for the authoritative crate table):
+
+| Layer | Technology | Version |
+|---|---|---|
+| Runtime / HTTP | tokio + axum | 1.x / 0.8 |
+| SQLite | rusqlite (feature `bundled`) | 0.32+ |
+| Crypto | ed25519-dalek + aes-gcm + bip39 + sha2 | 2.x / 0.10 / 2.x / 0.10 |
+| Logs / errors | tracing + thiserror | — |
+| P2P connectivity (Phase 8 v2) | **iroh** (primary candidate) / rust-libp2p (fallback) | per ADR-004, gated by 4G/CGNAT field spike |
+
+**Shared / cross-cutting:**
+
+| Layer | Technology | Status |
+|---|---|---|
+| Canonical serialization | Protobuf — @bufbuild (Node), prost (Rust), nanopb (ESP32) | Planned, Phase 9 / ADR-001 |
+| Monorepo | pnpm workspaces | 9.x |
+| Tests | vitest (TS) / cargo test (Rust) | — |
+| Desktop | Tauri | 2.x (future phase) |
+| Geolocation | h3-js | planned with map features |
+| Set operations for filters | roaring | planned with filters |
+| Firmware | PlatformIO + Arduino framework | — |
+| Docs | VitePress (`docs/`, published at raiznet.com/docs) | — |
+
+**Do not introduce without discussion:** NestJS (too heavy), Express (obsolete vs Fastify), ORMs (better-sqlite3 / rusqlite directly), Redis (doesn't justify at this stage), Kafka (not necessary), Docker in dev (runs local), OpenSSL on the Rust side (rustls if TLS is ever needed), **Hypercore/Holepunch stack (superseded by ADR-004)**.
 
 ---
 
 ## 7. Repository structure
 
-pnpm monorepo:
+pnpm monorepo (plus a Cargo workspace once the Rust migration starts):
 
 ```
 raiznet/
 ├── CLAUDE.md                      # this file
 ├── README.md                      # public quickstart
+├── HANDOFF.md                     # cross-agent session state (read before working)
+├── RUST_MIGRATION_PLAN.md         # raiznetd migration plan (§7 = frozen contracts)
 ├── package.json                   # root
 ├── pnpm-workspace.yaml
-├── tsconfig.base.json
+├── Cargo.toml                     # Rust workspace (created in migration Phase 1)
 │
 ├── apps/
-│   ├── prototype/                 # UI prototype — React + Vite design canvas
-│   │   ├── main.jsx               # entrypoint; mounts DesignCanvas with all sections
-│   │   ├── design-canvas.jsx      # DesignCanvas / DCSection / DCArtboard framework
-│   │   ├── tweaks-panel.jsx       # live tweak controls (theme, color, typography)
-│   │   ├── ios-frame.jsx          # iOS device frame wrapper
-│   │   ├── glyphs.jsx             # SVG icon / glyph components (GRoot, GSprout, etc.)
-│   │   ├── tokens.css             # design tokens (colors, typography, spacing)
-│   │   ├── screens-esp.jsx        # ESP32 captive portal + local dashboard screens
-│   │   ├── screens-server-1.jsx   # Server onboarding + dashboard (A/B variants)
-│   │   ├── screens-server-2.jsx   # Server map H3 (A/B) + device detail + provisioning
-│   │   └── screens-server-3.jsx   # Crops, Filters, Materials, Settings, Mobile views
-│   │
-│   ├── server/                    # full Fastify node
+│   ├── server/                    # TS node — FROZEN behavioural reference
 │   │   ├── src/
-│   │   │   ├── index.ts           # entrypoint
+│   │   │   ├── index.ts           # entrypoint (two Fastify listeners)
 │   │   │   ├── config.ts          # env + zod
-│   │   │   ├── identity.ts        # key generation/loading
-│   │   │   ├── storage/
-│   │   │   │   ├── corestore.ts   # wrapper
-│   │   │   │   ├── public-db.ts   # raiznet_public.db
-│   │   │   │   ├── private-db.ts  # raiznet_private.db
-│   │   │   │   └── indexer.ts     # core → public-db
-│   │   │   ├── swarm/
-│   │   │   │   └── swarm.ts       # hyperswarm
-│   │   │   ├── http/
-│   │   │   │   ├── public/        # public endpoint (no auth)
-│   │   │   │   │   ├── telemetry.ts
-│   │   │   │   │   └── devices.ts
-│   │   │   │   ├── local/         # local endpoint (requires owner auth)
-│   │   │   │   │   ├── telemetry.ts
-│   │   │   │   │   └── devices.ts
-│   │   │   │   └── health.ts
-│   │   │   └── domain/            # pure logic
+│   │   │   ├── identity.ts        # identity.mnemonic load/create
+│   │   │   ├── storage/           # public-db.ts, private-db.ts
+│   │   │   ├── http/              # health.ts, public/{telemetry,devices}.ts
+│   │   │   └── domain/            # telemetry.ts, errors.ts
 │   │   └── package.json
-│   │
+│   ├── raiznetd/                  # Rust node (created in migration Phase 1)
 │   ├── cli/                       # ops and debug tool
-│   └── app/                       # Tauri (future)
+│   ├── website/                   # raiznet.com landing page (deployed via GitHub Actions)
+│   ├── dashboard/                 # web dashboard
+│   └── prototype/                 # UI prototype — React + Vite design canvas
+│
+├── crates/                        # Rust libraries (created during migration)
+│   ├── raiznet-crypto/            # keys, signing, AES-GCM (Phase 2)
+│   ├── raiznet-store/             # SQLite schema + ops (Phase 3)
+│   ├── raiznet-events/            # event log, hash chain (Phase 7)
+│   └── raiznet-sync/              # replication v1/v2 (Phase 8)
 │
 ├── packages/
-│   ├── protocol/                  # .proto schemas + generated TS + Zod validators
-│   │   ├── src/
-│   │   │   ├── telemetry.ts
-│   │   │   ├── device.ts
-│   │   │   ├── cultura.ts
-│   │   │   ├── adjustments.ts     # parser and evaluator of the when DSL
-│   │   │   ├── builtins/
-│   │   │   │   └── culturas.json  # builtin catalog
-│   │   │   └── index.ts
-│   │   └── package.json
-│   │
-│   ├── crypto/                    # key/signature utilities
-│   └── core/                      # abstractions over hypercore/autobase
+│   ├── protocol/                  # .proto schemas (canonical format; codegen not active yet)
+│   ├── crypto/                    # key/signature utilities (TS)
+│   └── core/                      # shared abstractions (TS)
 │
-├── firmware/                      # reference implementation (production firmware lives in SafraSense repo)
-│   └── esp32-sample/              # minimal working sensor — demonstrates protocol, signing and HTTP POST
-│       ├── platformio.ini
-│       └── src/
-│           ├── main.cpp
-│           └── adjustments.cpp    # evaluator ported from TS to C++
+├── firmware/                      # reference implementations (production firmware lives in SafraSense repo)
+│   ├── safraSense/                # full reference sensor — FROZEN during migration
+│   └── esp32-sensor/              # minimal sample
 │
-└── docs/
-    ├── architecture.md
-    ├── protocol.md
-    └── adr/                       # Architecture Decision Records
+├── test-fixtures/                 # cross-implementation corpus (migration Phase 0)
+│
+└── docs/                          # VitePress site → raiznet.com/docs
+    ├── .vitepress/config.ts
+    ├── guide/  protocol/  reference/
+    └── adr/                       # Architecture Decision Records (001–004)
 ```
 
 ---
@@ -658,7 +646,7 @@ raiznet/
 5. Chooses server mode: `public`, `local_only` or `hybrid`. Default: `hybrid`.
 6. Chooses which networks to join. Default: Arateki's official network.
 7. For each joined network, the app automatically activates the default filter declared in that network's manifest.
-8. First identity event is recorded in the user's public core.
+8. First identity event is recorded in the user's public event log.
 
 ### Creating a new network
 1. User chooses "create network" in the app.
@@ -677,27 +665,28 @@ raiznet/
    - Alternatively, user can import an existing mnemonic.
 4. User defines the `publish_to` of the device, server addresses, and Wi-Fi credentials.
 5. ESP32 writes all identities and configs to NVS, reboots in production mode.
-6. Upon first connection (or on 404 error), the device performs a **Lazy Registration** (`POST /v1/devices`) sending its pubkey, MAC, owner pubkey, and initial privacy policy.
+6. During setup, the device performs a **Lazy Registration** (`POST /v1/devices`) sending its pubkey, MAC, owner pubkey, and initial privacy policy (`409` counts as success).
 7. User signs `DeviceClaim` with their key (app-side) to establish formal network ownership.
 
 ### Device sale (ownership transfer)
 1. Seller opens "transfer device" in the app, enters the buyer's User pubkey.
 2. Seller signs `DeviceTransfer` with their key.
 3. Buyer, in their app, receives the request and signs confirming.
-4. Final event (with two signatures) is published in the buyer's public core.
+4. Final event (with two signatures) is published in the buyer's public event log.
 5. The network recognizes the device's new `owner_pubkey` and starts accepting configuration changes from the new owner.
 6. Historical readings remain signed by the device key; old `DeviceClaim` by the seller remains valid as a record of when they were the owner.
 
 ### Telemetry ingestion
-1. ESP32 reads sensors, assembles complete packet with all values and metadata (ambient temperature, humidity, current H3 if changed).
-2. Signs the packet and sends to the server via Wi-Fi (`POST /v1/telemetry`) or ESP-NOW.
-3. Server validates signature, checks `seq` (detects gaps).
-4. Applies the device's privacy policy:
-   - Fields with `in_public_networks: plain | encrypted` (devices `publish_to: public | both`) → go to the **public Hypercore**, indexed in `raiznet_public.db`.
-   - Fields with `in_local_network: plain | encrypted` from `local_only` devices, or fields that are `omit` in public but present locally for `both` devices → indexed in `raiznet_private.db`.
-   - Fields `omit` in a destination → not sent to that destination. If `omit` in `in_local_network` and `local_servers` is empty, stays only in ESP32 flash.
+1. ESP32 reads sensors, assembles the signed `raw` string and the JSON block per destination, applying the field dispositions.
+2. Sends to the server via Wi-Fi (`POST /v1/telemetry`); ESP-NOW relay is planned.
+3. Server validates the signature over `raw` against the **registered** device pubkey and deduplicates by `(device_pubkey, seq)` (`INSERT OR IGNORE` — duplicates are success; no monotonicity check).
+4. Applies the device's privacy policy (disposition = `per_destination[<destination>] ?? default_disposition`):
+   - On the public endpoint, devices with `publish_to: public | both` → stored in `raiznet_public.db` (and, after Phase 7, appended to the public event log).
+   - On the local endpoint, `local_only` and `both` devices → stored in `raiznet_private.db`.
+   - Fields `omit` for a destination are not sent there. If local destinations are `omit` and `local_servers` is empty, the value stays only in the ESP32.
+   - A wire×policy mismatch (e.g. plain value where policy says encrypted) stores NULL, silently.
 5. Both databases share the same `(device_pubkey, seq)` for correlation by the owner at the local endpoint.
-6. Hyperswarm propagates the public block to peers of each network in which the device publishes.
+6. (Phase 8) Replication propagates the public events to peers of each network in which the device publishes.
 
 ### Local evaluation on ESP32 (alerts and estimates)
 
@@ -719,21 +708,21 @@ Since alerts are strictly local:
 - If the owner wants push notification outside the LAN, the responsibility is of their app, fed by the local server — which can, in turn, be accessed via tunnel (Tailscale) or by the `encrypted` field in replicated telemetry, which the app decrypts.
 - The network never becomes aware of specific alerts from a device. This preserves privacy (the network doesn't know if your pH is out of range) and eliminates a class of noise events in the protocol.
 
-### Discovery in a network
-1. New server joins a topic.
+### Discovery in a network (Phase 8)
+1. New server joins a topic (configured peers / mDNS first; dial-by-pubkey transport in sync v2 — ADR-004).
 2. Receives from peers the list of known devices (pubkeys, MACs, basic metadata, H3 cells).
 3. Also receives the list of filters and catalogs available in the network.
 4. Loads active filters (default from `NetworkManifest` + those chosen by the user).
-5. Replicates cores only of devices that pass through the compound filter.
+5. Replicates **all** device event logs in the network — filters are query-time only and never affect storage.
 6. Server starts responding to public API queries with data from `raiznet_public.db`.
 
 ### Compound filter application
-1. Client (app or server) keeps in cache the Hypercores of the active filters.
+1. Client (app or server) keeps in cache the event logs of the active filters.
 2. Each filter is projected into a Roaring Bitmap of MACs by the semantic (verified/banned/flagged).
 3. At query time, the bitmaps are combined (union / intersection / difference) according to the user's choice.
 4. Devices whose MAC does not meet the compound filter become invisible in aggregations and maps.
 
-### Reading by the owner (public + private data)
+### Reading by the owner (public + private data) — target flow; local auth and combined view not implemented yet
 1. Owner opens the app authenticated with their User key (challenge signature).
 2. App connects to the **local endpoint** of the owner's server (`127.0.0.1` or LAN IP, different port from the public endpoint).
 3. Queries `/v1/devices/:id/telemetry` — the server combines `raiznet_public.db` + `raiznet_private.db` by `seq`, returning the complete view.
@@ -747,11 +736,11 @@ Since alerts are strictly local:
 2. Queries `/v1/devices/:id/telemetry` — the server queries only `raiznet_public.db` and returns only if the device passes through the active compound filter on the client.
 3. Values marked as private simply are not in the queried database. There is no metadata leak.
 
-### Synchronization after offline
-1. Node reappears, reconnects to topics of networks it participates in.
-2. Compares `length` of known cores with peers.
-3. Downloads only missing blocks.
-4. Indexer processes in background.
+### Synchronization after offline (Phase 8)
+1. Node reappears, reconnects to peers of networks it participates in.
+2. Compares event-log heads (`author_pubkey → last seq`) with peers.
+3. Downloads only missing events, validating signature and hash chain.
+4. Indexer applies them to SQLite in background.
 
 ### Burned hardware
 1. Owner notices that the ESP32 doesn't respond (loss of hardware + device private key).
@@ -764,7 +753,8 @@ Since alerts are strictly local:
 ## 10. Open questions
 
 ### Decided
-- ~~Revocation of access to private core~~ → Private data never enters the replicated core; if a reading was public and became private, the already propagated public one remains propagated (only future readings stop being published).
+- ~~Hypercore/Holepunch as replication stack~~ → **Replaced by Raiznet-native replication (ADR-004)**: signed hash-chained event log per author; sync v1 = HTTP pull between configured peers; sync v2 = dial-by-pubkey transport with **iroh** as primary candidate (rust-libp2p fallback), gated by a 4G/CGNAT field spike. Relays are community-runnable, never a privileged gateway.
+- ~~Revocation of access to private data~~ → Private data never enters the replicated log; if a reading was public and became private, the already propagated public one remains propagated (only future readings stop being published).
 - ~~Leaving a network~~ → Means stopping publishing new data. What has already been published remains (append-only log).
 - ~~Cross-network aggregations deanonymizing~~ → Not applicable. Aggregations use only data that the owner explicitly made public.
 - ~~Invitation and secret of private network~~ → Private network = local network (`local_only` server), not distributed network with secret topic.
@@ -776,8 +766,8 @@ Since alerts are strictly local:
 - ~~Crop climate adjustments~~ → Declarative system of `adjustments` (when/apply) evaluated locally on the ESP32. Regional catalogs published by servers (analogous to filters) allow specialized curation.
 - ~~Governance of Autobase of public Crops~~ → Eliminated. Crops follow the same model as filters: any server publishes a `CropCatalog`; the user chooses which to activate.
 - ~~Paid public gateway~~ → Removed from proposal. Protocol and self-hosting free; incentives to run node are exclusive capabilities (publish filters/catalogs, found networks) and contribution badges.
-- ~~Three privacy levels per field (plain, encrypted, omit) with two dimensions (in_local_network, in_public_networks)~~ → Adopted. `encrypted` values are encrypted with AES-256-GCM by the device's symmetric key, never enter network metrics, and exist for the owner to follow their own sensor from anywhere on the internet without needing a tunnel.
-- ~~Separate databases on the server~~ → `raiznet.db` (replicated via swarm, serves public and local) + `raiznet_private.db` (only fields that were `omit` in public networks, only serves the authenticated local endpoint). Schema in fixed columns (`_plain`, `_cipher`, `_nonce`) for performance.
+- ~~Three privacy levels per field (plain, encrypted, omit)~~ → Adopted, with the `FieldPolicy` map model (`default_disposition` + `per_destination`). `encrypted` values are encrypted with AES-256-GCM by the device's symmetric key, never enter network metrics, and exist for the owner to follow their own sensor from anywhere on the internet without needing a tunnel.
+- ~~Separate databases on the server~~ → `raiznet_public.db` (publicly publishable data, serves the public endpoint) + `raiznet_private.db` (local-only data, serves only the local endpoint). Schema in fixed columns (`_plain`, `_cipher`, `_nonce`) for performance.
 - ~~Where alerts live~~ → Local. Firmware marks flag, signals physically (LED/buzzer), exposes via local server endpoint or direct connection. Does not go to the network.
 - ~~Harvest estimate~~ → Calculated in firmware from adjusted `harvest_time_days` + `planted_at`. Exposed as one of the accessible device readings.
 - ~~Owner access to data outside the LAN~~ → Two complementary paths: Tailscale/VPN to reach the local endpoint; or mark fields as `encrypted` in the public network and decrypt in the app.
@@ -785,8 +775,8 @@ Since alerts are strictly local:
 ### Open
 - [ ] Rate limiting on HTTP endpoints (especially the public one) to prevent flood.
 - [ ] Exact format of the ESP-NOW packet (bytes) — define in `packages/protocol`.
-- [ ] Retention strategy: the Hypercore grows indefinitely. Policy for compacting old data (sparse sync, removal of old blocks in non-archival peers)?
-- [ ] Criterion for which cores a public gateway replicates: all in the topic, only those with N followers, configurable by operator?
+- [ ] Retention strategy: the event log grows indefinitely. Policy for compacting old data (snapshots, removal of old events in non-archival peers)? The `small-node` profile already prunes the SQLite index by age.
+- [ ] Criterion for which logs a public gateway replicates: all in the topic, only those with N followers, configurable by operator?
 - [ ] UX for seed phrase backup on mobile.
 - [ ] MAC ownership verification at provisioning: avoid users declaring MACs that aren't theirs. Possible approach: challenge-response at setup between app and ESP32.
 - ~~Interaction between filters and replication~~ → Replicate all, filter at query time. Filters are a query-time lens only — they never affect what is stored. Keeps the network robust and avoids data fragmentation.
@@ -809,7 +799,7 @@ The intelligence layer is planned for a later phase and requires no protocol cha
 
 **Collective Crop calibration**: if growers in a region consistently operate outside a Crop's ideal ranges and still achieve good `yield_kg`, that signal drives catalog updates. Regional curators (cooperatives, research institutions) publish updated `CropCatalog` entries derived from observed outcomes.
 
-**Academic publishing and research**: Raiznet data is designed to be research-grade (signed, geolocated, outcome-tracked). Planned work includes partnerships with universities and institutions (e.g. Embrapa), open dataset releases under open licenses, and peer-reviewed publications. Scientific content returns to the network as `Material` entries distributed via Hyperdrive, signed by authors, accessible offline.
+**Academic publishing and research**: Raiznet data is designed to be research-grade (signed, geolocated, outcome-tracked). Planned work includes partnerships with universities and institutions (e.g. Embrapa), open dataset releases under open licenses, and peer-reviewed publications. Scientific content returns to the network as `Material` entries distributed via the network's content layer, signed by authors, accessible offline.
 
 **When working on this phase:**
 - The MCP server lives in `packages/mcp/` (does not exist yet — create the ADR first).
@@ -836,7 +826,7 @@ When I ask you to implement something:
 
 1. **Follow the scope of the current phase.** Don't add features from later phases without asking.
 2. **Validate against the schemas in `packages/protocol`**. If you change the schema, update the docs.
-3. **Preserve the SQLite invariant**: it is only populated by Hypercore events.
+3. **Preserve the SQLite role**: it is a derived index. Today it is populated by validated ingest (Phase 1); once the event log ships (Phase 7), it is populated only by replaying events — never write to it from anywhere else.
 4. **Never introduce mutable global state**. Use dependency injection.
 5. **Each HTTP endpoint must have**: zod schema for body, zod schema for response, integration test.
 6. **Flag when you notice inconsistency between code and CLAUDE.md** — updating this file is part of the task.
