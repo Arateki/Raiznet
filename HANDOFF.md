@@ -27,6 +27,15 @@ andamento, o que falta, e quem fez o quê.
 
 ## Frente de trabalho ativa: migração do nó para Rust (`raiznetd`)
 
+> **Fluxo de git desta frente (desde 2026-06-12):** o trabalho da migração
+> acontece na branch **`rust-migration`**, no worktree
+> **`~/Projects/Raiznet-rust`** — a `main` fica livre para as outras frentes
+> (site, dashboard, docs). As fases 0–5 já estavam na main antes dessa
+> decisão (são aditivas, nada quebra) e a branch nasceu desse ponto.
+> Ao fechar um marco (ex.: Fase 6+10 validadas), merge na main.
+> Sessões desta frente: trabalhar em `~/Projects/Raiznet-rust`, commitar na
+> branch; nunca commitar trabalho Rust direto na main.
+
 ### Estado atual (snapshot de 2026-06-12)
 
 - **Fases 0–5 do plano CONCLUÍDAS e commitadas.** O `raiznetd` existe e tem
