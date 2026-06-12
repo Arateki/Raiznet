@@ -27,42 +27,48 @@ andamento, o que falta, e quem fez o quê.
 
 ## Frente de trabalho ativa: migração do nó para Rust (`raiznetd`)
 
-### Estado atual (snapshot de 2026-06-11)
+### Estado atual (snapshot de 2026-06-12)
 
-- **Decisão estratégica tomada (2026-06-11): ADR-004 aceito.** Replicação é
-  Raiznet-native (event log assinado próprio, sem Hypercore); Fase 8 em duas
-  partes — sync v1 HTTP entre peers configurados, sync v2 dial-by-pubkey com
-  **iroh** como candidato primário (rust-libp2p fallback), gated por spike de
-  campo 4G/CGNAT. `CLAUDE.md`, `README.md`, a doc pública e a Fase 8 do plano
-  já refletem a decisão. Caminho livre para a Fase 0.
-- **Nenhuma linha de Rust existe ainda.** Não há `Cargo.toml` na raiz. O
-  trabalho até agora foi de análise e planejamento.
-- `RUST_MIGRATION_PLAN.md` (raiz) está **revisado e pronto para execução**:
-  - Versão original escrita pelo Codex (estrutura de 10 fases).
-  - Revisado em 2026-06-09 pelo Claude: contratos exatos extraídos do código
-    real (seção 7, normativa), vetores de teste criptográficos gerados
-    executando o código TypeScript de `packages/crypto/dist`, fases 0–5 com
-    código Rust completo e passos TDD, fases 7–9 marcadas como "exigem plano
-    detalhado próprio".
+- **Fases 0–5 do plano CONCLUÍDAS e commitadas.** O `raiznetd` existe e tem
+  paridade de comportamento com o servidor TS, provada pelo corpus:
+  - Fase 0: `test-fixtures/` gerados pelo código TS real e validados contra
+    o servidor TS rodando (6 casos HTTP + estado SQLite).
+  - Fase 1: workspace Cargo (edition 2024), `raiznetd` com `/health`.
+  - Fase 2: `raiznet-crypto` — derivações (a) e (b), assinatura Ed25519
+    **byte a byte igual ao TS** (vetor), AES-GCM; `identity.mnemonic`
+    compatível (migrar TS→Rust preserva a pubkey).
+  - Fase 3: `raiznet-store` — DDL verbatim, dedupe idempotente, FK ativa.
+  - Fase 4: API HTTP completa, dois listeners com destino explícito,
+    corpus de integração (tests/corpus.rs) + replay e2e via curl no
+    binário real.
+  - Fase 5: regras de domínio (§7.6) + endurecimento `RAIZNET_STRICT_RAW`
+    (default ligado; fixture novo post-tampered-plain.json, extensão Rust).
+  - **31 testes verdes, clippy -D warnings limpo, cargo fmt aplicado.**
+- ADR-004 aceito (2026-06-11): replicação Raiznet-native; Fase 8 = sync v1
+  HTTP + sync v2 iroh (gated por spike 4G/CGNAT).
 - O servidor TypeScript (`apps/server`) e o firmware (`firmware/safraSense`)
-  estão **congelados** como referência de comportamento — não editar.
-- **Arquivos não commitados no repo** (git status de 2026-06-09):
-  `RUST_MIGRATION_PLAN.md`, `HANDOFF.md` (este arquivo),
-  `apps/website/SEO_SPEC.md`, `apps/website/public/raiznet-wordmark.svg`,
-  `apps/website/public/root-mark.svg`, `apps/website/raiznet-front.tar.gz`.
-  Os de `apps/website` são de outra frente (site/SEO), não relacionados à
-  migração.
+  seguem **congelados** como referência — não editar.
+- `estudo-rust/` (raiz): material didático de Rust em PT para o Yan,
+  ancorado no código do projeto — manter atualizado quando novos conceitos
+  entrarem (ex.: hash chain na Fase 7).
+- Divergências aceitas novas registradas na §7.7 do plano: item 10
+  (serde_json serializa f64 inteiro como `1800.0`; semântica idêntica).
 
 ### Próximos passos (em ordem)
 
-1. Commitar `RUST_MIGRATION_PLAN.md` e `HANDOFF.md` (confirmar com o Yan).
-2. **Fase 0 do plano**: criar `test-fixtures/generate.mjs` (código completo
-   está no plano), rodar, validar os 4 casos HTTP contra o servidor TS
-   rodando, commitar fixtures.
-3. **Fase 1**: workspace Cargo + `raiznetd` mínimo com `/health`.
-4. Seguir as fases do plano em ordem. O marco de paridade é o fim da Fase 5
-   (firmware ESP32 real falando com o `raiznetd` sem nenhuma mudança no
-   firmware).
+1. **Validação com hardware real**: apontar um ESP32 com o firmware atual
+   para o `raiznetd` (`cargo run -p raiznetd`, porta 3000) e observar
+   registro + telemetria — é o critério final do marco de paridade que não
+   dá para cumprir sem o dispositivo físico.
+2. **Fase 6** (`small-node`): body limit, batch menor, retenção, paginação
+   opcional, PRAGMAs de cache — tudo via env `RAIZNET_*`.
+3. **Fase 10** (deploy ARM): build `aarch64-unknown-linux-musl` com
+   `cargo-zigbuild` (requer zig instalado), systemd unit, validação no
+   OpenStick.
+4. CI Rust (`rust-ci.yml`: test + clippy + fmt) — recomendado antes da
+   Fase 6.
+5. Fases 7–9 exigem plano detalhado próprio antes de executar (event log,
+   sync, Protobuf).
 
 ### Documentos-chave
 
@@ -135,6 +141,31 @@ andamento, o que falta, e quem fez o quê.
 ---
 
 ## Log de trabalho (append-only, mais recente primeiro)
+
+### 2026-06-12 — Claude (Fable 5, Claude Code) — Fases 0–5 da migração Rust executadas
+
+- Executou o plano fase a fase, com commit por fase (Conventional Commits):
+  `56572e9` fixtures (Fase 0), `d2fd703` workspace (Fase 1), `d6103cc`
+  crypto (Fase 2), `21f067c` store (Fase 3), `494733b` HTTP+domínio
+  (Fases 4+5.1), `54d228f` strict raw (Fase 5.2), `74c3a2c` estudo-rust/.
+- Verificações: corpus validado contra o servidor TS rodando ANTES de
+  escrever Rust; assinatura Rust = TS byte a byte; replay e2e dos fixtures
+  contra o binário real (todos os status/bodies idênticos); 31 testes;
+  clippy -D warnings limpo.
+- Decisões/desvios registrados:
+  - raiznetd dividido em lib.rs + main.rs (testes de integração só enxergam
+    libs) — padrão idiomático, sem efeito observável.
+  - Handlers recebem `Json<Value>` e parseiam com `from_value` para retornar
+    400 (paridade com zod/Fastify) em vez do 422 default do axum.
+  - Strict check roda APÓS a verificação de assinatura (mensagem de
+    assinatura inválida tem prioridade — preserva o corpus).
+  - dev-deps novas registradas: `tempfile` (testes de identidade), `tower`
+    (oneshot nos testes de integração — exceção já prevista no plano).
+  - §7.7 item 10 novo: f64 inteiro serializado como `1800.0` (cosmético).
+- Nomenclatura mantida: `apps/server` (TS congelado) + `apps/raiznetd`;
+  rename para "server" só na aposentadoria do TS (decisão com o Yan).
+- Pendência: validação com ESP32 físico (passo 4.7 parcial — feita via
+  replay de fixtures reais, falta o hardware).
 
 ### 2026-06-11 (2) — Claude (Fable 5, Claude Code) — ADR-004 aceito; repo inteiro alinhado à decisão
 
