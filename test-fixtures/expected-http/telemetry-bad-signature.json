@@ -1,0 +1,12 @@
+{
+  "status": 207,
+  "body": {
+    "accepted": 0,
+    "errors": [
+      {
+        "seq": "1",
+        "error": "Invalid signature for device c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a"
+      }
+    ]
+  }
+}

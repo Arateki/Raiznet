@@ -1,0 +1,38 @@
+{
+  "id": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+  "mac": "aabbccddeeff",
+  "ownerPubkey": "93a5f261984931e0df5c7434b16d468efb1953098d3cad4fa1506b9e052e7fc7",
+  "name": "Fixture Tower",
+  "type": 0,
+  "publishTo": 2,
+  "hardware": {
+    "model": "Safrasense Aqua ESP32 v1",
+    "firmware_version": "0.2.0"
+  },
+  "privacyPolicy": {
+    "ph": {
+      "default_disposition": 1,
+      "per_destination": {}
+    },
+    "ec": {
+      "default_disposition": 1,
+      "per_destination": {}
+    },
+    "water_level": {
+      "default_disposition": 1,
+      "per_destination": {}
+    },
+    "temp_water": {
+      "default_disposition": 1,
+      "per_destination": {}
+    },
+    "temp_ambient": {
+      "default_disposition": 1,
+      "per_destination": {}
+    },
+    "humidity": {
+      "default_disposition": 1,
+      "per_destination": {}
+    }
+  }
+}

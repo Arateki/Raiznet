@@ -1,0 +1,18 @@
+{
+  "table": "telemetry",
+  "rows": [
+    {
+      "device_pubkey_hex": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+      "seq": 1,
+      "timestamp": 1700000000000,
+      "key_version": 0,
+      "ph_plain": 6.2,
+      "ec_plain": 1800,
+      "water_level_plain": 80,
+      "temp_water_plain": null,
+      "temp_ambient_plain": 24.5,
+      "humidity_plain": 60,
+      "all_cipher_columns_null": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "status": 201,
+  "body_contains": {
+    "device": {
+      "id": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+      "mac": "aabbccddeeff"
+    }
+  }
+}

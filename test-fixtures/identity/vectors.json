@@ -1,0 +1,18 @@
+{
+  "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+  "server_derivation": {
+    "seed32": "5eb00bbddcf069084889a8ab9155568165f5c453ccb85e70811aaed6f6da5fc1",
+    "pubkey": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a"
+  },
+  "firmware_owner_derivation": {
+    "algorithm": "sha256(mnemonic_utf8) -> ed25519 seed",
+    "pubkey": "93a5f261984931e0df5c7434b16d468efb1953098d3cad4fa1506b9e052e7fc7"
+  },
+  "aes_gcm": {
+    "key": "1111111111111111111111111111111111111111111111111111111111111111",
+    "nonce": "222222222222222222222222",
+    "value": 6.2,
+    "plaintext_float32be": "40c66666",
+    "cipher_plus_tag": "5731612f87cc0d953260cd9674bc34ffe5f3caea"
+  }
+}
