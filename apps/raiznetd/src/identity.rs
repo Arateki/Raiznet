@@ -36,7 +36,10 @@ pub fn load_or_create_identity(data_dir: &Path) -> anyhow::Result<NodeIdentity> 
         // .trim() tolera newline/espaços extras, igual ao TS.
         let mnemonic = fs::read_to_string(&path)?.trim().to_string();
         let signing_key = node_keypair_from_mnemonic(&mnemonic)?;
-        return Ok(NodeIdentity { signing_key, mnemonic });
+        return Ok(NodeIdentity {
+            signing_key,
+            mnemonic,
+        });
     }
 
     let mnemonic = generate_mnemonic();
@@ -53,7 +56,10 @@ pub fn load_or_create_identity(data_dir: &Path) -> anyhow::Result<NodeIdentity> 
     // Texto puro, sem newline final — formato exato do writeFileSync do TS.
     file.write_all(mnemonic.as_bytes())?;
 
-    Ok(NodeIdentity { signing_key, mnemonic })
+    Ok(NodeIdentity {
+        signing_key,
+        mnemonic,
+    })
 }
 
 #[cfg(test)]

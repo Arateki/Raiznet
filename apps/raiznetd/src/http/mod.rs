@@ -32,6 +32,9 @@ pub struct AppState {
     pub private_db: Arc<Mutex<Connection>>,
     pub server_pubkey_hex: String,
     pub destination: Destination,
+    /// Endurecimento: rejeitar blocos cujos valores JSON divergem do `raw`
+    /// assinado (o TS aceita — ver plano §7.7 item 5). Default: ligado.
+    pub strict_raw: bool,
 }
 
 impl AppState {
@@ -55,7 +58,10 @@ pub fn build_router(state: AppState) -> axum::Router {
         .route("/health", get(health::health))
         .route("/v1/devices", post(devices::register).get(devices::list))
         .route("/v1/devices/{id}", get(devices::get_one))
-        .route("/v1/devices/{id}/telemetry", get(devices::telemetry_history))
+        .route(
+            "/v1/devices/{id}/telemetry",
+            get(devices::telemetry_history),
+        )
         .route("/v1/telemetry", post(telemetry::ingest))
         .with_state(state)
 }

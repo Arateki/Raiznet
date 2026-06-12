@@ -46,7 +46,15 @@ mod tests {
         );
         let sig = sign(raw.as_bytes(), &key);
         assert_eq!(hex::encode(sig), EXPECTED_SIG);
-        assert!(verify(raw.as_bytes(), &sig, &key.verifying_key().to_bytes()));
-        assert!(!verify(raw.as_bytes(), &[0u8; 64], &key.verifying_key().to_bytes()));
+        assert!(verify(
+            raw.as_bytes(),
+            &sig,
+            &key.verifying_key().to_bytes()
+        ));
+        assert!(!verify(
+            raw.as_bytes(),
+            &[0u8; 64],
+            &key.verifying_key().to_bytes()
+        ));
     }
 }

@@ -145,8 +145,16 @@ mod tests {
             timestamp,
             received_at: timestamp + 100,
             key_version: 0,
-            ph: SensorColumns { plain: Some(6.2), cipher: None, nonce: None },
-            ec: SensorColumns { plain: Some(1800.0), cipher: None, nonce: None },
+            ph: SensorColumns {
+                plain: Some(6.2),
+                cipher: None,
+                nonce: None,
+            },
+            ec: SensorColumns {
+                plain: Some(1800.0),
+                cipher: None,
+                nonce: None,
+            },
             water_level: SensorColumns::default(),
             temp_water: SensorColumns::default(),
             temp_ambient: SensorColumns::default(),

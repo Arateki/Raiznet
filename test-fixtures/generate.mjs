@@ -54,6 +54,12 @@ write('telemetry/post-ok.json', { blocks: [block] })
 write('telemetry/post-bad-signature.json', {
   blocks: [{ ...block, signature: '00'.repeat(64) }],
 })
+// Par (raw, signature) válido com valor JSON adulterado — replay attack.
+// O servidor TS ACEITA este bloco (a assinatura cobre só o raw); o Rust o
+// rejeita quando RAIZNET_STRICT_RAW=1 (default). Extensão de endurecimento.
+write('telemetry/post-tampered-plain.json', {
+  blocks: [{ ...block, ph: { plain: 9.9 } }],
+})
 
 write('expected-http/register-ok.json', { status: 201, body_contains: { device: { id: devicePubkey, mac: 'aabbccddeeff' } } })
 write('expected-http/register-duplicate.json', { status: 409, body: { error: 'device_already_exists' } })
@@ -66,6 +72,11 @@ write('expected-http/telemetry-unknown-device.json', {
 write('expected-http/telemetry-bad-signature.json', {
   status: 207,
   body: { accepted: 0, errors: [{ seq: '1', error: `Invalid signature for device ${devicePubkey}` }] },
+})
+write('expected-http/telemetry-tampered-plain.json', {
+  note: 'Extensão do Rust (RAIZNET_STRICT_RAW=1, default). O servidor TS aceita este bloco — ver RUST_MIGRATION_PLAN.md §7.7 item 5.',
+  status: 207,
+  body: { accepted: 0, errors: [{ seq: '1', error: `Raw/JSON mismatch for device ${devicePubkey}` }] },
 })
 
 write('expected-sqlite/telemetry-ok.json', {

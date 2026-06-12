@@ -48,7 +48,11 @@ pub struct NewDevice<'a> {
 pub fn device_exists(conn: &Connection, pubkey: &[u8]) -> Result<bool, StoreError> {
     // .optional() transforma "nenhuma linha" em None em vez de erro.
     let found: Option<i64> = conn
-        .query_row("SELECT 1 FROM devices WHERE pubkey = ?1", params![pubkey], |r| r.get(0))
+        .query_row(
+            "SELECT 1 FROM devices WHERE pubkey = ?1",
+            params![pubkey],
+            |r| r.get(0),
+        )
         .optional()?;
     Ok(found.is_some())
 }
@@ -67,9 +71,18 @@ pub fn insert_device(conn: &Connection, d: &NewDevice) -> Result<(), StoreError>
             networks, local_servers, privacy_policy, hardware, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
-            d.pubkey, d.mac, d.owner_pubkey, d.name, d.device_type, d.publish_to,
-            d.location, d.networks_json, d.local_servers_json,
-            d.privacy_policy_json, d.hardware_json, d.created_at
+            d.pubkey,
+            d.mac,
+            d.owner_pubkey,
+            d.name,
+            d.device_type,
+            d.publish_to,
+            d.location,
+            d.networks_json,
+            d.local_servers_json,
+            d.privacy_policy_json,
+            d.hardware_json,
+            d.created_at
         ],
     )?;
     Ok(())
@@ -104,7 +117,9 @@ pub fn get_device(conn: &Connection, pubkey: &[u8]) -> Result<Option<DeviceRow>,
 
 pub fn list_devices(conn: &Connection) -> Result<Vec<DeviceRow>, StoreError> {
     let mut stmt = conn.prepare(&format!("SELECT {DEVICE_COLS} FROM devices"))?;
-    let rows = stmt.query_map([], row_to_device)?.collect::<Result<Vec<_>, _>>()?;
+    let rows = stmt
+        .query_map([], row_to_device)?
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
 

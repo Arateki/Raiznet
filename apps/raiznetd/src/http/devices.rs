@@ -151,11 +151,17 @@ pub async fn register(
     match raiznet_store::devices::device_exists(&db, &pubkey) {
         Ok(true) => {
             // O firmware trata este 409 como sucesso (registro lazy).
-            return (StatusCode::CONFLICT, Json(json!({ "error": "device_already_exists" })));
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "error": "device_already_exists" })),
+            );
         }
         Ok(false) => {}
         Err(_) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "internal" })));
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": "internal" })),
+            );
         }
     }
 
@@ -177,17 +183,27 @@ pub async fn register(
         networks_json: &serde_json::to_string(&body.networks).expect("serializable"),
         local_servers_json: &serde_json::to_string(&body.local_servers).expect("serializable"),
         privacy_policy_json: &policy_json.to_string(),
-        hardware_json: &body.hardware.clone().unwrap_or_else(|| json!({})).to_string(),
+        hardware_json: &body
+            .hardware
+            .clone()
+            .unwrap_or_else(|| json!({}))
+            .to_string(),
         created_at: now,
     };
     if raiznet_store::devices::insert_device(&db, &new_device).is_err() {
-        return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "internal" })));
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "internal" })),
+        );
     }
     let row = raiznet_store::devices::get_device(&db, &pubkey)
         .ok()
         .flatten()
         .expect("just inserted");
-    (StatusCode::CREATED, Json(json!({ "device": format_device(&row) })))
+    (
+        StatusCode::CREATED,
+        Json(json!({ "device": format_device(&row) })),
+    )
 }
 
 pub async fn list(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
@@ -197,7 +213,10 @@ pub async fn list(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
             StatusCode::OK,
             Json(json!({ "devices": rows.iter().map(format_device).collect::<Vec<_>>() })),
         ),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "internal" }))),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "internal" })),
+        ),
     }
 }
 
@@ -208,10 +227,19 @@ pub async fn get_one(
     let pubkey = hex::decode(&id).unwrap_or_default();
     let db = state.devices_db().lock().expect("db mutex");
     match raiznet_store::devices::get_device(&db, &pubkey) {
-        Ok(Some(row)) => (StatusCode::OK, Json(json!({ "device": format_device(&row) }))),
+        Ok(Some(row)) => (
+            StatusCode::OK,
+            Json(json!({ "device": format_device(&row) })),
+        ),
         // Mensagem com espaço e maiúscula mesmo — é o contrato do TS.
-        Ok(None) => (StatusCode::NOT_FOUND, Json(json!({ "error": "Device not found" }))),
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "internal" }))),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "Device not found" })),
+        ),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "internal" })),
+        ),
     }
 }
 
@@ -247,6 +275,9 @@ pub async fn telemetry_history(
                 .collect();
             (StatusCode::OK, Json(json!({ "readings": readings })))
         }
-        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({ "error": "internal" }))),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": "internal" })),
+        ),
     }
 }

@@ -42,9 +42,13 @@ async fn main() -> anyhow::Result<()> {
         private_db,
         server_pubkey_hex: server_pubkey_hex.clone(),
         destination: Destination::Public,
+        strict_raw: cfg.strict_raw,
     };
     let public_router = http::build_router(base.clone());
-    let local_router = http::build_router(AppState { destination: Destination::Local, ..base });
+    let local_router = http::build_router(AppState {
+        destination: Destination::Local,
+        ..base
+    });
 
     let public_listener = tokio::net::TcpListener::bind(("0.0.0.0", cfg.public_port)).await?;
     let local_listener = tokio::net::TcpListener::bind(("127.0.0.1", cfg.local_port)).await?;

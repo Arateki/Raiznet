@@ -3,10 +3,11 @@
 // RAIZNET_ para não colidir com outras coisas no ambiente.
 
 pub struct Config {
-    pub public_port: u16,            // RAIZNET_PUBLIC_PORT, default 3000
-    pub local_port: u16,             // RAIZNET_LOCAL_PORT,  default 3001
+    pub public_port: u16,             // RAIZNET_PUBLIC_PORT, default 3000
+    pub local_port: u16,              // RAIZNET_LOCAL_PORT,  default 3001
     pub data_dir: std::path::PathBuf, // RAIZNET_DATA_DIR,   default ./data
-    pub log_level: String,           // RAIZNET_LOG_LEVEL,   default "info"
+    pub log_level: String,            // RAIZNET_LOG_LEVEL,   default "info"
+    pub strict_raw: bool,             // RAIZNET_STRICT_RAW,  default true ("0" desliga)
 }
 
 impl Config {
@@ -14,7 +15,10 @@ impl Config {
         // Função genérica: lê a env var e tenta converter para o tipo T;
         // qualquer falha (ausente ou inválida) cai no default.
         fn var<T: std::str::FromStr>(name: &str, default: T) -> T {
-            std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+            std::env::var(name)
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(default)
         }
         Config {
             public_port: var("RAIZNET_PUBLIC_PORT", 3000),
@@ -23,6 +27,9 @@ impl Config {
                 .unwrap_or_else(|_| "./data".into())
                 .into(),
             log_level: std::env::var("RAIZNET_LOG_LEVEL").unwrap_or_else(|_| "info".into()),
+            // Endurecimento raw↔JSON (plano §7.7 item 5): ligado por default;
+            // só "0" desliga (para reproduzir o comportamento exato do TS).
+            strict_raw: std::env::var("RAIZNET_STRICT_RAW").as_deref() != Ok("0"),
         }
     }
 }

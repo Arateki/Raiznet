@@ -26,7 +26,10 @@ pub fn encrypt_field(value: f32, key: &[u8; 32]) -> Result<EncryptedField, Crypt
     let cipher = aead
         .encrypt(&nonce, value.to_be_bytes().as_slice()) // to_be_bytes = big-endian
         .map_err(|_| CryptoError::Aead)?;
-    Ok(EncryptedField { cipher, nonce: nonce.into() })
+    Ok(EncryptedField {
+        cipher,
+        nonce: nonce.into(),
+    })
 }
 
 pub fn decrypt_field(

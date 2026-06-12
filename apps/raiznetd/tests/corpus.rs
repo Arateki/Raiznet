@@ -30,25 +30,38 @@ fn fresh_state() -> AppState {
         // então o per_destination nunca é consultado.
         server_pubkey_hex: "ff".repeat(32),
         destination: Destination::Public,
+        strict_raw: true, // default de produção — o corpus tem que passar com ele
     }
 }
 
 /// Dispara uma request no router e devolve (status, body JSON).
-async fn send(state: &AppState, method: &str, path: &str, body: Option<&Value>) -> (StatusCode, Value) {
+async fn send(
+    state: &AppState,
+    method: &str,
+    path: &str,
+    body: Option<&Value>,
+) -> (StatusCode, Value) {
     let router = build_router(state.clone());
     let builder = Request::builder()
         .method(method)
         .uri(path)
         .header(header::CONTENT_TYPE, "application/json");
     let request = match body {
-        Some(b) => builder.body(Body::from(serde_json::to_vec(b).unwrap())).unwrap(),
+        Some(b) => builder
+            .body(Body::from(serde_json::to_vec(b).unwrap()))
+            .unwrap(),
         None => builder.body(Body::empty()).unwrap(),
     };
     let response = router.oneshot(request).await.unwrap();
     let status = response.status();
-    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
-    let json: Value =
-        if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap() };
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let json: Value = if bytes.is_empty() {
+        Value::Null
+    } else {
+        serde_json::from_slice(&bytes).unwrap()
+    };
     (status, json)
 }
 
@@ -76,8 +89,14 @@ async fn full_corpus_sequence() {
     let expected = fixture("expected-http/register-ok.json");
     let (status, json) = send(&state, "POST", "/v1/devices", Some(&register)).await;
     assert_eq!(status.as_u16() as i64, expected["status"].as_i64().unwrap());
-    assert_eq!(json["device"]["id"], expected["body_contains"]["device"]["id"]);
-    assert_eq!(json["device"]["mac"], expected["body_contains"]["device"]["mac"]);
+    assert_eq!(
+        json["device"]["id"],
+        expected["body_contains"]["device"]["id"]
+    );
+    assert_eq!(
+        json["device"]["mac"],
+        expected["body_contains"]["device"]["mac"]
+    );
 
     // 2. Registro repetido → 409 (o firmware trata como sucesso).
     let expected = fixture("expected-http/register-duplicate.json");
@@ -101,10 +120,24 @@ async fn full_corpus_sequence() {
     let expected_row = &fixture("expected-sqlite/telemetry-ok.json")["rows"][0];
     {
         let db = state.public_db.lock().unwrap();
-        let count: i64 = db.query_row("SELECT COUNT(*) FROM telemetry", [], |r| r.get(0)).unwrap();
+        let count: i64 = db
+            .query_row("SELECT COUNT(*) FROM telemetry", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count, 1);
 
-        type RowTuple = (Vec<u8>, i64, i64, i64, f64, f64, f64, Option<f64>, f64, f64, i64);
+        type RowTuple = (
+            Vec<u8>,
+            i64,
+            i64,
+            i64,
+            f64,
+            f64,
+            f64,
+            Option<f64>,
+            f64,
+            f64,
+            i64,
+        );
         let row: RowTuple = db
             .query_row(
                 "SELECT device_pubkey, seq, timestamp, key_version,
@@ -117,14 +150,26 @@ async fn full_corpus_sequence() {
                 [],
                 |r| {
                     Ok((
-                        r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?,
-                        r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?, r.get(10)?,
+                        r.get(0)?,
+                        r.get(1)?,
+                        r.get(2)?,
+                        r.get(3)?,
+                        r.get(4)?,
+                        r.get(5)?,
+                        r.get(6)?,
+                        r.get(7)?,
+                        r.get(8)?,
+                        r.get(9)?,
+                        r.get(10)?,
                     ))
                 },
             )
             .unwrap();
 
-        assert_eq!(hex::encode(&row.0), expected_row["device_pubkey_hex"].as_str().unwrap());
+        assert_eq!(
+            hex::encode(&row.0),
+            expected_row["device_pubkey_hex"].as_str().unwrap()
+        );
         assert_eq!(row.1, expected_row["seq"].as_i64().unwrap());
         assert_eq!(row.2, expected_row["timestamp"].as_i64().unwrap());
         assert_eq!(row.3, expected_row["key_version"].as_i64().unwrap());
@@ -144,9 +189,22 @@ async fn full_corpus_sequence() {
     assert_eq!(status.as_u16() as i64, expected["status"].as_i64().unwrap());
     assert_eq!(json, expected["body"]);
 
+    // 6b. Endurecimento (extensão do Rust): assinatura válida com valor JSON
+    //     adulterado → 207 Raw/JSON mismatch. O servidor TS aceita este bloco.
+    let tampered = fixture("telemetry/post-tampered-plain.json");
+    let expected = fixture("expected-http/telemetry-tampered-plain.json");
+    let (status, json) = send(&state, "POST", "/v1/telemetry", Some(&tampered)).await;
+    assert_eq!(status.as_u16() as i64, expected["status"].as_i64().unwrap());
+    assert_eq!(json, expected["body"]);
+
     // 8. Leitura pública: ph {"value":6.2}, tempWater null.
-    let (status, json) =
-        send(&state, "GET", &format!("/v1/devices/{device_id}/telemetry"), None).await;
+    let (status, json) = send(
+        &state,
+        "GET",
+        &format!("/v1/devices/{device_id}/telemetry"),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::OK);
     let reading = &json["readings"][0];
     assert_eq!(reading["seq"], 1);
@@ -162,8 +220,13 @@ async fn full_corpus_sequence() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["device"]["id"].as_str().unwrap(), device_id);
 
-    let (status, json) =
-        send(&state, "GET", &format!("/v1/devices/{}", "00".repeat(32)), None).await;
+    let (status, json) = send(
+        &state,
+        "GET",
+        &format!("/v1/devices/{}", "00".repeat(32)),
+        None,
+    )
+    .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(json["error"], "Device not found");
 }
@@ -172,14 +235,24 @@ async fn full_corpus_sequence() {
 #[tokio::test]
 async fn telemetry_batch_limits_return_400() {
     let state = fresh_state();
-    let (status, _) =
-        send(&state, "POST", "/v1/telemetry", Some(&serde_json::json!({ "blocks": [] }))).await;
+    let (status, _) = send(
+        &state,
+        "POST",
+        "/v1/telemetry",
+        Some(&serde_json::json!({ "blocks": [] })),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 
     let block = &fixture("telemetry/post-ok.json")["blocks"][0];
     let many: Vec<Value> = (0..101).map(|_| block.clone()).collect();
-    let (status, _) =
-        send(&state, "POST", "/v1/telemetry", Some(&serde_json::json!({ "blocks": many }))).await;
+    let (status, _) = send(
+        &state,
+        "POST",
+        "/v1/telemetry",
+        Some(&serde_json::json!({ "blocks": many })),
+    )
+    .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
@@ -195,11 +268,17 @@ async fn local_endpoint_uses_private_database() {
 
     // Aparece no privado, não no público.
     let private_count: i64 = state
-        .private_db.lock().unwrap()
-        .query_row("SELECT COUNT(*) FROM devices", [], |r| r.get(0)).unwrap();
+        .private_db
+        .lock()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM devices", [], |r| r.get(0))
+        .unwrap();
     let public_count: i64 = state
-        .public_db.lock().unwrap()
-        .query_row("SELECT COUNT(*) FROM devices", [], |r| r.get(0)).unwrap();
+        .public_db
+        .lock()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM devices", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(private_count, 1);
     assert_eq!(public_count, 0);
 
@@ -209,7 +288,10 @@ async fn local_endpoint_uses_private_database() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(json["accepted"], 1);
     let rows: i64 = state
-        .private_db.lock().unwrap()
-        .query_row("SELECT COUNT(*) FROM telemetry", [], |r| r.get(0)).unwrap();
+        .private_db
+        .lock()
+        .unwrap()
+        .query_row("SELECT COUNT(*) FROM telemetry", [], |r| r.get(0))
+        .unwrap();
     assert_eq!(rows, 1);
 }

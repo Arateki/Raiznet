@@ -74,7 +74,10 @@ fn parse_block(b: &BlockInput) -> Result<TelemetryBlock, DomainError> {
         .ok_or_else(|| DomainError::InvalidPayload("signature".into()))?;
     let raw = hex::decode(&b.raw).map_err(|_| DomainError::InvalidPayload("raw".into()))?;
     // str::parse::<i64> rejeita números acima de i64::MAX — o SQLite INTEGER é i64.
-    let seq: i64 = b.seq.parse().map_err(|_| DomainError::InvalidPayload("seq".into()))?;
+    let seq: i64 = b
+        .seq
+        .parse()
+        .map_err(|_| DomainError::InvalidPayload("seq".into()))?;
     let timestamp: i64 = b
         .timestamp
         .parse()
@@ -138,6 +141,13 @@ pub async fn ingest(
 
     let accepted = body.blocks.len() - errors.len();
     // Tudo ok → 200; qualquer falha por bloco → 207 (nunca 404!).
-    let status = if errors.is_empty() { StatusCode::OK } else { StatusCode::MULTI_STATUS };
-    (status, Json(json!({ "accepted": accepted, "errors": errors })))
+    let status = if errors.is_empty() {
+        StatusCode::OK
+    } else {
+        StatusCode::MULTI_STATUS
+    };
+    (
+        status,
+        Json(json!({ "accepted": accepted, "errors": errors })),
+    )
 }

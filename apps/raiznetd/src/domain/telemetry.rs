@@ -53,7 +53,10 @@ struct FieldPolicy {
 fn resolve_disposition(policy: Option<&FieldPolicy>, server_pubkey_hex: &str) -> u8 {
     match policy {
         None => DISPOSITION_OMIT,
-        Some(p) => *p.per_destination.get(server_pubkey_hex).unwrap_or(&p.default_disposition),
+        Some(p) => *p
+            .per_destination
+            .get(server_pubkey_hex)
+            .unwrap_or(&p.default_disposition),
     }
 }
 
@@ -62,9 +65,11 @@ fn resolve_disposition(policy: Option<&FieldPolicy>, server_pubkey_hex: &str) ->
 /// não é erro (ex.: valor plain chegando onde a política manda encrypted).
 fn field_to_columns(field: &SensorField, disposition: u8) -> SensorColumns {
     match (field, disposition) {
-        (SensorField::Plain(v), DISPOSITION_PLAIN) => {
-            SensorColumns { plain: Some(*v), cipher: None, nonce: None }
-        }
+        (SensorField::Plain(v), DISPOSITION_PLAIN) => SensorColumns {
+            plain: Some(*v),
+            cipher: None,
+            nonce: None,
+        },
         (SensorField::Encrypted { cipher, nonce }, DISPOSITION_ENCRYPTED) => SensorColumns {
             plain: None,
             cipher: Some(cipher.clone()),
@@ -72,6 +77,79 @@ fn field_to_columns(field: &SensorField, disposition: u8) -> SensorColumns {
         },
         _ => SensorColumns::default(), // tudo None → tudo NULL
     }
+}
+
+/// Endurecimento (plano passo 5.2): o servidor TS verifica a assinatura só
+/// sobre o `raw` — um par (raw, signature) capturado pode ser reenviado com
+/// valores JSON adulterados e o TS aceita. Aqui, com RAIZNET_STRICT_RAW
+/// ligado (default), exigimos que o JSON seja consistente com o raw assinado.
+fn verify_raw_consistency(block: &TelemetryBlock) -> Result<(), DomainError> {
+    let device_id_hex = hex::encode(block.device_id);
+    let mismatch = || DomainError::RawMismatch(device_id_hex.clone());
+
+    let raw_str = std::str::from_utf8(&block.raw).map_err(|_| mismatch())?;
+    let mut parts = raw_str.split('|');
+
+    // Cabeçalho fixo: pubkey|seq|timestamp|key_version
+    if parts.next() != Some(device_id_hex.as_str()) {
+        return Err(mismatch());
+    }
+    let seq: i64 = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(mismatch)?;
+    let timestamp: i64 = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(mismatch)?;
+    let key_version: i64 = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(mismatch)?;
+    if seq != block.seq || timestamp != block.timestamp || key_version != block.key_version {
+        return Err(mismatch());
+    }
+
+    // Campos do raw: chave=valor. Mapeamento de nomes raw → campos do bloco.
+    let mut raw_values: HashMap<&str, f64> = HashMap::new();
+    for part in parts {
+        let (key, value) = part.split_once('=').ok_or_else(mismatch)?;
+        let value: f64 = value.parse().map_err(|_| mismatch())?;
+        raw_values.insert(key, value);
+    }
+
+    // Os 6 sensores: (nome no raw, campo do bloco).
+    let fields: [(&str, &SensorField); 6] = [
+        ("ec", &block.ec),
+        ("ph", &block.ph),
+        ("waterLevel", &block.water_level),
+        ("tempWater", &block.temp_water),
+        ("tempAmbient", &block.temp_ambient),
+        ("humidity", &block.humidity),
+    ];
+    let known: Vec<&str> = fields.iter().map(|(k, _)| *k).collect();
+    // Chave desconhecida no raw → mismatch (firmware atual só envia as 5 conhecidas).
+    if raw_values.keys().any(|k| !known.contains(k)) {
+        return Err(mismatch());
+    }
+
+    for (key, field) in fields {
+        match (raw_values.get(key), field) {
+            // Comparação NUMÉRICA, nunca textual: o raw traz "6.20", o JSON 6.2.
+            (Some(raw_v), SensorField::Plain(json_v)) => {
+                if (raw_v - json_v).abs() >= 1e-6 {
+                    return Err(mismatch());
+                }
+            }
+            // Campo no raw mas não-Plain no JSON (ausente/cifrado) → adulterado.
+            (Some(_), _) => return Err(mismatch()),
+            // Campo Plain no JSON que não está no raw assinado → adulterado.
+            (None, SensorField::Plain(_)) => return Err(mismatch()),
+            // Encrypted e Absent ficam fora do raw por design — ok.
+            (None, _) => {}
+        }
+    }
+    Ok(())
 }
 
 pub fn ingest_block(block: &TelemetryBlock, state: &AppState) -> Result<(), DomainError> {
@@ -94,6 +172,12 @@ pub fn ingest_block(block: &TelemetryBlock, state: &AppState) -> Result<(), Doma
         .map_err(|_| DomainError::InvalidPayload("stored pubkey".into()))?;
     if !raiznet_crypto::signing::verify(&block.raw, &block.signature, &registered_pubkey) {
         return Err(DomainError::InvalidSignature(device_id_hex));
+    }
+
+    // 2b. Endurecimento: só checa consistência de blocos já autenticados
+    //     (a mensagem de assinatura inválida tem prioridade — paridade).
+    if state.strict_raw {
+        verify_raw_consistency(block)?;
     }
 
     // 3. Política de privacidade (JSON da coluna). Política ilegível → mapa
@@ -142,18 +226,24 @@ mod tests {
 
     const SERVER_PUBKEY: &str = "ff00000000000000000000000000000000000000000000000000000000000000";
 
-    /// Monta um AppState de teste com bancos em memória.
+    /// Monta um AppState de teste com bancos em memória (strict_raw ligado,
+    /// como no default de produção — os blocos de teste são consistentes).
     fn state(destination: Destination) -> AppState {
         AppState {
             public_db: Arc::new(Mutex::new(raiznet_store::open_in_memory().unwrap())),
             private_db: Arc::new(Mutex::new(raiznet_store::open_in_memory().unwrap())),
             server_pubkey_hex: SERVER_PUBKEY.into(),
             destination,
+            strict_raw: true,
         }
     }
 
     /// Registra um device assinante real (chave do vetor §7.1) nos DOIS bancos.
-    fn register(state: &AppState, publish_to: i64, policy_json: &str) -> ([u8; 32], raiznet_crypto::SigningKey) {
+    fn register(
+        state: &AppState,
+        publish_to: i64,
+        policy_json: &str,
+    ) -> ([u8; 32], raiznet_crypto::SigningKey) {
         let key = raiznet_crypto::identity::node_keypair_from_mnemonic(
             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
         )
@@ -206,7 +296,8 @@ mod tests {
 
     fn count_public_rows(state: &AppState) -> i64 {
         let db = state.public_db.lock().unwrap();
-        db.query_row("SELECT COUNT(*) FROM telemetry", [], |r| r.get(0)).unwrap()
+        db.query_row("SELECT COUNT(*) FROM telemetry", [], |r| r.get(0))
+            .unwrap()
     }
 
     const ALL_PLAIN: &str = r#"{"ph":{"default_disposition":1,"per_destination":{}}}"#;
@@ -231,7 +322,9 @@ mod tests {
 
         let db = st.public_db.lock().unwrap();
         let ph: Option<f64> = db
-            .query_row("SELECT ph_plain FROM telemetry WHERE seq = 1", [], |r| r.get(0))
+            .query_row("SELECT ph_plain FROM telemetry WHERE seq = 1", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert!(ph.is_none()); // o override por destino venceu o default
     }
@@ -246,9 +339,11 @@ mod tests {
 
         let db = st.public_db.lock().unwrap();
         let (ph, cipher): (Option<f64>, Option<Vec<u8>>) = db
-            .query_row("SELECT ph_plain, ph_cipher FROM telemetry WHERE seq = 1", [], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
+            .query_row(
+                "SELECT ph_plain, ph_cipher FROM telemetry WHERE seq = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .unwrap();
         assert!(ph.is_none());
         assert!(cipher.is_none());
@@ -263,5 +358,69 @@ mod tests {
         let err = ingest_block(&block, &st).unwrap_err();
         assert!(matches!(err, DomainError::InvalidSignature(_)));
         assert_eq!(count_public_rows(&st), 0);
+    }
+
+    // ---- Endurecimento raw↔JSON (RAIZNET_STRICT_RAW) ----
+
+    #[test]
+    fn tampered_plain_value_is_rejected_with_strict_raw() {
+        let st = state(Destination::Public);
+        let (pubkey, key) = register(&st, 2, ALL_PLAIN);
+        // Assinatura válida sobre o raw (ph=6.20), mas JSON adulterado: replay attack.
+        let mut block = signed_block(pubkey, &key);
+        block.ph = SensorField::Plain(9.9);
+        let err = ingest_block(&block, &st).unwrap_err();
+        assert!(matches!(err, DomainError::RawMismatch(_)));
+        assert_eq!(count_public_rows(&st), 0);
+    }
+
+    #[test]
+    fn tampered_value_is_accepted_with_strict_raw_off() {
+        // Com a flag desligada, reproduz o comportamento do TS: aceita.
+        let mut st = state(Destination::Public);
+        st.strict_raw = false;
+        let (pubkey, key) = register(&st, 2, ALL_PLAIN);
+        let mut block = signed_block(pubkey, &key);
+        block.ph = SensorField::Plain(9.9);
+        ingest_block(&block, &st).unwrap();
+        assert_eq!(count_public_rows(&st), 1);
+    }
+
+    #[test]
+    fn extra_plain_field_missing_from_raw_is_rejected() {
+        let st = state(Destination::Public);
+        let (pubkey, key) = register(&st, 2, ALL_PLAIN);
+        // O raw assinado só tem ph; o JSON injeta um humidity a mais.
+        let mut block = signed_block(pubkey, &key);
+        block.humidity = SensorField::Plain(55.0);
+        let err = ingest_block(&block, &st).unwrap_err();
+        assert!(matches!(err, DomainError::RawMismatch(_)));
+    }
+
+    #[test]
+    fn tampered_seq_is_rejected() {
+        let st = state(Destination::Public);
+        let (pubkey, key) = register(&st, 2, ALL_PLAIN);
+        // raw assinado diz seq=1; o bloco declara seq=2 (tentativa de
+        // reusar uma leitura antiga sob outro seq).
+        let mut block = signed_block(pubkey, &key);
+        block.seq = 2;
+        let err = ingest_block(&block, &st).unwrap_err();
+        assert!(matches!(err, DomainError::RawMismatch(_)));
+    }
+
+    #[test]
+    fn encrypted_field_outside_raw_is_allowed() {
+        let st = state(Destination::Public);
+        let policy = r#"{"ph":{"default_disposition":1,"per_destination":{}},"ec":{"default_disposition":2,"per_destination":{}}}"#;
+        let (pubkey, key) = register(&st, 2, policy);
+        // Campos cifrados ficam FORA do raw por design — não podem reprovar.
+        let mut block = signed_block(pubkey, &key);
+        block.ec = SensorField::Encrypted {
+            cipher: vec![1, 2, 3],
+            nonce: vec![0; 12],
+        };
+        ingest_block(&block, &st).unwrap();
+        assert_eq!(count_public_rows(&st), 1);
     }
 }
