@@ -1,0 +1,9 @@
+# Crate de armazenamento do Raiznet: schema SQLite e operações de
+# devices/telemetria, com paridade exata com o servidor TS. Fase 3.
+[package]
+name = "raiznet-store"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]

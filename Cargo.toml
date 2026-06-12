@@ -1,0 +1,47 @@
+# Workspace Cargo do monorepo Raiznet.
+#
+# Um "workspace" agrupa vários pacotes Rust (chamados de "crates") que
+# compartilham o mesmo Cargo.lock e o mesmo diretório target/ de build.
+# É o equivalente, no mundo Rust, ao pnpm-workspace.yaml deste repo.
+#
+# Membros:
+#   apps/raiznetd          → o binário do nó (o "server" Rust)
+#   crates/raiznet-crypto  → chaves, assinaturas, AES-GCM (Fase 2)
+#   crates/raiznet-store   → SQLite: schema e operações (Fase 3)
+# (raiznet-events e raiznet-sync nascem nas Fases 7 e 8 — ver RUST_MIGRATION_PLAN.md)
+
+[workspace]
+resolver = "2"
+members = ["apps/raiznetd", "crates/raiznet-crypto", "crates/raiznet-store"]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+
+# Dependências declaradas uma única vez aqui; cada crate as referencia com
+# `nome.workspace = true`. Garante que todo o workspace usa a mesma versão.
+[workspace.dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+ed25519-dalek = "2"
+aes-gcm = "0.10"
+sha2 = "0.10"
+bip39 = { version = "2", features = ["rand"] }
+hex = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+thiserror = "2"
+anyhow = "1"
+
+# Perfil de release otimizado para o alvo pequeno (OpenStick):
+# opt-level "s" prioriza tamanho do binário; lto e codegen-units=1 deixam o
+# build mais lento porém o binário menor e mais rápido; strip remove símbolos.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
