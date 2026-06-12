@@ -1,5 +1,7 @@
 # Crate de armazenamento do Raiznet: schema SQLite e operações de
-# devices/telemetria, com paridade exata com o servidor TS. Fase 3.
+# devices/telemetria, com paridade exata com o servidor TS (§7.5 do plano).
+# A feature `bundled` do rusqlite compila o SQLite em C junto do crate —
+# zero dependência do sistema, essencial para o binário estático ARM.
 [package]
 name = "raiznet-store"
 version = "0.1.0"
@@ -7,3 +9,10 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
