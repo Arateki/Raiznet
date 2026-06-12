@@ -10,15 +10,22 @@ rust-version.workspace = true
 [dependencies]
 # Crates do próprio workspace (path = dependência local, como workspace:* do pnpm)
 raiznet-crypto = { path = "../../crates/raiznet-crypto" }
+raiznet-store = { path = "../../crates/raiznet-store" }
 
 tokio.workspace = true
 axum.workspace = true
+serde.workspace = true
 serde_json.workspace = true
+rusqlite.workspace = true
 hex.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+thiserror.workspace = true
 anyhow.workspace = true
 
 [dev-dependencies]
 # tempfile: diretórios temporários autodeletados nos testes (registrado no plano §6)
 tempfile = "3"
+# tower: ServiceExt::oneshot para testar o router sem abrir porta
+# (exceção registrada no plano, passo 4.6)
+tower = { version = "0.5", features = ["util"] }

@@ -519,6 +519,7 @@ Ordem exata por bloco:
 | 7 | Telemetria de device desconhecido → 207, não 404; o handler de 404 do firmware nunca dispara contra este servidor | Manter 207. |
 | 8 | `Buffer.from(hexInválido, 'hex')` no TS trunca silenciosamente; em Rust o decode falha | Divergência aceita: hex malformado vira erro por bloco `Invalid payload: <campo>` (o firmware nunca envia hex malformado; corpus não cobre). |
 | 9 | Body de erro 400 do Fastify (schema validation) tem shape próprio | Corpus valida apenas o status 400. |
+| 10 | `serde_json` serializa f64 inteiro como `1800.0`; o JS serializa `1800` | Divergência **textual** aceita no GET de leituras: mesma semântica JSON, qualquer parser numérico trata igual. O corpus compara valores parseados, não bytes. |
 
 ---
 

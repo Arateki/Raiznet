@@ -1,47 +1,65 @@
 // raiznetd — ponto de entrada do nó Raiznet em Rust.
 //
-// Fase 2 da migração: servidor HTTP com /health + identidade Ed25519 do nó
-// carregada/criada em <data_dir>/identity.mnemonic (compatível com o TS).
-// As fases seguintes adicionam SQLite, devices e telemetria.
+// Casca fina sobre a biblioteca (src/lib.rs): carrega config e identidade,
+// abre os dois bancos e sobe os dois listeners — paridade com o servidor TS:
+//   público (0.0.0.0:3000)  → rotas de devices no raiznet_public.db
+//   local   (127.0.0.1:3001) → rotas de devices no raiznet_private.db
 
-mod identity;
+use std::future::IntoFuture; // habilita .into_future() no axum::serve
+use std::sync::{Arc, Mutex};
 
-use axum::{Json, Router, routing::get};
-use std::path::PathBuf;
-use std::time::{SystemTime, UNIX_EPOCH};
+use raiznetd::http::{self, AppState, Destination};
+use raiznetd::{config, identity};
 
-/// Timestamp atual em milissegundos Unix — mesmo formato do Date.now() do JS.
-pub fn now_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .expect("clock before epoch")
-        .as_millis() as u64
-}
-
-/// Handler do GET /health — mesmo shape do servidor TS.
-async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "status": "ok", "ts": now_ms() }))
-}
-
-// #[tokio::main] inicializa o runtime async (o "event loop" do Rust)
-// e executa o corpo do main dentro dele.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let cfg = config::Config::from_env();
+
     // Logs estruturados em JSON no stdout — equivalente ao pino do TS.
-    tracing_subscriber::fmt().json().init();
+    tracing_subscriber::fmt()
+        .json()
+        .with_env_filter(tracing_subscriber::EnvFilter::new(&cfg.log_level))
+        .init();
 
-    // Identidade do nó: mesmo arquivo e formato do servidor TS, então um nó
-    // migrado mantém a pubkey. RAIZNET_DATA_DIR default ./data (config
-    // completa por env chega na Fase 4).
-    let data_dir: PathBuf = std::env::var("RAIZNET_DATA_DIR")
-        .unwrap_or_else(|_| "./data".into())
-        .into();
-    let node = identity::load_or_create_identity(&data_dir)?;
-    tracing::info!(pubkey = %node.pubkey_hex(), "raiznet server started");
+    // Identidade do nó: mesmo arquivo e formato do servidor TS — um nó
+    // migrado de TS para Rust mantém a mesma pubkey.
+    let node = identity::load_or_create_identity(&cfg.data_dir)?;
+    let server_pubkey_hex = node.pubkey_hex();
 
-    let app = Router::new().route("/health", get(health));
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::info!("raiznetd listening on :3000");
-    axum::serve(listener, app).await?;
+    // Os dois bancos, cada um dentro de Arc<Mutex<...>> para compartilhar
+    // entre os handlers (ver comentário de concorrência em raiznet-store).
+    let public_db = Arc::new(Mutex::new(raiznet_store::open_db(
+        &cfg.data_dir.join("raiznet_public.db"),
+    )?));
+    let private_db = Arc::new(Mutex::new(raiznet_store::open_db(
+        &cfg.data_dir.join("raiznet_private.db"),
+    )?));
+
+    // Mesmos bancos, destinos diferentes — o destino decide qual banco cada
+    // router usa (paridade com a inferência por porta do TS).
+    let base = AppState {
+        public_db,
+        private_db,
+        server_pubkey_hex: server_pubkey_hex.clone(),
+        destination: Destination::Public,
+    };
+    let public_router = http::build_router(base.clone());
+    let local_router = http::build_router(AppState { destination: Destination::Local, ..base });
+
+    let public_listener = tokio::net::TcpListener::bind(("0.0.0.0", cfg.public_port)).await?;
+    let local_listener = tokio::net::TcpListener::bind(("127.0.0.1", cfg.local_port)).await?;
+
+    tracing::info!(
+        pubkey = %server_pubkey_hex,
+        public_port = cfg.public_port,
+        local_port = cfg.local_port,
+        "raiznet server started"
+    );
+
+    // try_join! roda os dois servidores em paralelo; se um falhar, derruba tudo.
+    tokio::try_join!(
+        axum::serve(public_listener, public_router).into_future(),
+        axum::serve(local_listener, local_router).into_future(),
+    )?;
     Ok(())
 }
