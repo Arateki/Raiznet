@@ -1,7 +1,11 @@
 # ADR 001 — Protobuf as wire format
 
-**Status:** Accepted  
+**Status:** Accepted — implementation deferred  
 **Date:** 2026-04
+
+::: info Update (2026-06)
+The wire format in production is **JSON** with a [signed raw string](/protocol/telemetry#the-signed-raw-string); the `.proto` schemas exist but code generation is not active. Protobuf remains the target canonical format and will land together with the event log — JSON stays supported for the current firmware generation.
+:::
 
 ## Context
 
@@ -40,6 +44,6 @@ Candidates evaluated:
 
 ## Consequences
 
-- All inter-process communication (ESP32 → server, server → Hypercore) uses Protobuf binary.
-- HTTP API uses JSON (decoded from Protobuf on the server side) for browser and CLI compatibility.
-- The `packages/protocol` package owns all `.proto` files and generated code. No other package defines its own wire format.
+- The canonical binary encoding (ESP32 → server, node → event log) will use Protobuf.
+- The HTTP API keeps JSON for browser, CLI, and current-firmware compatibility.
+- The `packages/protocol` package owns all `.proto` files and (future) generated code. No other package defines its own wire format.

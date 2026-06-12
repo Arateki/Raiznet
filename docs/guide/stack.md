@@ -1,47 +1,53 @@
 # Tech Stack
 
-## Frozen stack
+## Current stack (implemented)
 
 | Layer | Technology | Version |
 |---|---|---|
 | Runtime | Node.js | 24 LTS |
-| Language | TypeScript | 5.x |
+| Language | TypeScript (strict) | 5.x |
 | HTTP | Fastify | 5.x |
-| P2P core | hypercore | 11.x |
-| P2P swarm | hyperswarm | 4.x |
-| P2P index | hyperbee | 2.x |
-| P2P multi-writer | autobase | 7.x |
-| P2P filesystem | hyperdrive | 11.x |
-| Core manager | corestore | 7.x |
-| Crypto | hypercore-crypto + sodium-universal | latest |
-| Serialization (Node.js) | @bufbuild/protobuf + @bufbuild/protoc-gen-es | latest |
-| Serialization (ESP32) | nanopb | latest |
-| SQL index | better-sqlite3 | latest |
+| SQL storage | better-sqlite3 | 11.x |
 | Validation | zod | 3.x |
+| Crypto (Ed25519) | hypercore-crypto (libsodium) | 3.x |
+| BIP-39 seeds | @scure/bip39 | 1.x |
 | Logger | pino | 9.x |
 | Monorepo | pnpm workspaces | 9.x |
-| Tests | vitest | latest |
-| Desktop | Tauri | 2.x (future) |
-| Geolocation | h3-js | latest |
-| BIP-39 seeds | @scure/bip39 | latest |
-| Set operations (filters) | roaring | latest |
-| Firmware | PlatformIO + Arduino framework | — |
+| Tests | vitest | 3.x |
+| Docs | VitePress | 1.x |
+| Firmware | PlatformIO + Arduino framework (ESP32) | — |
+
+## Planned / under evaluation
+
+| Layer | Technology | Status |
+|---|---|---|
+| Canonical serialization | Protobuf (`@bufbuild/protobuf` on Node, `nanopb` on ESP32) | Schemas exist, codegen not active — see [ADR-001](/adr/001-protobuf) |
+| Geolocation | h3-js | Planned with the map features |
+| Filter set operations | Roaring Bitmaps | Planned with filters |
+| Desktop app | Tauri 2.x | Future phase |
+| Node replication | Signed event log + peer sync | In design — see [Roadmap](/guide/roadmap) |
 
 ## Repository structure
 
 ```
 raiznet/
 ├── apps/
-│   ├── server/          # Full Fastify node
-│   └── cli/             # Operations and debug tool
+│   ├── server/          # Fastify node (public + local endpoints)
+│   ├── cli/             # Operations and debug tool
+│   ├── website/         # raiznet.com landing page
+│   ├── dashboard/       # Web dashboard
+│   └── prototype/       # UI design canvas (React + Vite)
 ├── packages/
-│   ├── protocol/        # .proto schemas + generated TS + Zod validators
-│   ├── crypto/          # Key generation, signing, AES-256-GCM, challenge-response
-│   └── core/            # Abstractions over hypercore/autobase (future)
+│   ├── protocol/        # .proto schemas (canonical format, planned)
+│   ├── crypto/          # Key derivation, signing, AES-256-GCM
+│   └── core/            # Shared abstractions
 ├── firmware/
-│   └── esp32-sample/    # Reference implementation (production firmware is in SafraSense repo)
+│   ├── safraSense/      # Reference ESP32 firmware (full sensor)
+│   └── esp32-sensor/    # Minimal sample
 └── docs/                # This site
 ```
+
+The production firmware for Arateki's SafraSense hardware lives in a separate repository; the firmware in this repo is the open reference implementation of the protocol.
 
 ## Design decisions
 
@@ -53,12 +59,12 @@ raiznet/
 - Docker in dev — runs local
 - Kafka — not necessary
 
-## SQLite as derived cache
+## SQLite role
 
-SQLite is never the source of truth. It is a **read cache** derived from Hypercore events. If corrupted, delete and rebuild from the core.
+Today, SQLite is the node's primary local storage: ingest validates a block and writes it directly to `raiznet_public.db` / `raiznet_private.db`.
 
-This means:
-- The schema can evolve without data loss (rebuild from core)
-- Fast aggregated queries (fixed columns with `REAL` for sensor data)
-- No ORM needed — direct SQL with typed results
+The design goal is for the source of truth to become a **signed append-only event log**, with SQLite as a derived index that can be deleted and rebuilt by replaying the log (see [ADR-002](/adr/002-sqlite-cache)). The wide-table schema is already shaped for that:
+
+- Fast aggregated queries (fixed `REAL` columns per sensor)
+- No ORM — direct SQL with typed results
 - New sensor types require adding three columns (`_plain`, `_cipher`, `_nonce`) per field

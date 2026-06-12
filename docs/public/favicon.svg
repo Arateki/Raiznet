@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Raiznet">
+  <rect width="64" height="64" rx="12" fill="#f4ecd8"/>
+  <path d="M32 10v23M32 33c-7 5-14 9-18 19M32 33c7 5 14 9 18 19M32 33v19M22 55h20" fill="none" stroke="#1a3a28" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="32" cy="33" r="5" fill="#c2613a"/>
+</svg>

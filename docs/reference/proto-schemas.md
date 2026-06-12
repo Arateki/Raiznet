@@ -1,6 +1,10 @@
 # Proto Schemas
 
-All `.proto` files live in `packages/protocol/proto/`. Generated TypeScript code is in `packages/protocol/src/gen/`.
+::: info Planned canonical format
+These schemas define the **planned** canonical binary encoding ([ADR-001](/adr/001-protobuf)). The wire format in production today is JSON with a signed raw string — see [Telemetry](/protocol/telemetry). Code generation is not active yet.
+:::
+
+All `.proto` files live in `packages/protocol/proto/`. They are the reference for field names, numbers, and enum values — the JSON wire format and the SQLite schema follow them.
 
 ## telemetry.proto
 
@@ -50,6 +54,10 @@ message TelemetryBatch {
 Protobuf encodes field numbers 1–15 in a single byte (tag + wire type). Numbers 16 and above require two bytes. Sensor readings (fields 10–15) are in the 1-byte range to minimize packet size for high-frequency or battery-constrained devices.
 
 Field 30 for the signature is intentionally outside the 1-byte range — it is large (64 bytes) and fixed cost, so the tag size is irrelevant.
+
+::: warning Signature scope today
+In the current JSON wire format the signature covers the [pipe-delimited raw string](/protocol/telemetry#the-signed-raw-string), not a Protobuf encoding. The canonical-bytes rule for the binary format will be specified when codegen is activated.
+:::
 
 ---
 

@@ -57,12 +57,12 @@ The MCP server can run in two modes:
 
 ## Academic research and knowledge publishing
 
-Raiznet is designed to be a research-grade data infrastructure. The combination of signed, tamper-evident data (Hypercore), precise geolocation (H3), structured crop outcomes (Safra), and an open protocol creates a dataset with properties that matter for scientific work: provenance, reproducibility, and accessibility without vendor lock-in.
+Raiznet is designed to be a research-grade data infrastructure. The combination of signed, tamper-evident data, precise geolocation (H3), structured crop outcomes (Safra), and an open protocol creates a dataset with properties that matter for scientific work: provenance, reproducibility, and accessibility without vendor lock-in.
 
 Planned future work includes:
 
 - **Research partnerships**: making anonymized, aggregated Raiznet datasets available to universities, agricultural research institutions (such as Embrapa), and cooperatives for publication in peer-reviewed journals and technical reports.
-- **Content publishing on the network**: the `Material` data model (stored in Hyperdrive) is designed for distributing instructional and scientific content — cultivation guides, field study results, regional best practices — directly through the network, authored and signed by researchers, accessible offline.
+- **Content publishing on the network**: the `Material` data model is designed for distributing instructional and scientific content — cultivation guides, field study results, regional best practices — directly through the network, authored and signed by researchers, accessible offline.
 - **Open dataset releases**: periodic snapshots of public network data made available under open licenses for the broader research community, enabling work on topics such as regional climate adaptation, hydroponic optimization, and small-scale food system resilience.
 
 The goal is a feedback loop: growers generate data, researchers analyze it, findings return to the network as improved Crops and Materials, growers benefit. No intermediary captures the value.

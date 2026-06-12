@@ -41,7 +41,7 @@ Three dispositions:
 - *Public vs local*: two entries grouping by destination class.
 - *Per destination (advanced)*: one entry per server pubkey or topic.
 
-**`ENCRYPTED` for remote owner access.** The `ENCRYPTED` disposition solves a specific case: the owner wants to follow their sensor from outside the LAN without exposing values to the public network. The cipher blob travels through Hyperswarm normally; peers store it but cannot read it. The owner's app decrypts locally using the device's symmetric key (derived from the BIP-39 seed).
+**`ENCRYPTED` for remote owner access.** The `ENCRYPTED` disposition solves a specific case: the owner wants to follow their sensor from outside the LAN without exposing values to the public network. The cipher blob travels through the public network normally; peers store it but cannot read it. The owner's app decrypts locally using the device's symmetric key (derived from the BIP-39 seed).
 
 **Security by isolation, not by query.** The two-database architecture (`raiznet_public.db` / `raiznet_private.db`) enforces isolation at the connection level. The `OMIT` / `PLAIN` / `ENCRYPTED` model is the policy layer; the database separation is the enforcement layer. Both are required.
 
@@ -56,6 +56,6 @@ Three dispositions:
 ## Consequences
 
 - `packages/protocol/proto/device.proto` defines `FieldPolicy`, `Disposition`, and `PrivacyPolicy`.
-- `apps/server/src/domain/telemetry.ts` resolves the effective disposition per field: `per_destination[serverPubkeyHex] ?? per_destination[networkTopic] ?? default_disposition`.
+- `apps/server/src/domain/telemetry.ts` resolves the effective disposition per field: `per_destination[serverPubkeyHex] ?? default_disposition` (topic-level overrides land with networks).
 - `packages/crypto/src/symmetric.ts` owns AES-256-GCM field encryption and decryption.
 - The owner's app is responsible for maintaining the device's symmetric keyring (`{ version → key }`) and decrypting `ENCRYPTED` fields received from any endpoint.

@@ -61,8 +61,8 @@ Users who don't run a node never need to configure `local_servers`. The app comm
 
 The two databases on the server enforce isolation at the connection level, not the query level:
 
-- `raiznet_public.db` — fed by Hypercore replication. The public endpoint's Fastify instance has access only to this database. A poorly written query cannot leak private data because the connection object is simply not available.
-- `raiznet_private.db` — fed by local ingest only. Only the local endpoint (authenticated, `127.0.0.1`) has access. Never enters Hyperswarm.
+- `raiznet_public.db` — fed by public ingest (peer replication planned). The public endpoint has access only to this database. A poorly written query cannot leak private data because the connection object is simply not available.
+- `raiznet_private.db` — fed by local ingest only. Only the local endpoint (`127.0.0.1`) has access. It never leaves the node.
 
 ## What is always public
 
@@ -79,14 +79,14 @@ This metadata is necessary for the network to know the device exists and for agg
 
 ## Changing the policy
 
-Changing `FieldPolicy` affects only future readings. Data already published (plain or encrypted) remains replicated across peers — there is no mechanism to "unpublish" what peers have already downloaded. This is a consequence of the append-only Hypercore design.
+Changing `FieldPolicy` affects only future readings. Data already published (plain or encrypted) remains with whoever already received it — there is no mechanism to "unpublish" what peers have downloaded. This is a consequence of append-only, replicated data.
 
 ## Encrypted fields and the owner's app
 
 The `ENCRYPTED` disposition solves a specific use case: the owner wants to follow their own sensor data from outside the LAN (no tunnel needed) without exposing the values to the public network.
 
 Flow:
-1. Device encrypts the field with its symmetric key before sending to the public Hypercore.
+1. Device encrypts the field with its symmetric key before sending it to the public destination.
 2. Any peer receives and stores the encrypted blob — they cannot read it.
 3. The owner's app, which holds the symmetric key, decrypts the blob locally.
 

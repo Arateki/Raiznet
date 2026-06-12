@@ -49,7 +49,7 @@ On first run, the server:
 ```
 
 ::: warning Back up your seed phrase
-The file `DATA_DIR/identity.mnemonic` contains the 12-word seed phrase that controls your server's identity. Back it up. If lost, your server cannot sign NetworkManifests, filters, or catalogs.
+The file `DATA_DIR/identity.mnemonic` contains the 12-word seed phrase that controls your server's identity. Back it up. If lost, your node's identity (its pubkey) is gone — and with it, once networks ship, the ability to sign NetworkManifests, filters, and catalogs.
 :::
 
 ## Health check
@@ -58,6 +58,10 @@ The file `DATA_DIR/identity.mnemonic` contains the 12-word seed phrase that cont
 curl http://localhost:3000/health
 # {"status":"ok","ts":1776819068644}
 ```
+
+## Exposing the node
+
+The public endpoint (`:3000`) is safe to expose — it serves public data only. The local endpoint (`:3001`) has **no authentication yet**: it binds to `127.0.0.1` and must stay unreachable from outside. Use Tailscale or a VPN for remote access. See [Local API](/reference/local-api).
 
 ## Development mode (watch)
 

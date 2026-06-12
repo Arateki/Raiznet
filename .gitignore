@@ -1,7 +1,8 @@
 node_modules
 apps/server/data
 **/**/dist
-docs/.vitepress
+docs/.vitepress/cache
+docs/.vitepress/dist
 .env
 .codex
 apps/website/.seo-ssr-*

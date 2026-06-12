@@ -1,6 +1,10 @@
 # Local API
 
-The local endpoint listens on `127.0.0.1:LOCAL_PORT` (default `3001`). It is accessible only from the machine running the server (or via a tunnel such as Tailscale). It requires owner authentication and combines `raiznet_public.db` + `raiznet_private.db` in its responses.
+The local endpoint listens on `127.0.0.1:LOCAL_PORT` (default `3001`). It runs in the same process as the public endpoint but is bound to loopback only — it is meant for the owner's app, CLI, and tooling on the same machine (or reached through a tunnel such as Tailscale or a VPN).
+
+::: danger No authentication yet
+The local endpoint currently has **no authentication**. Isolation relies entirely on the `127.0.0.1` bind. Do not port-forward or reverse-proxy this port to the internet. Owner challenge-response authentication is planned — see below.
+:::
 
 ## Base URL
 
@@ -8,118 +12,40 @@ The local endpoint listens on `127.0.0.1:LOCAL_PORT` (default `3001`). It is acc
 http://127.0.0.1:3001
 ```
 
-## Authentication
+## Routes
 
-The local endpoint uses Ed25519 challenge-response to prove ownership of the server's User key.
+The local endpoint exposes the **same routes** as the [Public API](/reference/public-api) with one structural difference: which database they touch.
 
-### `GET /v1/auth/challenge`
-
-Returns a 32-byte random challenge.
-
-**Response `200`**
-```json
-{ "challenge": "a3f1...32 bytes hex..." }
-```
-
-### `POST /v1/auth/verify`
-
-Signs the challenge and receives a session token.
-
-**Request body**
-```json
-{
-  "challenge": "a3f1...",
-  "signature": "3045...",
-  "pubkey": "641f..."
-}
-```
-
-**Response `200`**
-```json
-{ "token": "eyJ..." }
-```
-
-Pass the token in subsequent requests as `Authorization: Bearer <token>`.
-
-**Response `401`** — invalid signature or unknown pubkey.
-
----
-
-## Devices
-
-The local endpoint exposes the same device routes as the public API, but the responses include data from both databases combined.
-
-### `GET /v1/devices`
-
-Same as public, but also returns devices with `publish_to: local_only`.
-
-### `GET /v1/devices/:id`
-
-Same as public, but returns full device detail including local-only fields.
-
-### `GET /v1/devices/:id/telemetry`
-
-Returns the combined view: public readings from `raiznet_public.db` merged with local readings from `raiznet_private.db`, joined by `(device_pubkey, seq)`.
-
-**Response `200`**
-```json
-{
-  "device_id": "641ffb278dc6...",
-  "readings": [
-    {
-      "seq": 1042,
-      "timestamp": 1776819068644,
-      "received_at": 1776819069001,
-      "ph": 6.2,
-      "ec": 1.8,
-      "water_level": 0.85,
-      "temp_water": 22.5,
-      "temp_ambient": 28.1,
-      "humidity": 65.0,
-      "ph_encrypted": false,
-      "ec_encrypted": false
-    }
-  ]
-}
-```
-
-For `ENCRYPTED` fields, the response includes the raw cipher and nonce so the owner's app can decrypt locally:
-
-```json
-{
-  "seq": 1043,
-  "ph": null,
-  "ph_encrypted": true,
-  "ph_cipher": "a1b2c3...",
-  "ph_nonce": "0102030405060708090a0b0c"
-}
-```
-
----
-
-## Server identity
-
-### `GET /v1/identity`
-
-Returns the server's public key and mnemonic status.
-
-**Response `200`**
-```json
-{
-  "pubkey": "641ffb278dc6...",
-  "mnemonic_exists": true
-}
-```
-
-The mnemonic itself is never returned over HTTP. Access it directly from `DATA_DIR/identity.mnemonic`.
-
----
-
-## Error codes
-
-All public API error codes apply. Additional local-only codes:
-
-| Code | HTTP status | Meaning |
+| Route | Public endpoint | Local endpoint |
 |---|---|---|
-| `unauthorized` | 401 | Missing or invalid auth token |
-| `challenge_expired` | 401 | Challenge was not used within its validity window |
+| `GET /health` | — | identical |
+| `POST /v1/devices` | writes `raiznet_public.db` | writes `raiznet_private.db` |
+| `GET /v1/devices`, `GET /v1/devices/:id` | reads `raiznet_public.db` | reads `raiznet_private.db` |
+| `GET /v1/devices/:id/telemetry` | reads `raiznet_public.db` | reads `raiznet_private.db` |
+| `POST /v1/telemetry` | ingest destination `public` | ingest destination `local` |
+
+This asymmetry is deliberate: registering a device on the local endpoint creates it as a **local device** in the private database, invisible to the public side.
+
+### Ingestion destination
+
+`POST /v1/telemetry` on the local endpoint stores readings in `raiznet_private.db` when the device's `publishTo` is `0` (local_only) or `2` (both). A device with `publishTo: 1` (public-only) posting here is validated and accepted, but nothing is stored.
+
+A `both` device sends **separate requests** to each endpoint — one to the public endpoint, one to the local endpoint — each assembled according to the field dispositions for that destination.
+
+## Remote access
+
+To read local data from outside the LAN, use a private overlay network (Tailscale, WireGuard) to reach `127.0.0.1:3001` on the server — or mark fields as `encrypted` for the public network and decrypt them in your app (see [Privacy Model](/protocol/privacy)).
+
+---
+
+## Planned: owner authentication
+
+Challenge-response authentication with the owner's User key is designed but **not implemented yet**:
+
+1. Client calls `GET /v1/auth/challenge` → receives 32 random bytes.
+2. Client signs the challenge with the User secret key.
+3. Client sends the signature to `POST /v1/auth/verify` → receives a session token.
+
+## Planned: combined view
+
+The local endpoint will eventually merge `raiznet_public.db` + `raiznet_private.db` by `(device_pubkey, seq)` so the owner sees one continuous series per device, with encrypted fields returned as `cipher` + `nonce` for local decryption. Today each endpoint returns only its own database.

@@ -34,7 +34,7 @@ The seed phrase is derived deterministically: the same 12 words always produce t
 
 ## Server identity
 
-On first boot, the server generates a new BIP-39 seed and writes it to `DATA_DIR/identity.mnemonic` with permissions `0600`. The file is the only persistent secret. Back it up — losing it means losing the ability to sign `NetworkManifest` events, filters, and catalogs.
+On first boot, the server generates a new BIP-39 seed and writes it to `DATA_DIR/identity.mnemonic` with permissions `0600`. The file is the only persistent secret. Back it up — it is the node's identity, and once networks ship it is what signs `NetworkManifest` events, filters, and catalogs.
 
 The server's public key is logged at startup:
 
@@ -46,11 +46,13 @@ The server's public key is logged at startup:
 
 At setup:
 
-1. The app generates (or the device generates) a device keypair.
-2. The device private key is written to the ESP32's flash.
-3. The User signs a `DeviceClaim` event and publishes it to their public Hypercore.
+1. The device generates its keypair from the hardware TRNG (32 random bytes) and stores it in flash (NVS). The private key never leaves the device.
+2. The owner identity is generated or imported in the device's captive portal as a BIP-39 mnemonic — see [Device Lifecycle](/protocol/device-lifecycle).
+3. **Planned:** the User signs a `DeviceClaim` event published to their public event log, so any reading can be validated against the ownership chain.
 
-From then on, any reading from that device can be validated against the ownership chain.
+::: info Owner key derivation in the reference firmware
+The reference firmware currently derives the owner's Ed25519 seed as **SHA-256 of the mnemonic string**, not via the full BIP-39/PBKDF2 derivation used by the server (`@raiznet/crypto`). The same phrase therefore produces different keys in the two paths. A canonical rule will be fixed by ADR before owner-seed import ships in the apps — until then, treat the firmware-generated owner key as device-scoped.
+:::
 
 ## Ownership transfer
 
@@ -66,12 +68,12 @@ The seed phrase is the master secret. It should be:
 
 There is no centralized recovery. This is a fundamental design choice, not a limitation.
 
-## Challenge-response authentication
+## Challenge-response authentication <Badge type="warning" text="planned" />
 
-The local endpoint (`127.0.0.1:LOCAL_PORT`) requires the owner to prove possession of their User private key:
+The local endpoint (`127.0.0.1:LOCAL_PORT`) will require the owner to prove possession of their User private key (not implemented yet — see [Local API](/reference/local-api)):
 
 1. Client calls `GET /v1/auth/challenge` → receives 32 random bytes.
 2. Client signs those bytes with their User secret key.
 3. Client sends the signature to `POST /v1/auth/verify` → receives a session token (or the server validates per-request).
 
-This prevents unauthorized access to the combined database view (public + private data) even if someone gains access to the server's local network.
+This will prevent unauthorized access to the owner's private data even if someone gains access to the server's local network. Until it ships, the local endpoint relies on its `127.0.0.1` bind — do not expose it.

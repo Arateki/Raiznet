@@ -1,91 +1,96 @@
 # Telemetry
 
-Telemetry is the core data type in Raiznet. It is the stream of sensor readings that flows from ESP32 devices to servers and, optionally, into the peer-to-peer mesh.
+Telemetry is the core data type in Raiznet: the stream of sensor readings flowing from ESP32 devices to servers. This page specifies the wire contract **as implemented** — it is what you need to build a Raiznet-compatible device.
 
-## Packet structure
+## The telemetry block
 
-A `TelemetryBlock` contains one set of readings from one device at one point in time:
+One block is one set of readings from one device at one point in time:
 
-```protobuf
-message TelemetryBlock {
-  bytes  device_id    = 1;  // 32-byte Ed25519 pubkey
-  uint64 seq          = 2;  // monotonic counter, per device
-  uint64 timestamp    = 3;  // best-effort device clock (unix ms)
-  uint64 received_at  = 4;  // server wall clock (unix ms)
-  uint32 key_version  = 5;  // symmetric key version for encrypted fields
-
-  SensorField ph           = 10;
-  SensorField ec           = 11;
-  SensorField water_level  = 12;
-  SensorField temp_water   = 13;
-  SensorField temp_ambient = 14;
-  SensorField humidity     = 15;
-
-  bytes signature = 30;  // Ed25519 signature over fields 1–15
+```json
+{
+  "deviceId": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+  "seq": "1",
+  "timestamp": "1700000000000",
+  "keyVersion": 0,
+  "ec": { "plain": 1800 },
+  "ph": { "plain": 6.2 },
+  "waterLevel": { "plain": 80 },
+  "tempAmbient": { "plain": 24.5 },
+  "humidity": { "plain": 60 },
+  "signature": "2199c52836b4e4a314c1a051ca1f799624e9553ff6ae768d23d0f8287f68cc8c3405dc01f105a297769ff2a9fedc045ff0afefec3f47951cae2e87f059c71c08",
+  "raw": "633537383565..."
 }
 ```
 
-Field numbers 1–15 use 1-byte Protobuf tags (efficient). Fields 16–29 are reserved for future sensor types. The signature at field 30 covers the canonical serialization of fields 1–15.
+| Field | Type | Notes |
+|---|---|---|
+| `deviceId` | string, 64 hex | Device Ed25519 pubkey |
+| `seq` | **string** | Monotonic counter per device (uint64 as string) |
+| `timestamp` | **string** | Best-effort device clock, Unix ms (uint64 as string) |
+| `keyVersion` | number | Symmetric key version for encrypted fields (reference firmware sends `0`) |
+| sensor fields | object | Optional; `ph`, `ec`, `waterLevel`, `tempWater`, `tempAmbient`, `humidity` |
+| `signature` | string, 128 hex | Ed25519 detached signature over the bytes of `raw` |
+| `raw` | string, hex | Hex of the UTF-8 bytes of the signed raw string (below) |
 
-## SensorField: plain or encrypted
+Each sensor field is either plain or encrypted:
 
-Each sensor reading is a `oneof` — either a plain float or an AES-256-GCM encrypted blob:
-
-```protobuf
-message SensorField {
-  oneof value {
-    float          plain     = 1;
-    EncryptedBlob  encrypted = 2;
-  }
-}
-
-message EncryptedBlob {
-  bytes cipher = 1;  // ciphertext + 16-byte auth tag
-  bytes nonce  = 2;  // 12-byte GCM nonce
-}
+```json
+"ph": { "plain": 6.2 }
+"ph": { "cipher": "5731612f87cc0d953260cd9674bc34ffe5f3caea", "nonce": "222222222222222222222222" }
 ```
 
-The device decides at packet assembly time which variant to use, based on the field's `Disposition` in the device policy.
+Fields the device did not measure (or whose disposition is `omit` for this destination) are simply absent.
 
-## Device symmetric key
+## The signed raw string
 
-Each device has a symmetric key (AES-256-GCM, 32 bytes) used to encrypt `encrypted` fields. It is:
-
-- Stored in the ESP32's flash alongside the signing keypair.
-- Stored in the owner's app keychain (to decrypt received readings).
-- Recommended to be derived deterministically: `HKDF(user_seed, device_pubkey)` so that recovering the BIP-39 seed phrase recovers all symmetric keys.
-
-`key_version` in the block allows key rotation without losing access to historical data. The app maintains a keyring: `{ version → key }`.
-
-## Ingestion flow
-
-The destination of each field depends on the device's `publish_to` setting and whether the owner runs a local server (`local_servers` list).
+The Ed25519 signature does **not** cover the JSON — it covers a deterministic, pipe-delimited ASCII string the device builds before serializing:
 
 ```
-ESP32 reads sensors
-  │
-  ├─ public fields (PLAIN or ENCRYPTED, publish_to: public|both)
-  │     └─ POST /v1/telemetry → Server
-  │           ├─ validate Ed25519 signature
-  │           ├─ check seq monotonicity
-  │           ├─ insert into raiznet_public.db
-  │           └─ (Phase 2) append to Hypercore → Hyperswarm peers
-  │
-  └─ private fields (PLAIN or ENCRYPTED, publish_to: local_only|both)
-        │
-        ├─ local_servers populated → POST /v1/telemetry to local server(s)
-        │       └─ insert into raiznet_private.db
-        │          (never leaves the local network, never enters Hyperswarm)
-        │
-        └─ local_servers empty → stays in ESP32 flash only
-               (accessible via local HTTP / BLE / serial when app is nearby)
+<device_pubkey_hex>|<seq>|<timestamp_ms>|<key_version>[|ec=<v>][|ph=<v>][|waterLevel=<v>][|tempAmbient=<v>][|humidity=<v>]
 ```
 
-Users who do not run a local server can still access their private readings by connecting the app directly to the device. The trade-off is lower availability: data is only reachable when the device is on the same network or within BLE range.
+Example (this exact string verifies against the signature in the block above):
+
+```
+c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a|1|1700000000000|0|ec=1800|ph=6.20|waterLevel=80|tempAmbient=24.50|humidity=60.00
+```
+
+Rules:
+
+- Field order is **fixed**: `ec`, `ph`, `waterLevel`, `tempAmbient`, `humidity`. Absent fields are skipped entirely. (`tempWater` exists in the schema but is not emitted by the reference firmware.)
+- Values are rendered with **fixed decimal places**: `ec` 0, `ph` 2, `waterLevel` 0, `tempAmbient` 2, `humidity` 2. Note `ph=6.20` in the raw becomes the number `6.2` in JSON — comparisons must be numeric.
+- Only **plain** fields appear in the raw string. Encrypted fields travel solely as `cipher`/`nonce` in the JSON.
+- The signature is Ed25519 detached (RFC 8032, deterministic) over the UTF-8 bytes of the string. On the wire, `raw` is the hex encoding of those bytes.
+- The server verifies against the **registered** device pubkey, not the `deviceId` claimed in the payload.
+
+::: warning Keep raw and JSON consistent
+Today the server verifies only the signature over `raw`. A strict cross-check that the JSON `plain` values match the raw string is part of the hardening roadmap — compliant devices must always send both consistent.
+:::
+
+## Encrypted fields (AES-256-GCM)
+
+For a field with `encrypted` disposition:
+
+- plaintext = the value as **float32 big-endian** (4 bytes);
+- nonce = 12 random bytes, fresh per field;
+- `cipher` = `ciphertext ‖ tag` (16-byte GCM tag appended);
+- key = the device's 32-byte symmetric key, versioned by `keyVersion`.
+
+The server never decrypts — it stores `cipher`/`nonce` opaquely. Decryption happens in the owner's app, which holds the symmetric keyring (`{ version → key }`). Encrypted values never enter network aggregations.
+
+## Server-side processing
+
+For each block, in order:
+
+1. **Device lookup** in the destination database (`public` endpoint → `raiznet_public.db`, `local` endpoint → `raiznet_private.db`). Unknown device → per-block error `Device not found: <hex>`.
+2. **Signature verification** over the `raw` bytes against the registered pubkey. Failure → `Invalid signature for device <hex>`.
+3. **Disposition resolution** per field from the device's privacy policy: `per_destination[<server_pubkey_hex>] ?? default_disposition`. A field missing from the policy resolves to `omit`.
+4. **Projection to columns**: `plain` value with `plain` disposition → `_plain` column; `cipher`/`nonce` with `encrypted` disposition → `_cipher`/`_nonce` columns; any mismatch between what the device sent and what the policy allows → stored as NULL, silently.
+5. **Insert** with `INSERT OR IGNORE` keyed by `(device_pubkey, seq)`, with `received_at` set to the server clock. Whether the row goes to the public or private database depends on the endpoint and the device's `publishTo` — see [Local API](/reference/local-api).
 
 ## SQLite schema
 
-Both databases use the same wide-table schema for `telemetry`. Each sensor has three columns: `_plain`, `_cipher`, `_nonce`. NULL in both plain and cipher means the field was absent in that reading (policy was `OMIT` for that destination).
+Both databases use the same wide-table schema. Each sensor has three columns; NULL in both `_plain` and `_cipher` means the field was absent in that reading.
 
 ```sql
 CREATE TABLE telemetry (
@@ -107,26 +112,30 @@ CREATE TABLE telemetry (
 CREATE INDEX idx_telemetry_time ON telemetry (device_pubkey, timestamp);
 ```
 
-Fixed columns allow fast aggregated SQL queries without JSON parsing. Adding a new sensor type requires adding three columns (a schema migration), but this is the accepted trade-off for query performance.
+Fixed columns allow fast aggregated SQL queries without JSON parsing. Adding a new sensor type requires a schema migration (three new columns) — the accepted trade-off for query performance.
 
 ## Batching
 
-Multiple blocks can be sent in a single request using `TelemetryBatch`:
+`POST /v1/telemetry` accepts 1 to 100 blocks per request. Each block is processed independently:
 
-```protobuf
-message TelemetryBatch {
-  repeated TelemetryBlock blocks = 1;
-}
-```
+- all blocks OK → `200 { "accepted": N, "errors": [] }`;
+- any block failed → `207` with per-block errors (the original `seq` string is echoed back);
+- malformed body (no `blocks`, empty, or > 100) → `400`.
 
-The server processes each block independently. A partial batch returns HTTP 207 with per-block status.
+**Duplicates are success**: a block whose `(deviceId, seq)` already exists is counted as accepted. The device re-sends everything not confirmed with `200`, and idempotent inserts make that safe.
 
-## Sequence gap handling
+## Device-side buffering
 
-If a device was offline and its circular buffer overflowed before it could sync, those readings are lost from the network. The owner can recover them by connecting directly to the device via:
+The reference firmware (`firmware/safraSense`):
 
-- **Local HTTP** (same Wi-Fi network)
-- **BLE** (when physically close)
-- **Serial** (USB cable)
+- reads sensors every **60 s** (`TELEMETRY_INTERVAL_MS`, debug-friendly default);
+- keeps the last **50** readings in a RAM ring buffer (`TELEMETRY_BUFFER_SIZE`);
+- reserves `seq` in blocks of **100** (`TELEMETRY_SEQ_BLOCK_SIZE`), persisting only the next block start to NVS — reboots may leave small `seq` gaps but never duplicate;
+- registers itself via `POST /v1/devices` during setup (a `409` response counts as success);
+- re-sends unconfirmed readings on every cycle until the server answers `200`.
 
-The ESP32 keeps the last N readings in flash regardless of network connectivity.
+Moving the buffer to flash (to survive deep sleep and power loss) is on the roadmap.
+
+## Planned: canonical binary format
+
+The Protobuf schemas in [Proto Schemas](/reference/proto-schemas) define the planned canonical encoding for events and telemetry. JSON will remain supported for the current firmware generation and debugging.

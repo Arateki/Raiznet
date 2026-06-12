@@ -16,26 +16,25 @@ A device in Raiznet is any ESP32 that has been provisioned with an Ed25519 keypa
 | `inactive` | Device has not reported for a configured period |
 | `lost` | Owner marked the device as unrecoverable (hardware destroyed or stolen) |
 
-## Provisioning
+## Provisioning (as implemented)
 
-1. Owner opens "add sensor" in the app.
-2. Defines `publish_to`: `local_only`, `public`, or `both`.
-3. If `public` or `both`, selects which networks the device publishes to.
-4. Defines the privacy policy per sensor field.
-5. Selects location on a map — app converts to an H3 cell at the chosen resolution.
-6. ESP32 enters setup mode (temporary Wi-Fi AP or BLE advertisement).
-7. App connects and sends to the device:
-   - Device Ed25519 keypair (or the device generates it and sends only the public key back).
-   - Privacy policy and `publish_to`.
-   - List of networks and local server addresses.
-   - Current Crop for the active Safra (base values + adjustments).
-8. ESP32 writes everything to flash, reboots in production mode.
-9. Owner signs a `DeviceClaim` with their User key and publishes it to their public Hypercore.
-10. The owner's server registers the device and begins indexing readings.
+The reference firmware provisions itself through a **captive portal**:
 
-## DeviceClaim
+1. On first boot (or after a reset), the ESP32 creates a temporary Wi-Fi access point.
+2. The owner connects to it; the captive portal opens an **Identity Setup** flow:
+   - The device generates its own Ed25519 keypair from the hardware TRNG and stores it in NVS — the private key never leaves the device.
+   - The portal generates a new BIP-39 mnemonic (12 words) for the **owner identity**, in the owner's language (PT, EN, ES), or imports an existing one. The owner writes the phrase down.
+3. The owner configures `publish_to`, the server address(es), and the Wi-Fi credentials.
+4. The ESP32 writes everything to NVS and reboots in production mode.
+5. **Lazy registration:** the device calls `POST /v1/devices` on its configured server during setup, sending its pubkey, MAC, owner pubkey, and initial privacy policy. A `409` (already registered) counts as success.
 
-Published in the owner's public Hypercore when a device is provisioned:
+## Provisioning via app <Badge type="warning" text="planned" />
+
+The app-driven flow adds on top: privacy policy per field, network selection, H3 location picking on a map, and pushing the active Safra's Crop to the device.
+
+## DeviceClaim <Badge type="warning" text="design" />
+
+Published in the owner's public event log when a device is provisioned:
 
 ```
 device_pubkey: bytes(32)
@@ -46,12 +45,12 @@ signature: bytes(64)   // signed by owner's User key
 
 Any peer can validate the ownership chain: device telemetry is signed by the device key; ownership of that key is declared in the DeviceClaim signed by the User key.
 
-## Ownership transfer (sale)
+## Ownership transfer (sale) <Badge type="warning" text="design" />
 
 1. Seller opens "transfer device" in the app, enters the buyer's User pubkey.
 2. Seller signs a `DeviceTransfer` event.
 3. Buyer receives the request in their app and signs confirming acceptance.
-4. The final event (both signatures) is published in the buyer's public Hypercore.
+4. The final event (both signatures) is published in the buyer's public event log.
 5. The network recognizes the new `owner_pubkey` and accepts configuration changes only from the new owner.
 
 ```
@@ -95,6 +94,6 @@ The ESP32 stores the active Crop locally in flash. The app sends updates when th
 
 Crop update flow:
 1. Network or owner publishes an updated Crop in a CropCatalog.
-2. Server downloads the update from the catalog's Hypercore.
+2. Server downloads the update from the catalog.
 3. At next device connection, server pushes the updated Crop to the ESP32.
 4. ESP32 writes to flash and uses the new values from the next reading cycle.

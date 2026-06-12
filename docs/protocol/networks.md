@@ -1,6 +1,10 @@
 # Networks
 
-A Raiznet network is identified by a **topic** — a human-readable string used as the Hyperswarm discovery key. Anyone can create a network by choosing a new topic. Anyone can join an existing network by connecting to its topic.
+::: warning Design specification
+This page specifies the federated network layer — topics, manifests, filters, and total replication. It is **not implemented yet**: today nodes are independent and replication is in design ([ADR-004](/adr/004-raiznet-native-replication)). See the [Roadmap](/guide/roadmap).
+:::
+
+A Raiznet network is identified by a **topic** — a human-readable string used as the peer-discovery key. Anyone can create a network by choosing a new topic. Anyone can join an existing network by connecting to its topic.
 
 ## Topics
 
@@ -19,7 +23,7 @@ Topics are **not secret**. Knowing a topic is sufficient to join the network. Re
 
 ## NetworkManifest
 
-Whoever creates a network is the founder. They publish a `NetworkManifest` event in their public Hypercore, signed with their User key:
+Whoever creates a network is the founder. They publish a `NetworkManifest` event in their public event log, signed with their User key:
 
 ```
 name: string
@@ -36,21 +40,21 @@ The founder has no technical privilege beyond authoring the manifest. Their `def
 
 ## Replication
 
-**Replication is always total.** Every server replicates all device cores it discovers in a network. Filters never affect what is stored — they are a query-time lens that controls what appears in API responses, maps, and aggregations. This keeps the network robust: data is distributed broadly and there is no fragmentation where only certain nodes hold certain data.
+**Replication is always total.** Every server replicates all device logs it discovers in a network. Filters never affect what is stored — they are a query-time lens that controls what appears in API responses, maps, and aggregations. This keeps the network robust: data is distributed broadly and there is no fragmentation where only certain nodes hold certain data.
 
 ## Server modes
 
-| Mode | Hyperswarm | Visible externally |
+| Mode | Swarm discovery | Visible externally |
 |---|---|---|
 | `public` | Announces on all configured topics | Yes |
-| `local_only` | Does not connect to Hyperswarm at all | No |
+| `local_only` | Does not connect to the swarm at all | No |
 | `hybrid` | Announces on topics; each device controls `publish_to` individually | Partially |
 
 A `local_only` server is invisible to the global mesh. It serves only devices on the local Wi-Fi network and the owner's app.
 
 ## Filters
 
-Filters are composable MAC curation lists published by server nodes. Each filter is a Hypercore of append-only curation events:
+Filters are composable MAC curation lists published by server nodes. Each filter is an append-only log of curation events:
 
 ```
 type: mac_verified | mac_flagged | mac_banned | mac_unflagged
@@ -74,16 +78,16 @@ Arateki's filter serves as the default for `raiznet:public:arateki:v1` because A
 
 ## Joining a network
 
-1. Server connects to the topic via Hyperswarm DHT.
+1. Server connects to the topic via the peer discovery layer.
 2. Peers exchange lists of known devices (pubkeys, MACs, H3 cells).
 3. Peers also exchange available filters and catalogs.
 4. Server activates the `default_filter_pubkey` from the `NetworkManifest` (if set).
-5. Server replicates all device cores it sees in the network.
+5. Server replicates all device logs it sees in the network.
 6. Filters are applied at query time — they determine what the API returns, not what is stored.
 
 ## Multiple networks
 
-A single server can participate in multiple networks simultaneously. For each topic it joins, it discovers a separate set of peers and replicates cores of devices listing that topic in `Device.networks`.
+A single server can participate in multiple networks simultaneously. For each topic it joins, it discovers a separate set of peers and replicates logs of devices listing that topic in `Device.networks`.
 
 A device can publish to multiple networks by listing multiple topics in its `networks` field.
 

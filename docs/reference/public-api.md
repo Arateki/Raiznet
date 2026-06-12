@@ -1,6 +1,8 @@
 # Public API
 
-The public endpoint listens on `0.0.0.0:PUBLIC_PORT` (default `3000`). It is accessible to anyone — no authentication required. It queries only `raiznet_public.db` and never returns private data.
+The public endpoint listens on `0.0.0.0:PUBLIC_PORT` (default `3000`). It is accessible to anyone — no authentication required. Its device routes query only `raiznet_public.db` and never return private data.
+
+This page documents the API **as implemented today**. The wire format is JSON; a canonical Protobuf encoding is planned (see [Roadmap](/guide/roadmap)).
 
 ## Base URL
 
@@ -28,93 +30,131 @@ Returns server status and current timestamp.
 
 ## Devices
 
+### `POST /v1/devices`
+
+Registers a device. The reference firmware calls this automatically during setup ("lazy registration").
+
+**Request body** (`application/json`)
+```json
+{
+  "id": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+  "mac": "aabbccddeeff",
+  "ownerPubkey": "93a5f261984931e0df5c7434b16d468efb1953098d3cad4fa1506b9e052e7fc7",
+  "ownerName": "Yan",
+  "name": "Tower 01 - Lettuce",
+  "type": 0,
+  "publishTo": 2,
+  "location": 613916942794711039,
+  "networks": [],
+  "localServers": [],
+  "privacyPolicy": {
+    "ph": { "default_disposition": 1, "per_destination": {} },
+    "ec": { "default_disposition": 1, "per_destination": {} }
+  },
+  "hardware": { "model": "Safrasense Aqua ESP32 v1", "firmware_version": "0.2.0" }
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `id` | string (64 hex) | yes | Device Ed25519 pubkey |
+| `mac` | string (12 hex) | yes | Lowercase, no colons |
+| `ownerPubkey` | string (64 hex) | yes | Owner's User pubkey |
+| `ownerName` | string | no | Used to upsert the owner in `users` |
+| `name` | string (min 1) | yes | Human-readable device name |
+| `type` | int `0..2` | no (default `0`) | `0` sensor_mains · `1` sensor_battery · `2` gateway |
+| `publishTo` | int `0..2` | no (default `1`) | `0` local_only · `1` public · `2` both |
+| `location` | int | no | H3 cell index (64-bit) |
+| `networks` | string[] | no (default `[]`) | Network topics |
+| `localServers` | string[] | no (default `[]`) | Local server addresses |
+| `privacyPolicy` | object | no | Per-field `FieldPolicy`; omitted fields default to `plain` |
+| `hardware` | object | no | `{ model, firmware_version }` |
+
+**Response `201`**
+```json
+{
+  "device": {
+    "id": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+    "mac": "aabbccddeeff",
+    "ownerPubkey": "93a5f261984931e0df5c7434b16d468efb1953098d3cad4fa1506b9e052e7fc7",
+    "name": "Tower 01 - Lettuce",
+    "type": 0,
+    "location": 613916942794711039,
+    "status": 0,
+    "hardware": { "model": "Safrasense Aqua ESP32 v1", "firmware_version": "0.2.0" },
+    "createdAt": 1776819068644
+  }
+}
+```
+
+**Response `409`** — pubkey already registered. The reference firmware treats this as success.
+```json
+{ "error": "device_already_exists" }
+```
+
+**Response `400`** — body failed schema validation.
+```json
+{ "error": "validation_error", "details": [ /* zod issues */ ] }
+```
+
+Side effect: the owner is upserted into `users` with `name = ownerName ?? ownerPubkey.slice(0, 12)`.
+
+---
+
 ### `GET /v1/devices`
 
-Returns the list of public devices known to this server.
-
-**Query parameters**
-
-| Parameter | Type | Description |
-|---|---|---|
-| `limit` | number | Max results (default 100, max 1000) |
-| `offset` | number | Pagination offset |
+Returns all devices in the public database. No pagination yet.
 
 **Response `200`**
 ```json
-{
-  "devices": [
-    {
-      "id": "641ffb278dc6...",
-      "mac": "aabbccddeeff",
-      "owner_pubkey": "a1b2c3...",
-      "name": "Tower 01 - Lettuce",
-      "type": "sensor_mains",
-      "location": 613916942794711039,
-      "publish_to": "public",
-      "networks": ["raiznet:public:arateki:v1"],
-      "hardware": {
-        "model": "ESP32-S3",
-        "firmware_version": "1.2.0"
-      },
-      "status": "active",
-      "created_at": 1776819068644
-    }
-  ],
-  "total": 42,
-  "offset": 0
-}
+{ "devices": [ /* same shape as the register response */ ] }
 ```
 
 ---
 
 ### `GET /v1/devices/:id`
 
-Returns a single device by its public key (hex).
+Returns a single device by its pubkey (hex).
 
-**Response `200`** — same shape as one item from the list above.
+**Response `200`** — `{ "device": { ... } }`
 
 **Response `404`**
 ```json
-{ "error": "device_not_found" }
+{ "error": "Device not found" }
 ```
 
 ---
 
 ### `GET /v1/devices/:id/telemetry`
 
-Returns recent telemetry readings for a device.
-
-**Query parameters**
-
-| Parameter | Type | Description |
-|---|---|---|
-| `limit` | number | Max results (default 500, max 5000) |
-| `since` | number | Unix ms — return only readings after this timestamp |
-| `until` | number | Unix ms — return only readings before this timestamp |
+Returns the most recent readings, ordered by `timestamp DESC`, fixed `LIMIT 500`. No query parameters yet.
 
 **Response `200`**
 ```json
 {
-  "device_id": "641ffb278dc6...",
   "readings": [
     {
-      "seq": 1042,
-      "timestamp": 1776819068644,
-      "received_at": 1776819069001,
-      "ph": 6.2,
-      "ec": 1.8,
-      "water_level": null,
-      "temp_water": 22.5,
-      "temp_ambient": 28.1,
-      "humidity": 65.0,
-      "ph_encrypted": false,
-      "ec_encrypted": false
+      "seq": 1,
+      "timestamp": 1700000000000,
+      "receivedAt": 1700000000123,
+      "ph": { "value": 6.2 },
+      "ec": { "encrypted": "5731612f87cc0d953260cd9674bc34ffe5f3caea" },
+      "waterLevel": { "value": 80 },
+      "tempWater": null,
+      "tempAmbient": { "value": 24.5 },
+      "humidity": { "value": 60 }
     }
   ]
 }
 ```
 
-Fields with `ENCRYPTED` disposition appear as `null` in the value and `true` in the `_encrypted` flag — the blob is stored but not exposed in plain form to unauthenticated callers. Fields with `OMIT` disposition are absent entirely.
+Each sensor field is one of:
+
+| Shape | Meaning |
+|---|---|
+| `{ "value": <number> }` | Stored in plain |
+| `{ "encrypted": "<hex>" }` | Stored encrypted — ciphertext+tag, **nonce is not exposed here** |
+| `null` | Absent in this reading (omitted by policy or not measured) |
 
 ---
 
@@ -122,53 +162,62 @@ Fields with `ENCRYPTED` disposition appear as `null` in the value and `true` in 
 
 ### `POST /v1/telemetry`
 
-Receives a batch of signed telemetry blocks from an ESP32 or any authorized client.
+Receives a batch of 1 to 100 signed telemetry blocks.
 
 **Request body** (`application/json`)
 ```json
 {
   "blocks": [
     {
-      "device_id": "641ffb278dc6...",
-      "seq": 1042,
-      "timestamp": 1776819068644,
-      "key_version": 1,
+      "deviceId": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
+      "seq": "1",
+      "timestamp": "1700000000000",
+      "keyVersion": 0,
+      "ec": { "plain": 1800 },
       "ph": { "plain": 6.2 },
-      "ec": { "plain": 1.8 },
-      "temp_ambient": { "plain": 28.1 },
-      "humidity": { "plain": 65.0 },
-      "signature": "3045022100..."
+      "waterLevel": { "plain": 80 },
+      "tempAmbient": { "plain": 24.5 },
+      "humidity": { "plain": 60 },
+      "signature": "2199c52836b4e4a314c1a051ca1f799624e9553ff6ae768d23d0f8287f68cc8c3405dc01f105a297769ff2a9fedc045ff0afefec3f47951cae2e87f059c71c08",
+      "raw": "<hex of the UTF-8 bytes of the signed raw string>"
     }
   ]
 }
 ```
 
-Encrypted fields use `{ "encrypted": { "cipher": "<hex>", "nonce": "<hex>" } }` instead of `{ "plain": <float> }`.
+::: warning seq and timestamp are strings
+`seq` and `timestamp` are serialized as **strings** (uint64-safe), not numbers. `keyVersion` is a number.
+:::
 
-**Response `200`** — all blocks accepted
+Sensor fields are optional. Each one is either `{ "plain": <number> }` or `{ "cipher": "<hex>", "nonce": "<hex>" }`. The signature is Ed25519 (detached) over the bytes of the `raw` string — see [Telemetry](/protocol/telemetry) for how `raw` is built. The server verifies it against the **registered** device pubkey, not the one in the payload.
+
+**Response `200`** — every block accepted
 ```json
 { "accepted": 1, "errors": [] }
 ```
 
-**Response `207`** — partial success
+**Response `207`** — at least one block failed
 ```json
 {
-  "accepted": 2,
+  "accepted": 0,
   "errors": [
-    { "seq": 1041, "error": "invalid_signature" }
+    { "seq": "1", "error": "Device not found: c5785e1865…a2c66a" }
   ]
 }
 ```
 
-**Response `400`** — malformed request body
+Per-block error messages (exact strings):
 
----
+| Message | Cause |
+|---|---|
+| `Device not found: <device_id_hex>` | Device is not registered in this endpoint's database |
+| `Invalid signature for device <device_id_hex>` | Ed25519 verification over `raw` failed |
 
-## Error codes
+**Response `400`** — body without `blocks`, empty, or with more than 100 items.
 
-| Code | HTTP status | Meaning |
-|---|---|---|
-| `device_not_found` | 404 | No device with this pubkey in the public database |
-| `invalid_signature` | 400 (in batch: 207) | Ed25519 signature verification failed |
-| `invalid_seq` | 400 (in batch: 207) | Sequence number is not monotonically increasing |
-| `validation_error` | 400 | Request body failed schema validation |
+### Ingestion semantics
+
+- **Duplicates are success.** Re-sending an already-stored `(deviceId, seq)` returns `200` with it counted in `accepted` — inserts use `INSERT OR IGNORE`. Clients are expected to re-send anything not confirmed with a `200`.
+- **Unknown device returns `207`, never `404`.** Register the device first via `POST /v1/devices`.
+- **No monotonicity check.** Old `seq` values that were never confirmed can be re-sent after a reconnection; deduplication is by primary key `(device_pubkey, seq)`.
+- A device with `publishTo: 0` (local_only) posting to the public endpoint is validated and counted as accepted, but **nothing is stored** in the public database.
