@@ -1,62 +1,56 @@
 # SEO Portable Spec — SPA React/Vite com i18n e prerender
 
-Spec para replicar a estratégia de SEO do Arateki em outro repositório com tecnologias semelhantes. Assume uma SPA React/Vite com i18n, rotas públicas e deploy estático atrás de Nginx ou CDN. Não assume página de venda.
+Spec para replicar a estratégia de SEO dos sites da Arateki em outro repositório com tecnologias semelhantes. Assume uma SPA React/Vite com i18n, rotas públicas e deploy estático atrás de Nginx ou CDN. A implementação de referência é `apps/website` deste repo (raiznet.com).
 
 ## Objetivo
 
-Entregar HTML rastreável e compartilhável para buscadores, redes sociais e crawlers de IA sem migrar para SSR completo.
+Entregar HTML rastreável e compartilhável para buscadores, redes sociais e crawlers de IA sem migrar para SSR completo, com **um idioma padrão dono da raiz do domínio** (aqui: PT) e os demais idiomas em subpaths.
 
 O resultado esperado:
 
-- URLs por idioma, por exemplo `/pt`, `/en`, `/es`.
+- O idioma padrão na raiz: `/` é a página PT canônica.
+- Demais idiomas por subpath: `/en`, `/es`, `/zh`, `/ja`.
 - Metadata por rota: title, description, canonical, hreflang, Open Graph e Twitter.
-- HTML prerenderizado em `dist/`.
-- Sitemap e robots coerentes.
+- HTML prerenderizado em `dist/` (SSG em build, sem browser).
+- Sitemap e robots coerentes com o host canônico.
 - JSON-LD básico quando houver conteúdo compatível.
 - Deploy servindo arquivos prerenderizados antes do fallback SPA.
 
-## Decisão central
+## Decisões centrais
 
-Usar uma fonte única de metadata.
+**1. Fonte única de metadata.** O template `index.html` é um shell mínimo; cada página React renderiza seu componente `Seo`; o prerender grava o HTML final. Nunca colocar title/description/OG/canonical/hreflang ricos no template base — gera metadata duplicada quando o React injeta as tags.
 
-- O template `index.html` deve ser mínimo.
-- Cada página React deve renderizar seu próprio componente `Seo`.
-- O prerender executa a SPA, espera a hidratação e grava o HTML final.
+**2. O idioma padrão mora na raiz — sem redirect.** `/` serve o conteúdo PT diretamente, com `canonical` para si mesma. Não existe `/<default-lang>` como URL canônica (aqui, `/pt` não existe no sitemap; se acessada, normaliza para `/`). Isso concentra todos os sinais do idioma principal na URL mais forte do domínio.
 
-Não colocar title/description/OG/canonical/hreflang ricos diretamente no template base. Isso cria metadata duplicada quando React também injeta tags no `<head>`.
+**3. A raiz nunca troca de idioma sozinha.** Proibido auto-redirect/auto-render por `navigator.language` na raiz: o Googlebot renderiza páginas como `en-US` e veria a raiz "virar" outro idioma, conflitando com o canonical PT prerenderizado. O Google desaconselha redirect por locale. O visitante troca pelo seletor de idioma; a escolha vai para `localStorage` e só ela re-localiza visitas futuras.
+
+**4. O host canônico é configuração crítica.** Canonical, hreflang, og:url, sitemap e robots derivam todos de `SITE_URL`. Um host errado aqui sabota a indexação inteira (o site declara que a versão canônica vive em outro domínio). Ver "Host canônico" abaixo.
 
 ## Escopo
 
 Obrigatório:
 
-- `Seo` component.
-- Helpers de URL/canonical/i18n.
-- i18n na URL.
-- `robots.txt`.
-- `sitemap.xml`.
-- Script de prerender.
-- Validação de HTML gerado.
+- `Seo` component (uma fonte para head tags).
+- Helpers de URL/canonical/i18n (`langPath` com default-na-raiz).
+- i18n na URL (exceto idioma padrão).
+- `robots.txt` e `sitemap.xml` gerados no build.
+- Prerender SSG (vite build --ssr + renderToString).
+- Validação do HTML gerado (falha o CI em regressão).
+- OG image **PNG** 1200×630.
 - Ajuste de deploy.
 
 Opcional:
 
-- JSON-LD `Organization`.
-- JSON-LD `WebSite`.
-- JSON-LD `FAQPage`.
-- JSON-LD `BreadcrumbList`.
-- OG image PNG gerada no build.
-- Preload da fonte principal.
+- JSON-LD `Organization`, `WebSite`, `FAQPage`, `BreadcrumbList`.
+- Preload da fonte principal (peso regular, `font-display: swap`).
 - Prerender dinâmico de páginas vindas de API/CMS.
 
 Fora de escopo:
 
-- Migração para Next.js, Remix ou Vike.
-- SSR por request.
-- Geração dinâmica de preview social por usuário.
+- Migração para Next.js, Remix ou Vike; SSR por request.
+- Preview social dinâmico por usuário.
 
 ## Rotas e i18n
-
-Definir idiomas suportados:
 
 ```ts
 export const SUPPORTED_LANGS = ['pt', 'en', 'es', 'zh', 'ja'] as const;
@@ -64,318 +58,126 @@ export type LangCode = typeof SUPPORTED_LANGS[number];
 export const DEFAULT_LANG: LangCode = 'pt';
 ```
 
-Criar helpers:
+O helper central — o idioma padrão NÃO ganha prefixo:
 
 ```ts
 export function langPath(lang: LangCode, path = '/'): string {
   const cleaned = path.startsWith('/') ? path : `/${path}`;
-  if (cleaned === '/') return `/${lang}`;
-  return `/${lang}${cleaned}`;
-}
-
-export function stripLangFromPath(pathname: string): string {
-  const match = pathname.match(/^\/(pt|en|es|zh|ja)(\/|$)/);
-  if (!match) return pathname || '/';
-  const remainder = pathname.slice(match[0].length - (match[2] === '/' ? 1 : 0));
-  return remainder.startsWith('/') ? remainder : `/${remainder}`;
+  if (lang === DEFAULT_LANG) return cleaned;        // PT: '/' e '/about'
+  if (cleaned === '/') return `/${lang}`;           // outros: '/en'
+  return `/${lang}${cleaned}`;                      //         '/en/about'
 }
 ```
 
-Routing recomendado:
+Routing resultante:
 
 ```txt
-/                         -> redirect para /<preferred-lang>
-/:lang                    -> Home
-/:lang/about              -> About
-/:lang/docs               -> Docs ou página equivalente
-/:lang/<content-slug>     -> conteúdo público, se houver
-/admin ou /manage         -> sem prefixo de idioma e noindex
+/                  -> Home PT (canônica do idioma padrão)
+/about             -> página PT
+/en, /en/about     -> EN
+/es, /zh, /ja      -> idem
+/pt, /pt/...       -> LEGADO: normalizar para a versão sem prefixo
+                      (301 no servidor; client-side replaceState como fallback —
+                      e o canonical já aponta para a raiz de qualquer forma)
+/admin, /manage    -> sem prefixo de idioma e noindex
 ```
 
-Rotas legadas sem idioma devem redirecionar para o idioma padrão ou preferido.
-
-## Metadata
-
-Criar `src/lib/seo.ts`:
+## Host canônico (`SITE_URL`)
 
 ```ts
 export const SITE_URL = (
-  (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined) ?? 'https://example.com'
+  (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined) ?? 'https://raiznet.com'
 ).replace(/\/+$/, '');
-
-export const HTML_LANG = {
-  pt: 'pt-BR',
-  en: 'en',
-  es: 'es',
-  zh: 'zh-CN',
-  ja: 'ja',
-} satisfies Record<LangCode, string>;
-
-export const DEFAULT_OG_IMAGE = '/og-image.png';
-
-export const absoluteUrl = (path: string): string => {
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${SITE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-};
-
-export const canonical = (path: string): string => absoluteUrl(path);
 ```
 
-Criar `Seo` component:
+Regras aprendidas a ferro:
 
-```tsx
-interface SeoProps {
-  title: string;
-  description: string;
-  path: string;
-  lang: LangCode;
-  noindex?: boolean;
-  ogImage?: string;
-  ogType?: 'website' | 'article' | 'product';
-}
-```
+- O default no código deve ser o **domínio real de produção**, nunca um placeholder.
+- Atenção à precedência do Vite: env do processo > `.env.production` > default no código. **Um `.env.production` trackeado com host antigo silenciosamente envenena todos os builds** — se o arquivo existir, ele é parte do contrato e entra na revisão de qualquer mudança de domínio.
+- Defina a env também no workflow de deploy (cinto e suspensório).
+- A validação de build (abaixo) compara o canonical gerado com o host esperado — mudança acidental de host quebra o CI, não a indexação.
 
-O componente deve emitir:
+## Metadata
 
-- `<title>`.
-- `meta name="description"`.
-- `link rel="canonical"`.
-- `link rel="alternate" hreflang="...">` para todos os idiomas.
-- `x-default`.
-- `meta name="robots"` com `index, follow...` ou `noindex, nofollow`.
-- `og:title`, `og:description`, `og:url`, `og:type`, `og:site_name`, `og:locale`, `og:image`.
-- `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`.
+`Seo` component emite, por rota:
 
-Cada página pública chama `Seo` com strings do i18n.
+- `<title>` (≤ 60 caracteres) e `meta name="description"` (140–160 caracteres, frase completa — o Google trunca além disso). **Ortografia perfeita, com acentos**: é o snippet que aparece na busca.
+- `link rel="canonical"` — sempre a URL normalizada por `langPath` (PT cai na raiz mesmo se a URL visitada for `/pt`).
+- `link rel="alternate" hreflang="..."` para **todos** os idiomas + `x-default`:
+  - hreflang é **auto-referente e bidirecional**: cada página lista a si mesma e todas as alternativas; o conjunto é idêntico em todas.
+  - `x-default` aponta para a **versão do idioma padrão** (a raiz) — é o que buscadores mostram a quem não casa com nenhum idioma listado.
+  - Códigos: `pt-BR`, `en`, `es`, `zh-CN`, `ja`.
+- `meta name="robots"`: `index, follow, max-image-preview:large` ou `noindex, nofollow`.
+- OG: `og:title`, `og:description`, `og:url` (= canonical), `og:type`, `og:site_name`, `og:locale` (`pt_BR`...), `og:image` + `og:image:type/width/height/alt`.
+- Twitter: `twitter:card` (`summary_large_image`), `twitter:title/description/image`.
+- Páginas `noindex` não precisam de hreflang.
 
 ## Template HTML
 
-Manter `index.html` como shell mínimo:
+Shell mínimo (charset, viewport, theme-color, favicon, manifest). `lang` do `<html>` é trocado pelo prerender por rota. Nada de metadata variável aqui.
 
-```html
-<!doctype html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="author" content="Project Name" />
-    <meta name="theme-color" content="#F5F5F5" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)" />
-    <meta name="format-detection" content="telephone=no" />
-    <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+## OG image — PNG obrigatório
+
+Redes sociais (WhatsApp, Facebook, X, LinkedIn, Telegram, Discord) **não renderizam SVG** como `og:image`. Manter o SVG como fonte editável e gerar o PNG 1200×630:
+
+```bash
+rsvg-convert -w 1200 -h 630 public/og-image.svg -o public/og-image.png
 ```
 
-Não colocar metadata variável por rota nesse arquivo.
+(Alternativas: `sharp` num script de build, ou screenshot via Playwright se o SVG depender de fontes externas.) O PNG pode ser commitado se a arte muda raramente — zero dependência no CI. Emitir `og:image:width/height` acelera o primeiro fetch do Facebook.
 
 ## JSON-LD
 
-Criar `JsonLd` component:
+`JsonLd` component com `JSON.stringify(data).replaceAll('<', '\\u003c')`. Builders: `Organization` (com `logo` PNG ≥112×112 se houver), `WebSite` (com `inLanguage` por rota), `FAQPage`/`BreadcrumbList`/`Article` quando o conteúdo corresponder. Nunca declarar o que não está visível na página.
 
-```tsx
-export const JsonLd = ({ data }: { data: unknown | unknown[] }) => (
-  <script
-    type="application/ld+json"
-    dangerouslySetInnerHTML={{
-      __html: JSON.stringify(data).replaceAll('<', '\\u003c'),
-    }}
-  />
-);
-```
+## Prerender (SSG, sem browser)
 
-Builders recomendados:
+Estratégia da implementação de referência — mais rápida e determinística que abrir browser:
 
-- `Organization`.
-- `WebSite`.
-- `FAQPage`, se a home tiver FAQ.
-- `BreadcrumbList`, se houver páginas internas.
-- `Article`, se o outro repo tiver posts ou docs editoriais.
+1. `vite build` normal gera a SPA em `dist/`.
+2. Um segundo `vite build --ssr src/prerender.jsx` gera um bundle Node com:
+   - `PRERENDER_PATHS` — `['/', '/en', '/es', '/zh', '/ja']` (o Set deduplica a raiz, já que `langPath(DEFAULT_LANG) === '/'`);
+   - `renderPage(path)` — `renderToStaticMarkup` do `<App/>` + das head tags;
+   - `robotsTxt()` e `sitemapXml()`.
+3. O script `scripts/prerender.mjs` injeta cada página no template (`<html lang>`, `</head>`, `#root`) e grava `dist/<route>/index.html`, `dist/robots.txt` e `dist/sitemap.xml`.
 
-Não adicionar JSON-LD que não corresponde ao conteúdo visível da página.
+Requisito do app: renderizável em Node (sem `window` no caminho do primeiro render — efeitos client-only vão para `useEffect`). Playwright só se isso for impossível.
 
-## OG image PNG
-
-Manter um SVG editável e gerar PNG no build.
-
-Arquivos:
-
-```txt
-public/og-image.svg
-scripts/generate-og-image.mjs
-```
-
-Script com Playwright:
-
-```js
-#!/usr/bin/env node
-import { chromium } from '@playwright/test';
-import { mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = join(__dirname, '..');
-const svgPath = join(projectRoot, 'public', 'og-image.svg');
-const pngPath = join(projectRoot, 'public', 'og-image.png');
-
-const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({
-  viewport: { width: 1200, height: 630 },
-  deviceScaleFactor: 1,
-});
-
-try {
-  await page.goto(pathToFileURL(svgPath).href, { waitUntil: 'load' });
-  await mkdir(dirname(pngPath), { recursive: true });
-  await page.screenshot({ path: pngPath, type: 'png', clip: { x: 0, y: 0, width: 1200, height: 630 } });
-} finally {
-  await browser.close().catch(() => {});
-}
-```
-
-Adicionar `public/og-image.png` ao `.gitignore` se for gerado no build.
-
-## Fonte principal
-
-Se a fonte principal existir localmente, importar a variante regular e emitir preload no React.
-
-Exemplo:
-
-```tsx
-import fontRegularUrl from './assets/fonts/Font-Regular.ttf';
-
-<link
-  rel="preload"
-  href={fontRegularUrl}
-  as="font"
-  type="font/ttf"
-  crossOrigin=""
-/>
-```
-
-Critério:
-
-- preload apenas da fonte mais usada acima da dobra;
-- geralmente peso `400 regular`;
-- manter `font-display: swap` no CSS.
-
-## Prerender
-
-Criar `scripts/prerender.mjs`.
-
-Requisitos:
-
-- Rodar depois de `vite build`.
-- Subir `vite preview`.
-- Usar porta livre automaticamente.
-- Abrir cada rota pública com Playwright.
-- Esperar `networkidle` e um pequeno settle.
-- Salvar HTML em `dist/<route>/index.html`.
-- Gerar `/` por último, para não contaminar fallback durante snapshots.
-
-Rotas base:
-
-```js
-const SUPPORTED_LANGS = ['pt', 'en', 'es', 'zh', 'ja'];
-const PUBLIC_PATHS = ['', '/about', '/docs']; // adaptar ao outro repo
-```
-
-Se houver conteúdo dinâmico estável vindo de API/CMS:
-
-- setar `PRERENDER_API_BASE`;
-- buscar lista de slugs antes do loop;
-- adicionar `/<lang>/<slug>` às rotas;
-- interceptar chamadas internas de API para manter snapshots determinísticos.
-
-Se não houver API:
-
-- prerenderizar apenas as rotas estáticas públicas.
-
-## Package scripts
-
-Exemplo:
-
-```json
-{
-  "scripts": {
-    "build": "pnpm generate:og && tsc -b && vite build && pnpm prerender",
-    "build:no-prerender": "pnpm generate:og && tsc -b && vite build",
-    "generate:og": "node scripts/generate-og-image.mjs",
-    "prerender": "node scripts/prerender.mjs"
-  }
-}
-```
-
-No monorepo, preferir build sequencial se API e web dependem um do outro:
-
-```json
-{
-  "scripts": {
-    "build": "pnpm --filter @project/api build && pnpm --filter @project/web build"
-  }
-}
-```
+Conteúdo dinâmico estável de API/CMS: buscar slugs antes do loop e adicionar `langPath(lang, slug)` às rotas.
 
 ## robots.txt
-
-Exemplo:
 
 ```txt
 User-agent: *
 Allow: /
-Disallow: /manage
-Disallow: /manage/
-Disallow: /admin
-Disallow: /admin/
-Disallow: /checkout
 Disallow: /api/
 Disallow: /api
 
-Sitemap: https://example.com/sitemap.xml
+Sitemap: https://raiznet.com/sitemap.xml
 ```
 
-Se houver feeds públicos úteis, permitir apenas esses paths:
-
-```txt
-Allow: /api/feeds/
-```
-
-Não bloquear `OAI-SearchBot` se o objetivo é aparecer em ChatGPT Search.
+Permissivo para conteúdo público — inclui crawlers de IA (GPTBot, ClaudeBot, PerplexityBot, OAI-SearchBot) se o objetivo é aparecer em respostas de assistentes. `llms.txt` só se houver documentação longa que mereça índice.
 
 ## sitemap.xml
 
-Gerar sitemap estático para rotas públicas.
-
-Cada URL deve ter alternates:
-
-```xml
-<xhtml:link rel="alternate" hreflang="pt-BR" href="https://example.com/pt" />
-<xhtml:link rel="alternate" hreflang="en" href="https://example.com/en" />
-<xhtml:link rel="alternate" hreflang="x-default" href="https://example.com/" />
-```
-
-Se houver API/CMS com conteúdo estável, gerar sitemap dinâmico também.
+- Lista **apenas URLs canônicas**: a raiz (PT) e os subpaths dos outros idiomas. `/pt` não entra.
+- Cada `<url>` carrega o conjunto completo de `<xhtml:link rel="alternate" hreflang>` incluindo `x-default` → raiz.
+- `lastmod` apenas se for confiável (data real de mudança de conteúdo).
 
 ## Deploy Nginx
-
-Servidor deve servir arquivo existente antes do fallback:
 
 ```nginx
 root /var/www/project;
 index index.html;
 
-location /api/ {
-    proxy_pass http://127.0.0.1:3333;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+# Redirects 301 do prefixo legado do idioma padrão para a raiz
+location = /pt { return 301 /; }
+location ^~ /pt/ { rewrite ^/pt(/.*)$ $1 permanent; }
+
+# Assets com hash no nome: cache imutável
+location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files $uri =404;
 }
 
 location / {
@@ -383,102 +185,49 @@ location / {
 }
 ```
 
-Adicionar redirects para rotas antigas sem idioma:
+Notas:
 
-```nginx
-location = /about {
-    return 301 /pt/about;
-}
-```
-
-Se houver `www`, redirecionar para o host canônico.
+- `www` e variações de host redirecionam 301 para o host canônico.
+- `/en` e `/en/` resolvem para o mesmo arquivo; o canonical resolve a duplicidade — não precisa de redirect, mas seja consistente nos links internos (sem barra final).
+- O fallback SPA devolve 200 para qualquer rota inexistente (soft-404). Mitigação: todas as rotas públicas são prerenderizadas, então bots raramente caem no fallback; se houver orçamento, prerenderizar uma página 404 real e usá-la como fallback de rotas desconhecidas.
 
 ## CI/CD
 
-Pipeline recomendado:
+1. Checkout, pnpm, Node, `pnpm install --frozen-lockfile`.
+2. `VITE_PUBLIC_SITE_URL=https://raiznet.com pnpm --filter web build` (build → prerender → validate, no mesmo script).
+3. Copiar `dist/` para o diretório servido (rsync `--delete`).
 
-1. Checkout.
-2. Instalar pnpm.
-3. Instalar Node.
-4. `pnpm install --frozen-lockfile`.
-5. `pnpm --filter web exec playwright install chromium`.
-6. Build da API, se houver.
-7. Subir API temporariamente se o prerender depende dela.
-8. `PRERENDER_API_BASE=http://127.0.0.1:3333 pnpm --filter web build`.
-9. Validar `dist`.
-10. Copiar `dist/` para o diretório servido pelo Nginx.
+A validação roda **dentro do build** e falha o pipeline. Mínimos que ela cobre (ver `scripts/validate-seo.mjs` de referência):
 
-Validações mínimas:
-
-```bash
-test -f dist/index.html
-test -f dist/pt/index.html
-test -f dist/en/index.html
-test -f dist/robots.txt
-test -f dist/sitemap.xml
-test -f dist/og-image.png
-test "$(grep -o '<title>' dist/index.html | wc -l)" -eq 1
-test "$(grep -o 'name="description"' dist/index.html | wc -l)" -eq 1
-```
-
-Se houver slugs vindos de API/CMS, validar dinamicamente:
-
-```js
-import { access } from 'node:fs/promises';
-
-const langs = ['pt', 'en', 'es', 'zh', 'ja'];
-const response = await fetch('http://127.0.0.1:3333/api/pages?lang=pt');
-const { pages } = await response.json();
-
-for (const page of pages) {
-  for (const lang of langs) {
-    await access(`dist/${lang}/${page.slug}/index.html`);
-  }
-}
-```
+- HTML prerenderizado existe para cada rota canônica.
+- Exatamente 1 title, 1 description, 1 canonical por página.
+- Canonical **exato** por rota, com o host esperado (pega mudança acidental de domínio).
+- hreflang completo em todas as rotas; `pt-BR` e `x-default` apontando para a raiz.
+- `og:image` é o PNG (e width/height presentes); twitter:card presente; JSON-LD presente.
+- `robots.txt` permite as rotas públicas e aponta o sitemap no host certo.
+- Sitemap contém todas as canônicas e **não** contém o prefixo do idioma padrão.
+- Texto útil presente no body (o prerender não regrediu para shell vazio).
 
 ## Pós-deploy
 
-Checklist:
-
-- `curl -I https://example.com/`.
-- `curl -I https://example.com/pt`.
-- `curl -I https://example.com/robots.txt`.
-- `curl -I https://example.com/sitemap.xml`.
-- Verificar HTML bruto com `curl -s`.
-- Conferir uma rota por idioma.
-- Conferir uma rota de conteúdo interna.
-- Enviar sitemap no Google Search Console.
-- Inspecionar URL e solicitar indexação das páginas principais.
-- Validar Rich Results e Schema.org.
-- Rodar Lighthouse.
+- `curl -s https://raiznet.com/ | grep -E 'canonical|hreflang|og:image'` — conferir host e PNG.
+- Conferir uma rota por idioma e `robots.txt`/`sitemap.xml` servidos.
+- Google Search Console: enviar sitemap, inspecionar a raiz e pedir indexação das principais.
+- Validar Rich Results / Schema.org; rodar Lighthouse.
+- Compartilhar a raiz no WhatsApp/X para conferir o preview (og:image PNG).
 
 ## IA e crawlers
 
-Para facilitar consumo por IAs:
-
-- manter HTML prerenderizado;
-- manter conteúdo importante em texto visível;
-- usar links `<a href="...">`;
-- manter `robots.txt` permissivo para conteúdo público;
-- manter sitemap atualizado;
-- manter canonical coerente;
-- usar JSON-LD compatível com o conteúdo;
-- evitar conteúdo essencial apenas em canvas, imagem ou interações client-only.
-
-`llms.txt` não é requisito. Considerar só se o projeto tiver documentação longa ou páginas editoriais que mereçam um índice humano/LLM-friendly.
+- HTML prerenderizado com conteúdo em texto visível e links `<a href>` reais.
+- robots permissivo, sitemap atualizado, canonical coerente, JSON-LD fiel.
+- Evitar conteúdo essencial só em canvas/imagem/interação client-only.
 
 ## Acceptance criteria
 
-Antes de considerar concluído:
-
-- Build passa.
-- Testes unitários passam.
-- `dist/index.html` tem metadata rica.
-- Cada rota pública prerenderizada tem exatamente um title, description e canonical.
-- `hreflang` existe em todas as rotas indexáveis.
-- `robots.txt` não bloqueia páginas públicas.
-- `sitemap.xml` lista rotas públicas canônicas.
-- HTML bruto contém texto útil.
-- Nginx serve pastas prerenderizadas antes do fallback SPA.
-- Search Console recebe sitemap após deploy.
+- Build (com prerender + validação) passa no CI.
+- A raiz serve o idioma padrão com canonical para si mesma; nenhum redirect automático por navigator.
+- `x-default` e o hreflang do idioma padrão apontam para a raiz em todas as páginas.
+- O prefixo do idioma padrão (`/pt`) não aparece em sitemap nem em canonical de nenhuma página.
+- `og:image` é PNG 1200×630 acessível por URL absoluta no host canônico.
+- Nenhuma URL gerada (canonical/hreflang/og:url/sitemap/robots) usa host diferente do canônico.
+- Search Console recebe o sitemap após o deploy.
