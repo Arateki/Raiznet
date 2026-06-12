@@ -152,8 +152,8 @@ export const zhCN = {
       {
         icon: 'node',
         title: 'Raiznet 服务器',
-        copy: '接收读数、分离公共和本地数据、索引到 SQLite 并加入 P2P 网状网络的 Node.js 节点。',
-        meta: 'Fastify · Hypercore · SQLite',
+        copy: '接收读数、分离公共和本地数据、索引到 SQLite 并加入 P2P 网状网络的节点。',
+        meta: '签名 HTTP · SQLite · 原生复制',
       },
       {
         icon: 'dashboard',
@@ -183,7 +183,7 @@ export const zhCN = {
       },
       {
         title: '网络复制',
-        copy: '可公开的数据进入 append-only Hypercore，并通过网络 topic 在 peer 之间复制。',
+        copy: '可公开的数据进入 append-only 签名事件日志，并通过网络 topic 在 peer 之间复制。',
       },
       {
         title: '仪表盘解释',

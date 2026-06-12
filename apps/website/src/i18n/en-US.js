@@ -152,8 +152,8 @@ export const enUS = {
       {
         icon: 'node',
         title: 'Raiznet Server',
-        copy: 'A Node.js node that receives readings, separates public and local data, indexes into SQLite, and joins the P2P mesh.',
-        meta: 'Fastify · Hypercore · SQLite',
+        copy: 'A node that receives readings, separates public and local data, indexes into SQLite, and joins the P2P mesh.',
+        meta: 'Signed HTTP · SQLite · native replication',
       },
       {
         icon: 'dashboard',
@@ -183,7 +183,7 @@ export const enUS = {
       },
       {
         title: 'Network replicates',
-        copy: 'What can be public enters append-only Hypercores and replicates between peers through the network topic.',
+        copy: 'What can be public enters append-only signed event logs and replicates between peers through the network topic.',
       },
       {
         title: 'Dashboard interprets',

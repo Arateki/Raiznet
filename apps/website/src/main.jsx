@@ -467,7 +467,7 @@ function KnowledgeCard({ slide }) {
         <div className="ai-panel">
           <small>{slide.metric}</small>
           <strong>assistente local</strong>
-          <p>gera recomendacoes, relatorios e materiais a partir dos dados autorizados.</p>
+          <p>gera recomendações, relatórios e materiais a partir dos dados autorizados.</p>
         </div>
       </div>
       <div className="material-stack">

@@ -152,8 +152,8 @@ export const jaJP = {
       {
         icon: 'node',
         title: 'Raiznet サーバー',
-        copy: '読み取りを受け取り、公開データとローカルデータを分離し、SQLite に索引化して P2P メッシュに参加する Node.js ノード。',
-        meta: 'Fastify · Hypercore · SQLite',
+        copy: '読み取りを受け取り、公開データとローカルデータを分離し、SQLite に索引化して P2P メッシュに参加するノード。',
+        meta: '署名付き HTTP · SQLite · 独自レプリケーション',
       },
       {
         icon: 'dashboard',
@@ -183,7 +183,7 @@ export const jaJP = {
       },
       {
         title: 'ネットワークが複製',
-        copy: '公開できるものは append-only Hypercore に入り、ネットワーク topic を通じて peer 間で複製されます。',
+        copy: '公開できるものは append-only の署名付きイベントログに入り、ネットワーク topic を通じて peer 間で複製されます。',
       },
       {
         title: 'ダッシュボードが解釈',

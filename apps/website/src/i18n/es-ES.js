@@ -152,8 +152,8 @@ export const esES = {
       {
         icon: 'node',
         title: 'Servidor Raiznet',
-        copy: 'Nodo Node.js que recibe lecturas, separa datos públicos y locales, indexa en SQLite y participa en la malla P2P.',
-        meta: 'Fastify · Hypercore · SQLite',
+        copy: 'Nodo que recibe lecturas, separa datos públicos y locales, indexa en SQLite y participa en la malla P2P.',
+        meta: 'HTTP firmado · SQLite · replicación propia',
       },
       {
         icon: 'dashboard',
@@ -183,7 +183,7 @@ export const esES = {
       },
       {
         title: 'La red replica',
-        copy: 'Lo que puede ser público entra en Hypercores append-only y se replica entre peers por el topic de la red.',
+        copy: 'Lo que puede ser público entra en logs de eventos firmados (append-only) y se replica entre peers por el topic de la red.',
       },
       {
         title: 'El dashboard interpreta',
