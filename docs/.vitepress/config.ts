@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { buildSeoHead } from './seo'
 
 type Lang = 'pt' | 'en'
 
@@ -98,6 +99,19 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/docs/favicon.svg' }],
     ['meta', { name: 'theme-color', content: '#1b1b1f' }],
   ],
+
+  transformHead: ({ pageData }) => {
+    const fm = pageData.frontmatter ?? {}
+    const title = (fm.title as string) ?? pageData.title ?? 'Raiznet Docs'
+    const description =
+      (fm.description as string) ??
+      'Decentralized crop monitoring network. Local-first, data sovereign, LLM-ready.'
+    return buildSeoHead({
+      relativePath: pageData.relativePath,
+      title,
+      description,
+    })
+  },
 
   locales: {
     root: {
