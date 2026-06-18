@@ -39,6 +39,7 @@ export function robotsTxt() {
     'Disallow: /api',
     '',
     `Sitemap: ${SITE_URL}/sitemap.xml`,
+    `Sitemap: ${SITE_URL}/docs/sitemap.xml`,
     '',
   ].join('\n');
 }
