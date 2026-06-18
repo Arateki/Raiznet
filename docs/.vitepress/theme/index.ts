@@ -1,5 +1,7 @@
 import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
+import { h } from 'vue'
+import LangSuggestion from './LangSuggestion.vue'
 
 // Inter self-hosted (sem CDN) — mesma fonte do website. Subsets latin +
 // latin-ext cobrem os acentos do português; pesos 400/500/600/700 são os
@@ -19,6 +21,11 @@ import './custom.css'
 // + continuidade de idioma/tema com raiznet.com via localStorage compartilhado.
 const theme: Theme = {
   extends: DefaultTheme,
+  Layout() {
+    return h(DefaultTheme.Layout, null, {
+      'layout-bottom': () => h(LangSuggestion),
+    })
+  },
   enhanceApp() {
     if (import.meta.env.SSR) return
     import('./continuity.client').then((m) => {
