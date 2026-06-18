@@ -144,8 +144,10 @@ Cada locale entra no config/seletor **somente quando 100% traduzido** — nunca
    testável sem nenhuma tradução nova.
 2. **Onda 1 — PT** (Yan revisa; idioma do projeto) → ativa o root.
 3. **Onda 2 — ES.**
-4. **Onda 3 — JA e ZH** (técnico; sinalizados como "tradução automática a revisar
-   por falante nativo" antes de considerar definitivos).
+4. **Onda 3 — JA e ZH** (técnico). **Publicados ativos**, mas com um **aviso
+   visível no topo de cada página** desses locales (custom container / banner do
+   tema): "Tradução automática — revisão por falante nativo pendente." O aviso é
+   localizado (texto em JA/ZH) e some quando a revisão for concluída.
 
 Traduções feitas por mim, arquivo a arquivo, preservando blocos de código,
 frontmatter e marcações "implemented × design" intactos.
