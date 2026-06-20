@@ -138,9 +138,11 @@ export default defineConfig({
 
   transformHead: ({ pageData }) => {
     const fm = pageData.frontmatter ?? {}
-    const title = (fm.title as string) ?? pageData.title ?? 'Raiznet Docs'
+    // `||` (não `??`): a home (layout: home) tem pageData.title === '' — string
+    // vazia precisa cair no fallback, senão og:title/twitter:title saem vazios.
+    const title = (fm.title as string) || pageData.title || 'Raiznet Docs'
     const description =
-      (fm.description as string) ??
+      (fm.description as string) ||
       'Decentralized crop monitoring network. Local-first, data sovereign, LLM-ready.'
     return buildSeoHead({
       relativePath: pageData.relativePath,

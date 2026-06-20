@@ -34,6 +34,9 @@ for (const route of routes) {
   }
   if (count(html, /<title\b/g) !== 1) errors.push(`${route.file}: expected one <title>`)
   if (count(html, /name="description"/g) < 1) errors.push(`${route.file}: missing description`)
+  // og:title / twitter:title não podem ficar vazios (regressão da home com pageData.title '').
+  if (/property="og:title" content=""/.test(html)) errors.push(`${route.file}: empty og:title`)
+  if (/name="twitter:title" content=""/.test(html)) errors.push(`${route.file}: empty twitter:title`)
   if (count(html, /rel="canonical"/g) !== 1) errors.push(`${route.file}: expected one canonical`)
   if (!html.includes(`rel="canonical" href="${route.canonical}"`)) {
     errors.push(`${route.file}: canonical must be ${route.canonical}`)
