@@ -65,6 +65,11 @@ andamento, o que falta, e quem fez o quê.
 
 ### Próximos passos (em ordem)
 
+> **Spec de execução:** `RUST_MIGRATION_TASKS.md` (raiz, criada 2026-06-12)
+> quebra todo o trabalho restante em 18 tasks com código, verificação, gates
+> e mapa de dependências. Os itens abaixo mapeiam para as tasks T9, T2–T7,
+> T8, T1 e T10–T17, respectivamente. Agentes executores: partir dela.
+
 1. **Validação com hardware real**: apontar um ESP32 com o firmware atual
    para o `raiznetd` (`cargo run -p raiznetd`, porta 3000) e observar
    registro + telemetria — é o critério final do marco de paridade que não
@@ -134,22 +139,114 @@ andamento, o que falta, e quem fez o quê.
   deploy do website; build `@raiznet/docs` + rsync para
   `/opt/home-server/websites/raiznet/docs/dist`). Só roda após commit+push.
 - Build validado: `pnpm --filter @raiznet/docs build` verde, sem dead links.
-- **Nada commitado.**
+- **Commitado e na `main`** (`docs/`, `deploy-docs.yml`, fix do `.gitignore`).
+  O trabalho posterior de SEO + i18n está na frente abaixo.
 
 ### Próximos passos (em ordem)
 
-1. Yan revisa as mudanças em `docs/`, `.gitignore` e o workflow novo; commit.
-2. No servidor (mesma máquina do runner): adicionar o `location /docs/` no
+1. No servidor (mesma máquina do runner): adicionar o `location /docs/` no
    nginx apontando para o `DEPLOY_DIR` (precisa de `try_files` com
    `$uri.html` por causa do `cleanUrls`). Snippet registrado na sessão de
    2026-06-11.
-3. Push na main (ou `workflow_dispatch`) → deploy automático.
-4. Conferir `https://raiznet.com/docs/` (assets, busca local, navegação).
-5. Traduções (PT primeiro) entram depois, como locales completos.
+2. Push na main (ou `workflow_dispatch`) → deploy automático.
+3. Conferir `https://raiznet.com/docs/` (assets, busca local, navegação).
+
+---
+
+## Frente de trabalho: documentação — SEO + i18n (`docs/`, branch `docs-seo-i18n`)
+
+> **Fluxo de git:** branch dedicada **`docs-seo-i18n`** (nasceu de `main`).
+> Spec: `docs/superpowers/specs/2026-06-17-docs-seo-i18n-design.md`; plano de
+> execução: `docs/superpowers/plans/2026-06-17-docs-seo-i18n.md`.
+
+### Estado atual (snapshot de 2026-06-19)
+
+Plano em ondas. **Onda 0 (infra) concluída e commitada na branch; Ondas 1–3
+(traduções) pendentes.**
+
+- **Onda 0 — infra (✅ feita):**
+  - SEO com paridade ao `apps/website/SEO_SPEC.md`: `docs/.vitepress/seo.ts`
+    (canonical, hreflang + x-default, OG, Twitter, JSON-LD) via `transformHead`;
+    `docs/scripts/validate-seo.mjs` que **quebra o build** em regressão;
+    og:image PNG 1200×630 (`docs/public/og-image.png`).
+  - i18n nativo VitePress: `lib/i18n-routing.ts` (PT na raiz, demais em
+    subpath), sidebar/nav como factory por locale; locales **`pt` (root) +
+    `en`** ativos. EN preservado em `docs/en/` (22 `.md`).
+  - Continuidade site↔docs: `theme/continuity.client.ts` (ponte
+    `raiznet-locale` + `raiznet-theme` via localStorage compartilhado) e banner
+    `theme/LangSuggestion.vue` (sugestão de idioma sem auto-redirect).
+  - Cores alinhadas ao website: `theme/custom.css` (paleta papel/verde-folha).
+  - Lado website: `apps/website/src/main.jsx` com links de docs cientes de
+    idioma; `robots.txt` do site aponta `Sitemap: …/docs/sitemap.xml`; banner.
+  - Build verde: `pnpm --filter @raiznet/docs build` passa com o validador.
+- **⚠️ A raiz canônica (`pt-BR`) ainda serve conteúdo em INGLÊS** — os 22
+  arquivos da raiz não foram traduzidos. É exatamente o que a Onda 1 resolve.
+
+### Próximos passos (em ordem)
+
+1. **Onda 1 — PT (raiz):** traduzir os 22 `.md` da raiz para português
+   (EN já preservado em `docs/en/`). Preservar blocos de código, frontmatter e
+   marcações "implemented × design". Yan revisa.
+2. **Onda 2 — ES:** criar `docs/es/`, ativar locale `es`.
+3. **Onda 3 — JA/ZH:** criar `docs/ja/` e `docs/zh/` com aviso visível de
+   "tradução automática — revisão pendente"; ativar locales.
+4. Cada onda: rodar o build com validador, commit atômico por onda.
+5. Publicar a branch e abrir PR para a `main`.
+6. **Pendente manual (Nginx, no merge):** `try_files $uri $uri.html
+   $uri/index.html` sob `location /docs/` para os subpaths de idioma
+   (`/docs/en/`, etc.) resolverem.
+
+### Avisos
+
+- `theme/index.ts` importa `./custom.css` — manter o arquivo versionado
+  (já corrigido; estava untracked e quebraria CI).
+- Nada de auto-redirect por `navigator` na raiz (proibido pelo SEO_SPEC); a
+  detecção de idioma é só o banner de sugestão.
 
 ---
 
 ## Log de trabalho (append-only, mais recente primeiro)
+
+### 2026-06-19 — Claude (Opus 4.8, Claude Code) — saneamento da frente docs SEO + i18n
+
+- Auditou o estado da branch `docs-seo-i18n` (13 commits acima da `main`, não
+  publicada). Onda 0 (infra SEO + i18n) concluída e commitada; Ondas 1–3
+  (traduções PT/ES/JA/ZH) pendentes — a raiz canônica `pt-BR` ainda serve
+  conteúdo EN.
+- **Correção crítica:** `docs/.vitepress/theme/custom.css` estava **untracked**
+  mas é importado por `theme/index.ts` (commitado) → build limpo de CI quebraria
+  com módulo ausente. Versionado (`002aa8e`).
+- `chore` (`46f3bce`): `apps/website/*.tar.gz` ao `.gitignore` (tarball de build
+  do website estava untracked).
+- HANDOFF atualizado: nova seção da frente docs SEO + i18n (estado + próximos
+  passos por onda + pendente Nginx) e correção da seção "documentação pública"
+  (estava "Nada commitado", mas `docs/` e `deploy-docs.yml` já estão na `main`).
+- Pendência fora desta frente (deixada uncommitted): `README.md` (remoção de um
+  `---`) e a entrada de log "2026-06-12 (3)" + `RUST_MIGRATION_TASKS.md` são da
+  frente Rust — decisão do Yan onde commitar.
+
+### 2026-06-12 (3) — Claude (Fable 5, Claude Code) — spec de tarefas da migração restante
+
+- Criado `RUST_MIGRATION_TASKS.md` (raiz): quebra todo o trabalho restante
+  da migração em 18 tasks executáveis por outro agente — T1 CI rust-ci.yml,
+  T2–T7 Fase 6 (config do profile, body+batch configuráveis, PRAGMAs,
+  retenção, paginação, validação de memória/durabilidade), T8 Fase 10
+  (deploy ARM/OpenStick), T9 gate ESP32 real, T10–T17 Fases 7–9 (tasks de
+  planejamento ADR/plano + implementação, gated), T18 aposentadoria do TS.
+  Inclui estado verificado (fases 0–5, hashes) e mapa de dependências.
+- Decisões de spec (registradas nela): retenção poda com lock POR LOTE
+  (`prune_telemetry_batch`) para não monopolizar o Mutex; paginação com
+  cursor exclusivo `?before=` sobre timestamp + `?limit=` clampado 1..=500,
+  default intacto (LIMIT 500); defaults sem profile preservam paridade
+  (batch 100); CI em ubuntu-latest (self-hosted fica só para deploy); spike
+  CGNAT fora do workspace (`spikes/`); Fase 7 propõe ADR-005 com envelope
+  canônico binário (não JSON-ordenado) a ratificar.
+- Spec conferida contra o código real do worktree (`fresh_state`/`send` do
+  corpus.rs, Config/AppState atuais, teto 100 hardcoded em http/telemetry.rs,
+  open_db) — tasks referenciam helpers e arquivos existentes, não inventados.
+- **Nada commitado.** Arquivo novo está na worktree da main
+  (`~/Projects/Raiznet`); decisão do Yan: commitar na main ou mover para a
+  branch `rust-migration`.
 
 ### 2026-06-12 (2) — Claude (Fable 5, Claude Code) — SEO do website corrigido e verificado em produção
 
