@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 import { buildSeoHead } from './seo'
 
-type Lang = 'pt' | 'en'
+type Lang = 'pt' | 'en' | 'es'
 
 // Sidebar rótulos por idioma. Itens novos: traduzir aqui ao adicionar locale.
 const T: Record<Lang, Record<string, string>> = {
@@ -28,6 +28,18 @@ const T: Record<Lang, Record<string, string>> = {
     'public-api': 'Public API', 'local-api': 'Local API',
     'proto-schemas': 'Protobuf Schemas', errors: 'Error Codes',
     glossary: 'Glossary', editLink: 'Edit this page on GitHub',
+  },
+  es: {
+    guide: 'Guía', protocol: 'Protocolo', reference: 'Referencia', adr: 'ADR',
+    introduction: 'Introducción', architecture: 'Arquitectura',
+    'running-a-node': 'Ejecutar un nodo', stack: 'Stack técnico', roadmap: 'Hoja de ruta',
+    intelligence: 'Inteligencia colectiva', overview: 'Visión general',
+    identity: 'Identidad y claves', telemetry: 'Telemetría',
+    privacy: 'Modelo de privacidad', networks: 'Redes y filtros',
+    'device-lifecycle': 'Ciclo de vida del dispositivo',
+    'public-api': 'API pública', 'local-api': 'API local',
+    'proto-schemas': 'Esquemas Protobuf', errors: 'Códigos de error',
+    glossary: 'Glosario', editLink: 'Editar esta página en GitHub',
   },
 }
 
@@ -124,6 +136,12 @@ export default defineConfig({
       lang: 'en',
       link: '/en/',
       themeConfig: { nav: nav('en'), sidebar: sidebar('en'), editLink: editLink('en') },
+    },
+    es: {
+      label: 'Español',
+      lang: 'es',
+      link: '/es/',
+      themeConfig: { nav: nav('es'), sidebar: sidebar('es'), editLink: editLink('es') },
     },
   },
 
