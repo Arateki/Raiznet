@@ -1,82 +1,86 @@
-# Protocol Overview
+---
+description: A pilha de comunicação da Raiznet do sensor ESP32 ao servidor — formato de fio JSON com raw assinado, transporte por salto e ciclo de vida do pacote.
+---
 
-Raiznet defines a layered protocol for decentralized crop monitoring. This page describes the communication stack from the ESP32 sensor to the server — as it is implemented today — and where the protocol is heading.
+# Visão geral do protocolo
 
-## Layers
+A Raiznet define um protocolo em camadas para monitoramento de cultivo descentralizado. Esta página descreve a pilha de comunicação do sensor ESP32 até o servidor — como está implementada hoje — e para onde o protocolo está indo.
+
+## Camadas
 
 ```
 ┌──────────────────────────────────────────┐
-│        Application  (HTTP JSON API)      │
+│        Aplicação  (API HTTP JSON)        │
 ├──────────────────────────────────────────┤
-│   Wire format  (JSON + signed raw string)│
+│  Formato de fio  (JSON + raw assinado)   │
 ├──────────────────────────────────────────┤
-│        Transport  (HTTP POST)            │
+│        Transporte  (HTTP POST)           │
 ├──────────────────────────────────────────┤
-│          Identity  (Ed25519)             │
+│          Identidade  (Ed25519)           │
 └──────────────────────────────────────────┘
 ```
 
-Planned additions: a canonical Protobuf encoding ([ADR-001](/adr/001-protobuf)), ESP-NOW device-to-device mesh, and server-to-server replication of a signed event log ([ADR-004](/adr/004-raiznet-native-replication) — see the [Roadmap](/guide/roadmap)).
+Adições planejadas: uma codificação canônica em Protobuf ([ADR-001](/adr/001-protobuf)), malha dispositivo-a-dispositivo via ESP-NOW e replicação servidor-a-servidor de um log de eventos assinado ([ADR-004](/adr/004-raiznet-native-replication) — veja o [Roadmap](/guide/roadmap)).
 
-## Wire format
+## Formato de fio
 
-The current wire format is **JSON over HTTP**, with one crucial detail: the JSON is a transport envelope, and the **signed message is a separate pipe-delimited ASCII string** called `raw`.
+O formato de fio atual é **JSON sobre HTTP**, com um detalhe crucial: o JSON é um envelope de transporte, e a **mensagem assinada é uma string ASCII separada, delimitada por pipe**, chamada `raw`.
 
 ```
 <device_pubkey_hex>|<seq>|<timestamp_ms>|<key_version>[|ec=<v>][|ph=<v>][|waterLevel=<v>][|tempAmbient=<v>][|humidity=<v>]
 ```
 
-The device signs the UTF-8 bytes of this string with its Ed25519 key and ships both the hex-encoded `raw` and the `signature` inside the JSON block. The server verifies the signature against the device's **registered** pubkey. See [Telemetry](/protocol/telemetry) for the full grammar.
+O dispositivo assina os bytes UTF-8 dessa string com sua chave Ed25519 e envia tanto o `raw` codificado em hex quanto a `signature` dentro do bloco JSON. O servidor verifica a assinatura contra a pubkey **registrada** do dispositivo. Veja [Telemetria](/protocol/telemetry) para a gramática completa.
 
-Protobuf schemas for a canonical binary encoding already exist in `packages/protocol/proto/` but are not used on the wire yet — see [Proto Schemas](/reference/proto-schemas).
+Schemas Protobuf para uma codificação binária canônica já existem em `packages/protocol/proto/` mas ainda não são usados no fio — veja [Schemas Protobuf](/reference/proto-schemas).
 
-## Transport by hop
+## Transporte por salto
 
-| Hop | Protocol | Status |
+| Salto | Protocolo | Status |
 |---|---|---|
-| ESP32 → Server | HTTP POST (`/v1/telemetry`, JSON) | **Implemented** |
-| ESP32 → ESP32 (mesh) | ESP-NOW on the Wi-Fi channel | Planned |
-| Server → Server | Signed event log replication | In design ([ADR-004](/adr/004-raiznet-native-replication)) |
+| ESP32 → Servidor | HTTP POST (`/v1/telemetry`, JSON) | **Implementado** |
+| ESP32 → ESP32 (malha) | ESP-NOW no canal do Wi-Fi | Planejado |
+| Servidor → Servidor | Replicação de log de eventos assinado | Em design ([ADR-004](/adr/004-raiznet-native-replication)) |
 
-HTTP was chosen for the ESP32 → Server hop because sensors send infrequently (the reference firmware defaults to one reading per minute; battery devices will sleep far longer). A persistent connection (WebSocket, MQTT) would be held open for nothing and would drain battery. Stateless HTTP POST is the correct model for infrequent, fire-and-forget ingest.
+O HTTP foi escolhido para o salto ESP32 → Servidor porque os sensores enviam com pouca frequência (o firmware de referência usa por padrão uma leitura por minuto; dispositivos a bateria dormirão por muito mais tempo). Uma conexão persistente (WebSocket, MQTT) ficaria aberta à toa e drenaria a bateria. O HTTP POST sem estado é o modelo correto para ingestão infrequente do tipo fire-and-forget.
 
-## Packet lifecycle
+## Ciclo de vida do pacote
 
-What happens to a reading today:
+O que acontece com uma leitura hoje:
 
 ```
-ESP32 reads sensors
-  → builds the raw string and signs it (Ed25519, device key)
-  → wraps raw + signature + plain/encrypted fields in a JSON block
-  → POST /v1/telemetry (batched, 1..100 blocks)
+ESP32 lê os sensores
+  → monta a string raw e a assina (Ed25519, chave do dispositivo)
+  → envelopa raw + signature + campos plain/encrypted em um bloco JSON
+  → POST /v1/telemetry (em lote, 1..100 blocos)
 
-Server receives the batch, per block:
-  → looks up the device in the destination database
-  → verifies the signature over the raw bytes
-  → resolves each field's disposition (plain / encrypted / omit)
-  → inserts into raiznet_public.db or raiznet_private.db
-     (INSERT OR IGNORE — duplicates are idempotent)
+O servidor recebe o lote, por bloco:
+  → busca o dispositivo no banco de destino
+  → verifica a assinatura sobre os bytes do raw
+  → resolve a disposição de cada campo (plain / encrypted / omit)
+  → insere em raiznet_public.db ou raiznet_private.db
+     (INSERT OR IGNORE — duplicatas são idempotentes)
 ```
 
-The replication step (appending public blocks to a signed log and syncing it between nodes) is the next protocol phase and is not implemented yet.
+A etapa de replicação (anexar blocos públicos a um log assinado e sincronizá-lo entre nós) é a próxima fase do protocolo e ainda não está implementada.
 
-## Identifiers
+## Identificadores
 
-Every entity is identified by its **Ed25519 public key** (32 bytes), serialized as lowercase hex in JSON. There are no auto-incremented integers in the protocol.
+Cada entidade é identificada por sua **chave pública Ed25519** (32 bytes), serializada como hex minúsculo no JSON. Não há inteiros auto-incrementados no protocolo.
 
-| Entity | ID source | Status |
+| Entidade | Origem do ID | Status |
 |---|---|---|
-| User | Pubkey derived from a BIP-39 seed | Implemented |
-| Server | Pubkey generated at first boot (`identity.mnemonic`) | Implemented |
-| Device | Pubkey generated at provisioning (hardware TRNG) | Implemented |
-| Filter / Catalog | Pubkey of its published log | Design |
+| Usuário | Pubkey derivada de uma seed BIP-39 | Implementado |
+| Servidor | Pubkey gerada no primeiro boot (`identity.mnemonic`) | Implementado |
+| Dispositivo | Pubkey gerada no provisionamento (TRNG do hardware) | Implementado |
+| Filtro / Catálogo | Pubkey do seu log publicado | Design |
 
-## Sequence numbers
+## Números de sequência
 
-Each device maintains a monotonically increasing `seq` counter:
+Cada dispositivo mantém um contador `seq` monotonicamente crescente:
 
-- To protect flash from wear, the reference firmware reserves `seq` in **blocks of 100**: it persists only the start of the next block to NVS. After a reboot the device resumes from the next reserved block — small gaps in `seq` are normal and expected.
-- The device keeps recent readings in a RAM ring buffer and **re-sends everything not yet confirmed with an HTTP `200`**. The server deduplicates by `(device_pubkey, seq)`, so retransmission is always safe.
-- The server does **not** enforce monotonicity — rejecting older seqs would break recovery after a reconnection.
+- Para proteger a flash do desgaste, o firmware de referência reserva `seq` em **blocos de 100**: persiste na NVS apenas o início do próximo bloco. Após um reboot, o dispositivo retoma do próximo bloco reservado — pequenas lacunas no `seq` são normais e esperadas.
+- O dispositivo mantém as leituras recentes num ring buffer de RAM e **reenvia tudo que ainda não foi confirmado com um HTTP `200`**. O servidor deduplica por `(device_pubkey, seq)`, então a retransmissão é sempre segura.
+- O servidor **não** impõe monotonicidade — rejeitar seqs antigos quebraria a recuperação após uma reconexão.
 
-Readings that age out of the device buffer before syncing are lost from the network — unless the owner pulls them directly from the device via local HTTP, BLE, or serial.
+Leituras que saem do buffer do dispositivo antes de sincronizar são perdidas pela rede — a menos que o dono as puxe diretamente do dispositivo via HTTP local, BLE ou serial.

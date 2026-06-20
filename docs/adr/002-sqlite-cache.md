@@ -1,46 +1,50 @@
-# ADR 002 — SQLite as derived read cache
+---
+description: ADR 002 — SQLite como cache de leitura derivado do log de eventos assinado, com bancos público e privado separados e isolamento no nível da conexão.
+---
 
-**Status:** Accepted  
-**Date:** 2026-04
+# ADR 002 — SQLite como cache de leitura derivado
 
-::: info Update (2026-06)
-The signed event log is not implemented yet — today ingest writes directly to SQLite (the "Phase 1" path described under Trade-offs). The log design has also moved away from Hypercore toward a Raiznet-native append-only event log ([ADR-004](/adr/004-raiznet-native-replication)); the SQLite-as-derived-index principle is unchanged.
+**Status:** Aceito  
+**Data:** 2026-04
+
+::: info Atualização (2026-06)
+O log de eventos assinado ainda não está implementado — hoje a ingestão escreve diretamente no SQLite (o caminho da "Fase 1" descrito em Trade-offs). O design do log também se afastou do Hypercore em direção a um log de eventos somente-anexação nativo da Raiznet ([ADR-004](/adr/004-raiznet-native-replication)); o princípio do SQLite-como-índice-derivado permanece inalterado.
 :::
 
-## Context
+## Contexto
 
-Raiznet's intended source of truth is an append-only, cryptographically signed event log. However, serving fast API queries (time-range reads, aggregations, filtering by H3 cell) directly from such a log is impractical: it is designed for sequential append and replication, not random-access indexed queries.
+A fonte da verdade pretendida pela Raiznet é um log de eventos somente-anexação e criptograficamente assinado. No entanto, servir consultas de API rápidas (leituras por faixa de tempo, agregações, filtragem por célula H3) diretamente de tal log é impraticável: ele é projetado para anexação sequencial e replicação, não para consultas indexadas de acesso aleatório.
 
-A secondary index layer is needed.
+É necessária uma camada de índice secundário.
 
-## Decision
+## Decisão
 
-**SQLite** (via `better-sqlite3`) is used as a derived read cache. It is not meant to be the long-term source of truth. Once the event log exists, a corrupted or deleted SQLite database can be fully rebuilt by replaying the log from the first event.
+O **SQLite** (via `better-sqlite3`) é usado como um cache de leitura derivado. Ele não é a fonte da verdade de longo prazo. Quando o log de eventos existir, um banco SQLite corrompido ou apagado poderá ser totalmente reconstruído reproduzindo o log a partir do primeiro evento.
 
-Two separate databases are maintained:
+São mantidos dois bancos separados:
 
-| Database | Fed by | Access |
+| Banco | Alimentado por | Acesso |
 |---|---|---|
-| `raiznet_public.db` | Public ingest (event-log replication planned) | Public endpoint |
-| `raiznet_private.db` | Local ingest only | Local endpoint only |
+| `raiznet_public.db` | Ingestão pública (replicação do log de eventos planejada) | Endpoint público |
+| `raiznet_private.db` | Apenas ingestão local | Apenas endpoint local |
 
-## Rationale
+## Justificativa
 
-- **Query performance**: fixed columns with `REAL` type allow standard SQL aggregations (AVG, MIN, MAX, GROUP BY) with indexes. No JSON parsing at query time.
-- **Schema simplicity**: no ORM — direct SQL with typed results via `better-sqlite3`'s synchronous API.
-- **Rebuild guarantee** (once the event log ships): because SQLite is derived from the log, schema evolution does not mean data loss. Drop the file, replay, done.
-- **Security by isolation**: the public endpoint's Fastify instance holds a connection only to `raiznet_public.db`. A query on the public endpoint cannot return private data because the database connection object is simply not available to it — isolation is at the connection level, not the query level.
-- **`better-sqlite3` synchronous API**: fits naturally into Fastify's async route handlers without requiring a separate thread pool or callback indirection.
+- **Performance de consulta**: colunas fixas do tipo `REAL` permitem agregações SQL padrão (AVG, MIN, MAX, GROUP BY) com índices. Sem parsing de JSON em tempo de consulta.
+- **Simplicidade de schema**: sem ORM — SQL direto com resultados tipados via a API síncrona do `better-sqlite3`.
+- **Garantia de reconstrução** (quando o log de eventos entrar): como o SQLite é derivado do log, a evolução do schema não significa perda de dados. Apague o arquivo, reproduza, pronto.
+- **Segurança por isolamento**: a instância Fastify do endpoint público mantém conexão apenas com `raiznet_public.db`. Uma consulta no endpoint público não consegue retornar dados privados porque o objeto de conexão do banco simplesmente não está disponível para ela — o isolamento é no nível da conexão, não no nível da consulta.
+- **API síncrona do `better-sqlite3`**: encaixa-se naturalmente nos handlers de rota assíncronos do Fastify sem exigir um pool de threads separado nem indireção de callbacks.
 
 ## Trade-offs
 
-- Adding a new sensor type requires a schema migration (three new columns: `_plain`, `_cipher`, `_nonce`). This is the accepted cost for fast aggregated queries.
-- The wide-table design (one row per reading, all sensor columns in the same row) uses more disk space than a narrow key-value table, but enables indexed range queries without joins.
-- Phase 1 writes directly to SQLite. Phase 2 adds the event log → indexer → SQLite pipeline. The API layer always reads from SQLite in both phases.
+- Adicionar um novo tipo de sensor exige uma migração de schema (três colunas novas: `_plain`, `_cipher`, `_nonce`). Este é o custo aceito por consultas agregadas rápidas.
+- O design de tabela larga (uma linha por leitura, todas as colunas de sensor na mesma linha) usa mais espaço em disco que uma tabela estreita chave-valor, mas habilita consultas indexadas por faixa sem joins.
+- A Fase 1 escreve diretamente no SQLite. A Fase 2 adiciona o pipeline log de eventos → indexador → SQLite. A camada de API sempre lê do SQLite nas duas fases.
 
-## Consequences
+## Consequências
 
-- `apps/server/src/storage/public-db.ts` and `private-db.ts` own schema creation (`CREATE TABLE IF NOT EXISTS`).
-- No migration framework in Phase 1 — tables are created on first boot, schema is stable.
-- An indexer (Phase 2) will be the only writer to `raiznet_public.db` once event-log replication is active.
-- `raiznet_private.db` is always written directly by the local ingest path — it is never replicated.
+- `apps/server/src/storage/public-db.ts` e `private-db.ts` são donos da criação do schema (`CREATE TABLE IF NOT EXISTS`).
+- Sem framework de migração na Fase 1 — as tabelas são criadas no primeiro boot, o schema é estável.
+- Um indexador (Fase 2) será o único escritor de `raiznet_public.db` quando a replicação do log de eventos estiver ativa.
+- `raiznet_private.db` é sempre escrito diretamente pelo caminho de ingestão local — ele nunca é replicado.

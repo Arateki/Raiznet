@@ -1,11 +1,15 @@
-# Running a Node
+---
+description: Como instalar, configurar e rodar um nó Raiznet com Node.js — primeira execução, identidade BIP-39, health check e como expor o nó com segurança.
+---
 
-## Requirements
+# Rodando um nó
+
+## Requisitos
 
 - Node.js 24 LTS
 - pnpm 9+
 
-## Installation
+## Instalação
 
 ```bash
 git clone https://github.com/arateki/raiznet
@@ -14,42 +18,42 @@ pnpm install
 pnpm build
 ```
 
-## Configuration
+## Configuração
 
-Copy the example environment file and adjust as needed:
+Copie o arquivo de ambiente de exemplo e ajuste conforme necessário:
 
 ```bash
 cp apps/server/.env.example apps/server/.env
 ```
 
-| Variable | Default | Description |
+| Variável | Padrão | Descrição |
 |---|---|---|
-| `PUBLIC_PORT` | `3000` | Port for the public endpoint (bind `0.0.0.0`) |
-| `LOCAL_PORT` | `3001` | Port for the local authenticated endpoint (bind `127.0.0.1`) |
-| `DATA_DIR` | `./data` | Directory for SQLite databases and server identity |
-| `LOG_LEVEL` | `info` | Pino log level (`trace`, `debug`, `info`, `warn`, `error`) |
-| `NODE_ENV` | `development` | Environment |
+| `PUBLIC_PORT` | `3000` | Porta do endpoint público (bind `0.0.0.0`) |
+| `LOCAL_PORT` | `3001` | Porta do endpoint local autenticado (bind `127.0.0.1`) |
+| `DATA_DIR` | `./data` | Diretório dos bancos SQLite e da identidade do servidor |
+| `LOG_LEVEL` | `info` | Nível de log do Pino (`trace`, `debug`, `info`, `warn`, `error`) |
+| `NODE_ENV` | `development` | Ambiente |
 
-## First run
+## Primeira execução
 
 ```bash
 cd apps/server
 node dist/index.js
 ```
 
-On first run, the server:
-1. Generates an Ed25519 keypair from a new BIP-39 seed phrase
-2. Writes the seed to `DATA_DIR/identity.mnemonic` (permissions `0600`)
-3. Creates `raiznet_public.db` and `raiznet_private.db` in `DATA_DIR`
-4. Starts listening on both ports
-5. Logs the server's public key
+Na primeira execução, o servidor:
+1. Gera um par de chaves Ed25519 a partir de uma nova seed phrase BIP-39
+2. Grava a seed em `DATA_DIR/identity.mnemonic` (permissões `0600`)
+3. Cria `raiznet_public.db` e `raiznet_private.db` em `DATA_DIR`
+4. Começa a escutar nas duas portas
+5. Registra no log a chave pública do servidor
 
 ```
 {"pubkey":"641ffb278dc6...","msg":"raiznet server started"}
 ```
 
-::: warning Back up your seed phrase
-The file `DATA_DIR/identity.mnemonic` contains the 12-word seed phrase that controls your server's identity. Back it up. If lost, your node's identity (its pubkey) is gone — and with it, once networks ship, the ability to sign NetworkManifests, filters, and catalogs.
+::: warning Faça backup da sua seed phrase
+O arquivo `DATA_DIR/identity.mnemonic` contém a seed phrase de 12 palavras que controla a identidade do seu servidor. Faça backup. Se perdida, a identidade do seu nó (sua pubkey) se vai — e com ela, quando as redes entrarem, a capacidade de assinar NetworkManifests, filtros e catálogos.
 :::
 
 ## Health check
@@ -59,14 +63,14 @@ curl http://localhost:3000/health
 # {"status":"ok","ts":1776819068644}
 ```
 
-## Exposing the node
+## Expondo o nó
 
-The public endpoint (`:3000`) is safe to expose — it serves public data only. The local endpoint (`:3001`) has **no authentication yet**: it binds to `127.0.0.1` and must stay unreachable from outside. Use Tailscale or a VPN for remote access. See [Local API](/reference/local-api).
+O endpoint público (`:3000`) é seguro de expor — ele serve apenas dados públicos. O endpoint local (`:3001`) **ainda não tem autenticação**: ele faz bind em `127.0.0.1` e deve permanecer inalcançável de fora. Use Tailscale ou uma VPN para acesso remoto. Veja [API local](/reference/local-api).
 
-## Development mode (watch)
+## Modo de desenvolvimento (watch)
 
 ```bash
 pnpm --filter @raiznet/server dev
 ```
 
-Uses `node --watch` to restart on file changes. Requires a built `dist/` first.
+Usa `node --watch` para reiniciar a cada mudança de arquivo. Requer um `dist/` já compilado.

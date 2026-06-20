@@ -1,22 +1,26 @@
-# Privacy Model
+---
+description: O modelo de privacidade por campo da Raiznet — disposições plain, encrypted e omit, FieldPolicy por destino, publish_to e segurança por isolamento.
+---
 
-Raiznet's privacy model operates at the field level. Each sensor reading (pH, EC, temperature, etc.) has an independent visibility policy that determines what travels where.
+# Modelo de privacidade
 
-## Disposition
+O modelo de privacidade da Raiznet opera no nível do campo. Cada leitura de sensor (pH, EC, temperatura, etc.) tem uma política de visibilidade independente que determina o que trafega para onde.
 
-A `Disposition` defines how a field is handled for a given destination:
+## Disposição
 
-| Value | Meaning |
+Uma `Disposition` define como um campo é tratado para um dado destino:
+
+| Valor | Significado |
 |---|---|
-| `OMIT` | Field is not sent to this destination. Not stored. |
-| `PLAIN` | Field travels in clear. Visible to all peers with access to that destination. |
-| `ENCRYPTED` | Field is encrypted with the device's AES-256-GCM symmetric key before transmission. The blob travels normally, but only the key holder can read it. |
+| `OMIT` | O campo não é enviado a este destino. Não é armazenado. |
+| `PLAIN` | O campo trafega em claro. Visível a todos os peers com acesso àquele destino. |
+| `ENCRYPTED` | O campo é criptografado com a chave simétrica AES-256-GCM do dispositivo antes da transmissão. O blob trafega normalmente, mas só quem tem a chave consegue lê-lo. |
 
-`ENCRYPTED` values never enter network aggregations or maps — aggregators ignore opaque blobs.
+Valores `ENCRYPTED` nunca entram em agregações ou mapas da rede — os agregadores ignoram blobs opacos.
 
 ## FieldPolicy
 
-Each sensor field has a `FieldPolicy`:
+Cada campo de sensor tem uma `FieldPolicy`:
 
 ```protobuf
 message FieldPolicy {
@@ -25,69 +29,69 @@ message FieldPolicy {
 }
 ```
 
-`default_disposition` applies to any destination not explicitly listed. `per_destination` maps a destination key to an override:
+`default_disposition` se aplica a qualquer destino não listado explicitamente. `per_destination` mapeia uma chave de destino para um override:
 
-- **Server pubkey (hex)**: applies to that specific server.
-- **Network topic** (e.g. `raiznet:public:arateki:v1`): applies to all peers in that network.
+- **Pubkey do servidor (hex)**: aplica-se àquele servidor específico.
+- **Topic da rede** (ex.: `raiznet:public:arateki:v1`): aplica-se a todos os peers daquela rede.
 
-The UI presents three levels of granularity, all backed by the same map:
+A UI apresenta três níveis de granularidade, todos sustentados pelo mesmo mapa:
 
-| UI level | Configuration |
+| Nível na UI | Configuração |
 |---|---|
-| Same for all | `default_disposition` set, map empty |
-| Public vs local | Two map entries grouping by class |
-| Per destination (advanced) | One entry per server pubkey or topic |
+| Igual para todos | `default_disposition` definido, mapa vazio |
+| Público vs local | Duas entradas no mapa agrupando por classe |
+| Por destino (avançado) | Uma entrada por pubkey de servidor ou topic |
 
 ## publish_to
 
-The device's `publish_to` setting controls which categories of destinations are active:
+A configuração `publish_to` do dispositivo controla quais categorias de destino ficam ativas:
 
-| Value | Active destinations |
+| Valor | Destinos ativos |
 |---|---|
-| `LOCAL_ONLY` | Only `local_servers` entries |
-| `PUBLIC` | Only public network topics |
-| `BOTH` | All destinations — each with its own FieldPolicy |
+| `LOCAL_ONLY` | Apenas as entradas de `local_servers` |
+| `PUBLIC` | Apenas topics de rede pública |
+| `BOTH` | Todos os destinos — cada um com sua própria FieldPolicy |
 
-## local_servers as the differentiator
+## local_servers como diferenciador
 
-The `local_servers` list on the device determines whether "local" data reaches a server at all:
+A lista `local_servers` no dispositivo determina se o dado "local" chega a algum servidor:
 
-- **`local_servers` empty** → private fields stay in the ESP32 flash. The owner accesses them directly via local HTTP, BLE, or serial when nearby.
-- **`local_servers` populated** → private fields are sent to those specific servers and stored in `raiznet_private.db`. Each server is independent and does not replicate private data with other servers.
+- **`local_servers` vazio** → os campos privados ficam na flash do ESP32. O dono os acessa diretamente via HTTP local, BLE ou serial quando está por perto.
+- **`local_servers` preenchido** → os campos privados são enviados a esses servidores específicos e armazenados em `raiznet_private.db`. Cada servidor é independente e não replica dados privados com outros servidores.
 
-Users who don't run a node never need to configure `local_servers`. The app communicates this clearly: local data stays on the device until the app connects directly.
+Usuários que não rodam um nó nunca precisam configurar `local_servers`. O app comunica isso com clareza: o dado local fica no dispositivo até o app se conectar diretamente.
 
-## Security by isolation
+## Segurança por isolamento
 
-The two databases on the server enforce isolation at the connection level, not the query level:
+Os dois bancos no servidor impõem o isolamento no nível da conexão, não no nível da consulta:
 
-- `raiznet_public.db` — fed by public ingest (peer replication planned). The public endpoint has access only to this database. A poorly written query cannot leak private data because the connection object is simply not available.
-- `raiznet_private.db` — fed by local ingest only. Only the local endpoint (`127.0.0.1`) has access. It never leaves the node.
+- `raiznet_public.db` — alimentado pela ingestão pública (replicação entre peers planejada). O endpoint público tem acesso apenas a este banco. Uma consulta mal escrita não consegue vazar dados privados porque o objeto de conexão simplesmente não está disponível.
+- `raiznet_private.db` — alimentado apenas pela ingestão local. Apenas o endpoint local (`127.0.0.1`) tem acesso. Ele nunca sai do nó.
 
-## What is always public
+## O que é sempre público
 
-When a device has `publish_to: PUBLIC | BOTH`, the following metadata is always public regardless of FieldPolicy:
+Quando um dispositivo tem `publish_to: PUBLIC | BOTH`, os metadados a seguir são sempre públicos, independentemente da FieldPolicy:
 
-- `id` (device pubkey)
+- `id` (pubkey do dispositivo)
 - `mac`
 - `owner_pubkey`
 - `type` (sensor_mains / sensor_battery / gateway)
-- `location` (H3 cell at owner-chosen resolution)
-- `hardware` (model, firmware version)
+- `location` (célula H3 na resolução escolhida pelo dono)
+- `hardware` (modelo, versão de firmware)
 
-This metadata is necessary for the network to know the device exists and for aggregations to function.
+Esses metadados são necessários para a rede saber que o dispositivo existe e para as agregações funcionarem.
 
-## Changing the policy
+## Mudando a política
 
-Changing `FieldPolicy` affects only future readings. Data already published (plain or encrypted) remains with whoever already received it — there is no mechanism to "unpublish" what peers have downloaded. This is a consequence of append-only, replicated data.
+Mudar a `FieldPolicy` afeta apenas leituras futuras. Dados já publicados (em claro ou criptografados) permanecem com quem já os recebeu — não há mecanismo para "despublicar" o que os peers baixaram. Isso é consequência de dados somente-anexação e replicados.
 
-## Encrypted fields and the owner's app
+## Campos criptografados e o app do dono
 
-The `ENCRYPTED` disposition solves a specific use case: the owner wants to follow their own sensor data from outside the LAN (no tunnel needed) without exposing the values to the public network.
+A disposição `ENCRYPTED` resolve um caso de uso específico: o dono quer acompanhar os dados do próprio sensor de fora da LAN (sem precisar de túnel) sem expor os valores à rede pública.
 
-Flow:
-1. Device encrypts the field with its symmetric key before sending it to the public destination.
-2. Any peer receives and stores the encrypted blob — they cannot read it.
-3. The owner's app, which holds the symmetric key, decrypts the blob locally.
+Fluxo:
+1. O dispositivo criptografa o campo com sua chave simétrica antes de enviá-lo ao destino público.
+2. Qualquer peer recebe e armazena o blob criptografado — ele não consegue lê-lo.
+3. O app do dono, que guarda a chave simétrica, descriptografa o blob localmente.
 
-This means the owner can use any public gateway or peer node to retrieve their data without trusting it with the plaintext values.
+Isso significa que o dono pode usar qualquer gateway público ou nó peer para recuperar seus dados sem confiar a ele os valores em claro.

@@ -1,31 +1,35 @@
-# Introduction
+---
+description: A Raiznet é uma rede descentralizada de monitoramento de cultivo e inteligência agrícola coletiva, local-first e soberana, baseada em dados assinados.
+---
 
-Raiznet is a decentralized network for crop monitoring and collective agricultural intelligence. It is part of Arateki's **SafraSense** product. Data flows from ESP32 sensors installed in growing towers to a mesh of server nodes, and can be read by any member of the network — with or without their own node. Nodes are designed to sync with each other peer-to-peer; see the [Roadmap](/guide/roadmap) for what is implemented today versus in design.
+# Introdução
 
-Beyond monitoring, Raiznet is designed as a research-grade data infrastructure. Every reading is signed, tamper-evident, geolocated, and linked to a planting outcome. Over time, this creates a collective dataset that LLMs and researchers can turn into actionable knowledge: better crop parameters, regional calibrations, and scientific publications — owned by no one, available to everyone. See [Collective Intelligence](/guide/intelligence) for the full vision.
+A Raiznet é uma rede descentralizada para monitoramento de cultivo e inteligência agrícola coletiva. Faz parte do produto **SafraSense**, da Arateki. Os dados fluem de sensores ESP32 instalados em torres de cultivo até uma malha de nós servidores, e podem ser lidos por qualquer membro da rede — com ou sem nó próprio. Os nós são projetados para sincronizar entre si ponto a ponto; veja o [Roadmap](/guide/roadmap) sobre o que está implementado hoje versus em design.
 
-## Non-negotiable principles
+Além do monitoramento, a Raiznet é projetada como uma infraestrutura de dados de qualidade científica. Cada leitura é assinada, à prova de adulteração, geolocalizada e vinculada ao resultado de uma safra. Com o tempo, isso cria um conjunto de dados coletivo que LLMs e pesquisadores podem transformar em conhecimento acionável: melhores parâmetros de cultivo, calibrações regionais e publicações científicas — sem dono, disponíveis para todos. Veja [Inteligência coletiva](/guide/intelligence) para a visão completa.
 
-1. **Local-first.** The network works without internet. An ESP32 and a laptop on the same Wi-Fi are already a valid Raiznet.
-2. **Data sovereignty.** The user owns the keys. If Arateki disappears tomorrow, the grower's data stays alive in their node.
-3. **No traditional login.** Identity is an Ed25519 keypair generated on the client. There is no central authentication server.
-4. **Device ID is always public.** The only information guaranteed public is the existence of a device in the network — its pubkey, MAC, and basic metadata. Everything else has an individual visibility policy defined by the owner.
-5. **Private data is local data.** What is marked as public is eligible for replication across the network. What is marked as private stays in local storage — it never leaves the owner's infrastructure.
-6. **Public or local network.** The public Raiznet is the global mesh of public nodes. A "private network" is a local network: the server doesn't announce itself, it only accepts LAN connections.
-7. **Writes are always signed.** Reading is a consequence of belonging to the network. Writing requires the private key of the emitting device — prevents spam without depending on central permission.
-8. **Server is optional.** Nobody is required to run a node. But whoever does strengthens the network.
+## Princípios inegociáveis
 
-## What Raiznet is not
+1. **Local-first.** A rede funciona sem internet. Um ESP32 e um notebook no mesmo Wi-Fi já formam uma Raiznet válida.
+2. **Soberania de dados.** O usuário é dono das chaves. Se a Arateki desaparecer amanhã, os dados do agricultor continuam vivos no seu nó.
+3. **Sem login tradicional.** A identidade é um par de chaves Ed25519 gerado no cliente. Não há servidor de autenticação central.
+4. **O ID do dispositivo é sempre público.** A única informação garantidamente pública é a existência de um dispositivo na rede — sua pubkey, MAC e metadados básicos. Todo o resto tem uma política de visibilidade individual definida pelo dono.
+5. **Dado privado é dado local.** O que é marcado como público fica elegível para replicação pela rede. O que é marcado como privado permanece no armazenamento local — nunca sai da infraestrutura do dono.
+6. **Rede pública ou rede local.** A Raiznet pública é a malha global de nós públicos. Uma "rede privada" é uma rede local: o servidor não se anuncia, apenas aceita conexões da LAN.
+7. **Escritas são sempre assinadas.** Ler é consequência de pertencer à rede. Escrever exige a chave privada do dispositivo emissor — evita spam sem depender de permissão central.
+8. **O servidor é opcional.** Ninguém é obrigado a rodar um nó. Mas quem roda fortalece a rede.
 
-- A cloud service. There is no Raiznet-operated server you must trust.
-- A blockchain. There is no global consensus, no mining, no tokens.
-- A traditional IoT platform. There is no vendor lock-in, no required API key, no usage limits.
+## O que a Raiznet não é
 
-## Part of SafraSense
+- Um serviço em nuvem. Não há servidor operado pela Raiznet em que você precise confiar.
+- Uma blockchain. Não há consenso global, mineração nem tokens.
+- Uma plataforma IoT tradicional. Não há lock-in de fornecedor, chave de API obrigatória nem limites de uso.
 
-Raiznet is the **open protocol and network layer** of SafraSense. The production firmware for Arateki hardware lives in a separate repository. This repository contains:
+## Parte do SafraSense
 
-- The protocol specification and wire format (this site)
-- The Node.js server implementation
-- The reference ESP32 firmware (`firmware/`)
-- The CLI for operations and debugging
+A Raiznet é a **camada aberta de protocolo e rede** do SafraSense. O firmware de produção do hardware da Arateki vive em um repositório separado. Este repositório contém:
+
+- A especificação do protocolo e o formato de fio (este site)
+- A implementação do servidor em Node.js
+- O firmware ESP32 de referência (`firmware/`)
+- A CLI para operação e depuração

@@ -1,42 +1,46 @@
-# ADR 004 — Raiznet-native replication instead of Hypercore
+---
+description: ADR 004 — replicação nativa da Raiznet no lugar do Hypercore — log de eventos assinado próprio e conectividade em camadas (sync v1 HTTP, sync v2 iroh).
+---
 
-**Status:** Accepted  
-**Date:** 2026-06
+# ADR 004 — Replicação nativa da Raiznet no lugar do Hypercore
 
-## Context
+**Status:** Aceito  
+**Data:** 2026-06
 
-The original Raiznet design adopted the Holepunch stack as its replication foundation: Hypercore (append-only signed logs), Hyperswarm (DHT discovery and hole punching), Autobase (multi-writer), Hyperdrive (content distribution). Three facts changed the picture:
+## Contexto
 
-1. **It was never integrated.** The Phase 1 node is HTTP + SQLite; no Hypercore code exists in the project.
-2. **The node is moving to Rust**, targeting small ARM hardware (static binary, ~250 MB RAM budget). There is no maintained, protocol-complete Rust implementation of Hypercore 10/11, and no usable Rust implementation of the Hyperswarm DHT at all. Tracking a moving, JS-defined protocol from a second language would consume the project for no product benefit.
-3. **No Raiznet node needs to interoperate with the JS Hypercore ecosystem.** The network is made of Raiznet nodes; compatibility with Holepunch peers has no use case.
+O design original da Raiznet adotava a stack Holepunch como base de replicação: Hypercore (logs assinados somente-anexação), Hyperswarm (descoberta por DHT e hole punching), Autobase (multi-escritor), Hyperdrive (distribuição de conteúdo). Três fatos mudaram o quadro:
 
-What Raiznet actually requires is three properties, not a specific stack: (a) signed, append-only, verifiable data; (b) peer discovery; (c) connectivity through NAT/CGNAT **without a mandatory central gateway**.
+1. **Nunca foi integrada.** O nó da Fase 1 é HTTP + SQLite; não existe código Hypercore no projeto.
+2. **O nó está migrando para Rust**, mirando hardware ARM pequeno (binário estático, orçamento de ~250 MB de RAM). Não há implementação Rust mantida e protocol-complete do Hypercore 10/11, e não há implementação Rust utilizável do DHT do Hyperswarm. Rastrear um protocolo móvel, definido em JS, a partir de uma segunda linguagem consumiria o projeto sem benefício de produto.
+3. **Nenhum nó Raiznet precisa interoperar com o ecossistema JS do Hypercore.** A rede é feita de nós Raiznet; compatibilidade com peers Holepunch não tem caso de uso.
 
-## Decision
+O que a Raiznet de fato exige são três propriedades, não uma stack específica: (a) dados assinados, somente-anexação e verificáveis; (b) descoberta de peers; (c) conectividade através de NAT/CGNAT **sem um gateway central obrigatório**.
 
-**Part 1 — Data: Raiznet-native signed event log.**
-The source of truth becomes an append-only event log per author, hash-chained, with every event signed (Ed25519). SQLite remains the derived index ([ADR-002](/adr/002-sqlite-cache)); the canonical binary encoding remains Protobuf when it lands ([ADR-001](/adr/001-protobuf)). Hypercore is not used, ported, or emulated.
+## Decisão
 
-**Part 2 — Connectivity: layered, built on an existing Rust foundation.**
+**Parte 1 — Dados: log de eventos assinado nativo da Raiznet.**
+A fonte da verdade passa a ser um log de eventos somente-anexação por autor, encadeado por hash, com cada evento assinado (Ed25519). O SQLite permanece como índice derivado ([ADR-002](/adr/002-sqlite-cache)); a codificação binária canônica permanece Protobuf quando entrar ([ADR-001](/adr/001-protobuf)). O Hypercore não é usado, portado nem emulado.
 
-- **Sync v1 — configured peers.** HTTP(S) pull between known peers (`heads` summary + fetch by `(author, seq)` ranges). Covers LAN, VPN/Tailscale, and public-IP nodes with zero new dependencies. This ships first.
-- **Sync v2 — dial-by-pubkey transport.** Built on an existing P2P foundation rather than written from scratch. **Primary candidate: [iroh](https://github.com/n0-computer/iroh)** — Ed25519 node IDs (matching Raiznet's identity model), QUIC connections, built-in hole punching with **self-hostable relays**, and topic-based gossip. **Fallback candidate: rust-libp2p** (Kademlia, mDNS, GossipSub, AutoNAT/DCUtR/Relay v2). Adoption is gated by a **field spike**: two nodes establishing connectivity over real rural 4G/CGNAT links, measuring direct-connection vs relay rates.
+**Parte 2 — Conectividade: em camadas, construída sobre uma base Rust existente.**
 
-## Rationale
+- **Sync v1 — peers configurados.** Pull HTTP(S) entre peers conhecidos (resumo de `heads` + busca por faixas de `(author, seq)`). Cobre LAN, VPN/Tailscale e nós de IP público com zero dependências novas. Entra primeiro.
+- **Sync v2 — transporte de discagem-por-pubkey.** Construído sobre uma base P2P existente em vez de escrito do zero. **Candidato principal: [iroh](https://github.com/n0-computer/iroh)** — IDs de nó Ed25519 (casando com o modelo de identidade da Raiznet), conexões QUIC, hole punching embutido com **relays auto-hospedáveis** e gossip por topic. **Candidato de fallback: rust-libp2p** (Kademlia, mDNS, GossipSub, AutoNAT/DCUtR/Relay v2). A adoção é condicionada a um **spike de campo**: dois nós estabelecendo conectividade sobre links reais de 4G/CGNAT rural, medindo as taxas de conexão direta vs relay.
 
-- **Own the data format, inherit the networking.** The event log is where Raiznet's sovereignty and research-grade guarantees live — it must be ours, and it is small enough to specify and test with a fixture corpus. NAT traversal, connection migration, and relay coordination are the opposite: maximal complexity, zero differentiation, and already solved by maintained Rust projects.
-- **Relays are not gateways.** Hole punching is never 100% — under symmetric CGNAT (common on rural 4G), every system (Hyperswarm included) falls back to relays. In this design any reachable community node can act as a relay; traffic does not depend on Arateki-operated infrastructure. The "no mandatory gateway" principle is preserved — the same role DHT nodes play in Hyperswarm.
-- **Local-first is unaffected.** A `local_only` node never touches discovery or relays; an ESP32 plus a laptop on LAN remains a valid Raiznet.
+## Justificativa
+
+- **Ser dono do formato de dados, herdar a rede.** O log de eventos é onde vivem a soberania e as garantias de qualidade científica da Raiznet — ele precisa ser nosso, e é pequeno o suficiente para especificar e testar com um corpus de fixtures. Travessia de NAT, migração de conexão e coordenação de relays são o oposto: complexidade máxima, diferenciação zero, e já resolvidas por projetos Rust mantidos.
+- **Relays não são gateways.** O hole punching nunca é 100% — sob CGNAT simétrico (comum em 4G rural), todo sistema (Hyperswarm incluído) recai em relays. Neste design, qualquer nó alcançável da comunidade pode atuar como relay; o tráfego não depende de infraestrutura operada pela Arateki. O princípio do "sem gateway obrigatório" é preservado — o mesmo papel que os nós DHT exercem no Hyperswarm.
+- **O local-first não é afetado.** Um nó `local_only` nunca toca em descoberta ou relays; um ESP32 mais um notebook na LAN continua sendo uma Raiznet válida.
 
 ## Trade-offs
 
-- We lose Hyperswarm's ready-made global DHT; discovery starts simpler (configured peers, mDNS, then the v2 transport's discovery).
-- No interoperability with JS Hypercore peers (no known use case).
-- iroh is pre-1.0 and its API still moves; the risk is contained behind the `raiznet-sync` crate boundary, with rust-libp2p as the fallback. The final v2 commitment happens only after the CGNAT field spike.
+- Perdemos o DHT global pronto do Hyperswarm; a descoberta começa mais simples (peers configurados, mDNS, depois a descoberta do transporte v2).
+- Sem interoperabilidade com peers JS do Hypercore (sem caso de uso conhecido).
+- O iroh é pré-1.0 e sua API ainda muda; o risco está contido atrás da fronteira do crate `raiznet-sync`, com rust-libp2p como fallback. O compromisso final com o v2 só acontece após o spike de campo de CGNAT.
 
-## Consequences
+## Consequências
 
-- `CLAUDE.md`, `README.md`, and these docs no longer describe the Holepunch stack as the foundation; conceptual terms that survive (topics, filters, catalogs, total replication, append-only semantics) are transport-independent and unchanged.
-- The Rust migration plan implements this in phases: event log (Phase 7), sync v1 + v2 (Phase 8), Protobuf canonical encoding (Phase 9) — each with its own detailed plan before execution.
-- `Material` content distribution (formerly Hyperdrive) will be specified later on top of the same event-log + transfer primitives.
+- `CLAUDE.md`, `README.md` e estes docs não descrevem mais a stack Holepunch como base; os termos conceituais que sobrevivem (topics, filtros, catálogos, replicação total, semântica somente-anexação) são independentes de transporte e permanecem inalterados.
+- O plano de migração Rust implementa isto em fases: log de eventos (Fase 7), sync v1 + v2 (Fase 8), codificação canônica Protobuf (Fase 9) — cada uma com seu próprio plano detalhado antes da execução.
+- A distribuição de conteúdo `Material` (antes Hyperdrive) será especificada depois, sobre as mesmas primitivas de log de eventos + transferência.

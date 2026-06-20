@@ -159,10 +159,10 @@ andamento, o que falta, e quem fez o quê.
 > Spec: `docs/superpowers/specs/2026-06-17-docs-seo-i18n-design.md`; plano de
 > execução: `docs/superpowers/plans/2026-06-17-docs-seo-i18n.md`.
 
-### Estado atual (snapshot de 2026-06-19)
+### Estado atual (snapshot de 2026-06-20)
 
-Plano em ondas. **Onda 0 (infra) concluída e commitada na branch; Ondas 1–3
-(traduções) pendentes.**
+Plano em ondas. **Ondas 0 (infra) e 1 (PT na raiz) concluídas e commitadas na
+branch; Ondas 2 (ES) e 3 (JA/ZH) pendentes.**
 
 - **Onda 0 — infra (✅ feita):**
   - SEO com paridade ao `apps/website/SEO_SPEC.md`: `docs/.vitepress/seo.ts`
@@ -179,20 +179,23 @@ Plano em ondas. **Onda 0 (infra) concluída e commitada na branch; Ondas 1–3
   - Lado website: `apps/website/src/main.jsx` com links de docs cientes de
     idioma; `robots.txt` do site aponta `Sitemap: …/docs/sitemap.xml`; banner.
   - Build verde: `pnpm --filter @raiznet/docs build` passa com o validador.
-- **⚠️ A raiz canônica (`pt-BR`) ainda serve conteúdo em INGLÊS** — os 22
-  arquivos da raiz não foram traduzidos. É exatamente o que a Onda 1 resolve.
+- **Onda 1 — PT na raiz (✅ feita):** os 22 `.md` da raiz traduzidos para
+  pt-BR (frontmatter `description:` por página, blocos de código/frontmatter e
+  marcações "implemented × design" preservados; âncoras de link ajustadas —
+  ex. `#a-string-raw-assinada`). EN segue em `docs/en/`. Build + validador
+  verdes; spot-check do `dist/` confirma raiz em PT e EN intacto.
+  **Falta: revisão do Yan (idioma do projeto).**
 
 ### Próximos passos (em ordem)
 
-1. **Onda 1 — PT (raiz):** traduzir os 22 `.md` da raiz para português
-   (EN já preservado em `docs/en/`). Preservar blocos de código, frontmatter e
-   marcações "implemented × design". Yan revisa.
-2. **Onda 2 — ES:** criar `docs/es/`, ativar locale `es`.
-3. **Onda 3 — JA/ZH:** criar `docs/ja/` e `docs/zh/` com aviso visível de
-   "tradução automática — revisão pendente"; ativar locales.
-4. Cada onda: rodar o build com validador, commit atômico por onda.
-5. Publicar a branch e abrir PR para a `main`.
-6. **Pendente manual (Nginx, no merge):** `try_files $uri $uri.html
+1. **Onda 2 — ES:** criar `docs/es/` (copiar a raiz PT ou o EN e traduzir),
+   adicionar `es`/`es-ES` ao `config.ts` (locales, `T`, sidebar/nav) e ao
+   validador (`requiredHreflangs` + rota de amostra). Build verde.
+2. **Onda 3 — JA/ZH:** criar `docs/ja/` e `docs/zh/` com aviso visível de
+   "tradução automática — revisão pendente"; ativar locales; somar ao validador.
+3. Cada onda: rodar o build com validador, commit atômico por onda.
+4. PR #1 (draft) já aberta — ao concluir as ondas desejadas, marcar como ready.
+5. **Pendente manual (Nginx, no merge):** `try_files $uri $uri.html
    $uri/index.html` sob `location /docs/` para os subpaths de idioma
    (`/docs/en/`, etc.) resolverem.
 
@@ -206,6 +209,21 @@ Plano em ondas. **Onda 0 (infra) concluída e commitada na branch; Ondas 1–3
 ---
 
 ## Log de trabalho (append-only, mais recente primeiro)
+
+### 2026-06-20 — Claude (Opus 4.8, Claude Code) — Onda 1: tradução PT da raiz dos docs
+
+- Traduziu os 22 `.md` da raiz de `docs/` para pt-BR (index, guide ×6,
+  protocol ×6, reference ×5, adr ×4). Preservou frontmatter, blocos de código,
+  estruturas `.proto`/JSON/SQL e marcações "implemented × design"; adicionou
+  `description:` (frontmatter) por página para SEO.
+- Ajustou âncoras de link internas para casar os títulos traduzidos — ex.
+  `/protocol/telemetry#the-signed-raw-string` → `#a-string-raw-assinada`
+  (referenciada em roadmap, glossary, proto-schemas, ADR-001).
+- Build com validador verde; spot-check do `dist/`: raiz `index.html` em PT
+  (hero + description pt-BR), `en/index.html` intacto, canonical/x-default da
+  raiz em `https://raiznet.com/docs/`, sem heading EN vazado nas páginas PT.
+- HANDOFF atualizado (Onda 1 ✅; próximos = Onda 2 ES, Onda 3 JA/ZH).
+- **A confirmar com o Yan:** revisão do PT (idioma do projeto) antes do merge.
 
 ### 2026-06-19 — Claude (Opus 4.8, Claude Code) — saneamento da frente docs SEO + i18n
 
