@@ -14,8 +14,12 @@ const routes = [
   { file: 'en/guide/introduction.html', canonical: `${siteUrl}/docs/en/guide/introduction` },
   { file: 'es/index.html', canonical: `${siteUrl}/docs/es/` },
   { file: 'es/guide/introduction.html', canonical: `${siteUrl}/docs/es/guide/introduction` },
+  { file: 'ja/index.html', canonical: `${siteUrl}/docs/ja/` },
+  { file: 'ja/guide/introduction.html', canonical: `${siteUrl}/docs/ja/guide/introduction` },
+  { file: 'zh/index.html', canonical: `${siteUrl}/docs/zh/` },
+  { file: 'zh/guide/introduction.html', canonical: `${siteUrl}/docs/zh/guide/introduction` },
 ]
-const requiredHreflangs = ['pt-BR', 'en', 'es', 'x-default'] // ativos nesta fase
+const requiredHreflangs = ['pt-BR', 'en', 'es', 'ja', 'zh-CN', 'x-default'] // todos os 5 ativos
 
 const count = (s, re) => (s.match(re) || []).length
 const errors = []

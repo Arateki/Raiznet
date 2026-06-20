@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitepress'
 import { buildSeoHead } from './seo'
 
-type Lang = 'pt' | 'en' | 'es'
+type Lang = 'pt' | 'en' | 'es' | 'ja' | 'zh'
 
 // Sidebar rótulos por idioma. Itens novos: traduzir aqui ao adicionar locale.
 const T: Record<Lang, Record<string, string>> = {
@@ -40,6 +40,30 @@ const T: Record<Lang, Record<string, string>> = {
     'public-api': 'API pública', 'local-api': 'API local',
     'proto-schemas': 'Esquemas Protobuf', errors: 'Códigos de error',
     glossary: 'Glosario', editLink: 'Editar esta página en GitHub',
+  },
+  ja: {
+    guide: 'ガイド', protocol: 'プロトコル', reference: 'リファレンス', adr: 'ADR',
+    introduction: 'はじめに', architecture: 'アーキテクチャ',
+    'running-a-node': 'ノードを実行する', stack: '技術スタック', roadmap: 'ロードマップ',
+    intelligence: '集団的インテリジェンス', overview: '概要',
+    identity: 'アイデンティティと鍵', telemetry: 'テレメトリ',
+    privacy: 'プライバシーモデル', networks: 'ネットワークとフィルター',
+    'device-lifecycle': 'デバイスのライフサイクル',
+    'public-api': '公開API', 'local-api': 'ローカルAPI',
+    'proto-schemas': 'Protobufスキーマ', errors: 'エラーコード',
+    glossary: '用語集', editLink: 'GitHubでこのページを編集',
+  },
+  zh: {
+    guide: '指南', protocol: '协议', reference: '参考', adr: 'ADR',
+    introduction: '简介', architecture: '架构',
+    'running-a-node': '运行节点', stack: '技术栈', roadmap: '路线图',
+    intelligence: '集体智能', overview: '概览',
+    identity: '身份与密钥', telemetry: '遥测',
+    privacy: '隐私模型', networks: '网络与过滤器',
+    'device-lifecycle': '设备生命周期',
+    'public-api': '公共 API', 'local-api': '本地 API',
+    'proto-schemas': 'Protobuf 模式', errors: '错误代码',
+    glossary: '术语表', editLink: '在 GitHub 上编辑此页',
   },
 }
 
@@ -142,6 +166,18 @@ export default defineConfig({
       lang: 'es',
       link: '/es/',
       themeConfig: { nav: nav('es'), sidebar: sidebar('es'), editLink: editLink('es') },
+    },
+    ja: {
+      label: '日本語',
+      lang: 'ja',
+      link: '/ja/',
+      themeConfig: { nav: nav('ja'), sidebar: sidebar('ja'), editLink: editLink('ja') },
+    },
+    zh: {
+      label: '简体中文',
+      lang: 'zh-CN',
+      link: '/zh/',
+      themeConfig: { nav: nav('zh'), sidebar: sidebar('zh'), editLink: editLink('zh') },
     },
   },
 

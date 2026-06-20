@@ -161,8 +161,9 @@ andamento, o que falta, e quem fez o quê.
 
 ### Estado atual (snapshot de 2026-06-20)
 
-Plano em ondas. **Ondas 0 (infra) e 1 (PT na raiz) concluídas e commitadas na
-branch; Ondas 2 (ES) e 3 (JA/ZH) pendentes.**
+Plano em ondas. **Ondas 0–3 concluídas e commitadas na branch — os 5 idiomas
+(PT raiz, EN, ES, JA, ZH) estão ativos.** Falta revisão humana do PT/ES e
+revisão por falante nativo de JA/ZH (marcados com aviso visível).
 
 - **Onda 0 — infra (✅ feita):**
   - SEO com paridade ao `apps/website/SEO_SPEC.md`: `docs/.vitepress/seo.ts`
@@ -180,24 +181,26 @@ branch; Ondas 2 (ES) e 3 (JA/ZH) pendentes.**
     idioma; `robots.txt` do site aponta `Sitemap: …/docs/sitemap.xml`; banner.
   - Build verde: `pnpm --filter @raiznet/docs build` passa com o validador.
 - **Onda 1 — PT na raiz (✅ feita):** os 22 `.md` da raiz traduzidos para
-  pt-BR (frontmatter `description:` por página, blocos de código/frontmatter e
-  marcações "implemented × design" preservados; âncoras de link ajustadas —
-  ex. `#a-string-raw-assinada`). EN segue em `docs/en/`. Build + validador
-  verdes; spot-check do `dist/` confirma raiz em PT e EN intacto.
-  **Falta: revisão do Yan (idioma do projeto).**
+  pt-BR (frontmatter `description:` por página; âncoras de link ajustadas —
+  ex. `#a-string-raw-assinada`). EN segue em `docs/en/`.
+- **Onda 2 — ES (✅ feita):** `docs/es/` com os 22 `.md` (links `/es/`, âncora
+  explícita `#raw-string` na telemetria), locale `es` (es-ES) ativo.
+- **Onda 3 — JA/ZH (✅ feita):** `docs/ja/` e `docs/zh/` com os 22 `.md` cada,
+  locales `ja`/`zh` (zh-CN) ativos. Componente `theme/ReviewPendingNotice.vue`
+  (slot `doc-before`, ativado por locale ja/zh-CN) mostra aviso localizado de
+  "tradução automática — revisão por falante nativo pendente". Para remover o
+  aviso de um idioma após revisão: tirar a entrada de `NOTICES` no componente.
+- Validador cobre os 5 idiomas (`requiredHreflangs` + rotas de amostra por
+  locale). Build verde; 111 páginas HTML; sitemap sem `/docs/pt/`.
 
 ### Próximos passos (em ordem)
 
-1. **Onda 2 — ES:** criar `docs/es/` (copiar a raiz PT ou o EN e traduzir),
-   adicionar `es`/`es-ES` ao `config.ts` (locales, `T`, sidebar/nav) e ao
-   validador (`requiredHreflangs` + rota de amostra). Build verde.
-2. **Onda 3 — JA/ZH:** criar `docs/ja/` e `docs/zh/` com aviso visível de
-   "tradução automática — revisão pendente"; ativar locales; somar ao validador.
-3. Cada onda: rodar o build com validador, commit atômico por onda.
-4. PR #1 (draft) já aberta — ao concluir as ondas desejadas, marcar como ready.
-5. **Pendente manual (Nginx, no merge):** `try_files $uri $uri.html
+1. **Revisão humana:** Yan revisa PT e ES; falante nativo revisa JA e ZH (e ao
+   concluir, remover a entrada do idioma em `ReviewPendingNotice.vue`).
+2. PR #1 (draft) já aberta — marcar como ready quando aprovado.
+3. **Pendente manual (Nginx, no merge):** `try_files $uri $uri.html
    $uri/index.html` sob `location /docs/` para os subpaths de idioma
-   (`/docs/en/`, etc.) resolverem.
+   (`/docs/en/`, `/docs/es/`, `/docs/ja/`, `/docs/zh/`) resolverem.
 
 ### Avisos
 
@@ -205,10 +208,33 @@ branch; Ondas 2 (ES) e 3 (JA/ZH) pendentes.**
   (já corrigido; estava untracked e quebraria CI).
 - Nada de auto-redirect por `navigator` na raiz (proibido pelo SEO_SPEC); a
   detecção de idioma é só o banner de sugestão.
+- Âncora da seção "raw string" da telemetria: PT `#a-string-raw-assinada`,
+  EN `#the-signed-raw-string`, ES/JA/ZH `#raw-string` (âncora explícita
+  `{#raw-string}` no heading para evitar slug de CJK). Links intra-idioma
+  apontam para a âncora do próprio idioma.
 
 ---
 
 ## Log de trabalho (append-only, mais recente primeiro)
+
+### 2026-06-20 (2) — Claude (Opus 4.8, Claude Code) — Ondas 2 e 3: ES, JA e ZH
+
+- **Onda 2 (ES):** criou `docs/es/` com os 22 `.md` traduzidos para espanhol
+  (links `/es/`, âncora `#raw-string` na telemetria, `description:` por página).
+  Ativou o locale `es` (es-ES) no `config.ts` (`Lang`, `T`, `locales`) e no
+  validador. Commit `e239d73`.
+- **Onda 3 (JA/ZH):** criou `docs/ja/` e `docs/zh/` (22 `.md` cada). Ativou
+  locales `ja` e `zh` (zh-CN). Criou `theme/ReviewPendingNotice.vue` e o ligou
+  no slot `doc-before` (`theme/index.ts`): aviso localizado de tradução
+  automática só nas páginas ja/zh-CN, removível por idioma via `NOTICES`.
+- Validador agora cobre os 5 idiomas (hreflang pt-BR/en/es/ja/zh-CN/x-default +
+  rotas de amostra por locale). Build verde; spot-check do `dist/`: 111 páginas,
+  canônicas/hreflang por idioma corretas, banner presente só em ja/zh, sitemap
+  sem `/docs/pt/`.
+- Decisão: âncora `{#raw-string}` explícita no heading da telemetria em
+  ES/JA/ZH para evitar slugs de CJK; PT/EN mantêm a âncora derivada do título.
+- **A confirmar com o Yan:** revisão humana de PT/ES e revisão por falante
+  nativo de JA/ZH antes de tirar o aviso e marcar a PR como ready.
 
 ### 2026-06-20 — Claude (Opus 4.8, Claude Code) — Onda 1: tradução PT da raiz dos docs
 

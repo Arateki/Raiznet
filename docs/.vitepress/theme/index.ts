@@ -2,6 +2,7 @@ import DefaultTheme from 'vitepress/theme'
 import type { Theme } from 'vitepress'
 import { h } from 'vue'
 import LangSuggestion from './LangSuggestion.vue'
+import ReviewPendingNotice from './ReviewPendingNotice.vue'
 
 // Inter self-hosted (sem CDN) — mesma fonte do website. Subsets latin +
 // latin-ext cobrem os acentos do português; pesos 400/500/600/700 são os
@@ -23,6 +24,7 @@ const theme: Theme = {
   extends: DefaultTheme,
   Layout() {
     return h(DefaultTheme.Layout, null, {
+      'doc-before': () => h(ReviewPendingNotice),
       'layout-bottom': () => h(LangSuggestion),
     })
   },
