@@ -1,27 +1,31 @@
-# Error Reference
+---
+description: Referência de erros do servidor Raiznet — códigos de status HTTP, formatos de erro de topo, erros de telemetria por bloco e classes de erro tipadas.
+---
 
-This page lists the errors the server returns **today**, with exact shapes — they are part of the compatibility contract (the reference firmware depends on some of them).
+# Referência de erros
 
-## HTTP status codes
+Esta página lista os erros que o servidor retorna **hoje**, com formatos exatos — eles fazem parte do contrato de compatibilidade (o firmware de referência depende de alguns deles).
 
-| Status | When |
+## Códigos de status HTTP
+
+| Status | Quando |
 |---|---|
-| `200` | Request fully succeeded — including telemetry batches where every block was accepted (duplicates count as accepted) |
-| `201` | Device registered |
-| `207` | Telemetry batch where at least one block failed — check `errors[]` |
-| `400` | Request body failed schema validation |
-| `404` | `GET /v1/devices/:id` for an unknown device |
-| `409` | `POST /v1/devices` for an already-registered pubkey |
-| `500` | Unexpected server error |
+| `200` | A requisição teve sucesso completo — incluindo lotes de telemetria em que todos os blocos foram aceitos (duplicatas contam como aceitas) |
+| `201` | Dispositivo registrado |
+| `207` | Lote de telemetria em que pelo menos um bloco falhou — confira `errors[]` |
+| `400` | O corpo da requisição falhou na validação de schema |
+| `404` | `GET /v1/devices/:id` para um dispositivo desconhecido |
+| `409` | `POST /v1/devices` para uma pubkey já registrada |
+| `500` | Erro inesperado do servidor |
 
-::: warning Two behaviors integrators often get wrong
-- Telemetry for an **unknown device** returns `207` with a per-block error — never `404`.
-- A **duplicate block** (same `deviceId` + `seq`) returns `200` and counts as accepted. Duplicates are success, not an error.
+::: warning Dois comportamentos que integradores costumam errar
+- Telemetria de um **dispositivo desconhecido** retorna `207` com um erro por bloco — nunca `404`.
+- Um **bloco duplicado** (mesmo `deviceId` + `seq`) retorna `200` e conta como aceito. Duplicatas são sucesso, não erro.
 :::
 
-## Top-level error shapes
+## Formatos de erro de topo
 
-**Validation failure** (`400`) — `details` contains the raw Zod issues:
+**Falha de validação** (`400`) — `details` contém os issues brutos do Zod:
 
 ```json
 {
@@ -32,21 +36,21 @@ This page lists the errors the server returns **today**, with exact shapes — t
 }
 ```
 
-**Device already exists** (`409`):
+**Dispositivo já existe** (`409`):
 
 ```json
 { "error": "device_already_exists" }
 ```
 
-**Device not found** (`404`, `GET /v1/devices/:id`):
+**Dispositivo não encontrado** (`404`, `GET /v1/devices/:id`):
 
 ```json
 { "error": "Device not found" }
 ```
 
-## Per-block telemetry errors (`207`)
+## Erros de telemetria por bloco (`207`)
 
-Each failed block appears in `errors[]` with its original `seq` (string) and a human-readable message:
+Cada bloco que falhou aparece em `errors[]` com seu `seq` original (string) e uma mensagem legível:
 
 ```json
 {
@@ -57,14 +61,14 @@ Each failed block appears in `errors[]` with its original `seq` (string) and a h
 }
 ```
 
-| Message template | Meaning |
+| Modelo da mensagem | Significado |
 |---|---|
-| `Device not found: <device_id_hex>` | Device pubkey is not registered in this endpoint's database |
-| `Invalid signature for device <device_id_hex>` | Ed25519 verification of `signature` over the `raw` bytes failed against the registered pubkey |
+| `Device not found: <device_id_hex>` | A pubkey do dispositivo não está registrada no banco deste endpoint |
+| `Invalid signature for device <device_id_hex>` | A verificação Ed25519 da `signature` sobre os bytes de `raw` falhou contra a pubkey registrada |
 
-## Typed errors in server code
+## Erros tipados no código do servidor
 
-Domain errors are typed classes in `apps/server/src/domain/errors.ts`. The HTTP layer maps them to per-block entries; anything else becomes a `500`:
+Erros de domínio são classes tipadas em `apps/server/src/domain/errors.ts`. A camada HTTP os mapeia para entradas por bloco; qualquer outra coisa vira um `500`:
 
 ```ts
 export class InvalidSignatureError extends Error {
@@ -82,4 +86,4 @@ export class DeviceNotFoundError extends Error {
 }
 ```
 
-The `code` property is internal; the wire carries the `message`. A stable machine-readable code vocabulary for all errors is on the roadmap, but the strings above are the current contract.
+A propriedade `code` é interna; o fio carrega a `message`. Um vocabulário estável de códigos legíveis por máquina para todos os erros está no roadmap, mas as strings acima são o contrato atual.

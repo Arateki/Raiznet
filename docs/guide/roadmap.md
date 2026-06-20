@@ -1,36 +1,40 @@
+---
+description: O mapa honesto da Raiznet — o que está implementado hoje, o que está em design e o que é futuro, da ingestão de telemetria à replicação entre nós.
+---
+
 # Roadmap
 
-Raiznet is pre-1.0. This page is the honest map of what exists versus what is designed — every other page in these docs marks design-stage features accordingly.
+A Raiznet é pré-1.0. Esta página é o mapa honesto do que existe versus o que está projetado — todas as outras páginas destes docs marcam os recursos em estágio de design conforme o caso.
 
-## Implemented today
+## Implementado hoje
 
-- **Signed telemetry ingestion** — Ed25519 signature over a deterministic [raw string](/protocol/telemetry#the-signed-raw-string), verified against the registered device key; idempotent batched ingest.
-- **Device registry** — `POST /v1/devices` with lazy registration from the firmware.
-- **Per-field privacy** — `plain` / `encrypted` / `omit` dispositions with per-destination overrides, enforced at ingestion ([Privacy Model](/protocol/privacy)).
-- **Dual endpoints, dual databases** — public (`:3000`, `raiznet_public.db`) and local (`:3001`, `raiznet_private.db`) in one process, isolated at the database level.
-- **Node identity** — BIP-39 mnemonic at `DATA_DIR/identity.mnemonic`, Ed25519 keypair derived deterministically.
-- **Reference firmware** — ESP32 captive-portal provisioning, BIP-39 owner identity, flash-wear-aware `seq` management, retransmission until confirmation.
+- **Ingestão de telemetria assinada** — assinatura Ed25519 sobre uma [string raw](/protocol/telemetry#a-string-raw-assinada) determinística, verificada contra a chave registrada do dispositivo; ingestão em lote idempotente.
+- **Registro de dispositivos** — `POST /v1/devices` com registro preguiçoso (lazy) feito pelo firmware.
+- **Privacidade por campo** — disposições `plain` / `encrypted` / `omit` com overrides por destino, aplicadas na ingestão ([Modelo de privacidade](/protocol/privacy)).
+- **Endpoints duplos, bancos duplos** — público (`:3000`, `raiznet_public.db`) e local (`:3001`, `raiznet_private.db`) em um processo, isolados no nível do banco.
+- **Identidade do nó** — mnemônico BIP-39 em `DATA_DIR/identity.mnemonic`, par de chaves Ed25519 derivado deterministicamente.
+- **Firmware de referência** — provisionamento por portal cativo no ESP32, identidade do dono BIP-39, gestão de `seq` consciente do desgaste da flash, retransmissão até confirmação.
 
-## In design
+## Em design
 
-These are specified (in this documentation and in ADRs) but not implemented. Details may change:
+Estes estão especificados (nesta documentação e em ADRs) mas não implementados. Detalhes podem mudar:
 
-- **Rust node (`raiznetd`)** — behaviour-parity reimplementation of the node as a static single binary, targeting very small ARM boards with no runtime dependencies.
-- **Signed event log** — append-only, hash-chained log per node as the source of truth, with SQLite rebuilt from it as a derived index ([ADR-002](/adr/002-sqlite-cache)).
-- **Node-to-node replication** ([ADR-004](/adr/004-raiznet-native-replication)) — sync v1: HTTP pull between configured peers (LAN, VPN, public IP); sync v2: dial-by-pubkey transport built on an existing Rust P2P foundation (iroh as primary candidate, validated on real rural 4G/CGNAT links before adoption), with community-runnable relays — never a privileged gateway.
-- **Networks, filters and catalogs** — topics, `NetworkManifest`, composable MAC filters, `CropCatalog` ([Networks & Filters](/protocol/networks)).
-- **Local endpoint authentication** — owner challenge-response with the User key ([Local API](/reference/local-api)).
-- **Combined owner view** — merging public + private readings by `(device_pubkey, seq)` on the local endpoint.
-- **Canonical Protobuf encoding** — binary wire format from the schemas in [Proto Schemas](/reference/proto-schemas); JSON stays for compatibility ([ADR-001](/adr/001-protobuf)).
-- **Ingestion hardening** — strict cross-check between the signed raw string and the JSON convenience fields.
-- **ESP-NOW device mesh** — battery sensors relaying through mains-powered neighbors.
+- **Nó em Rust (`raiznetd`)** — reimplementação do nó com paridade de comportamento, como um único binário estático, mirando placas ARM muito pequenas sem dependências de runtime.
+- **Log de eventos assinado** — log somente-anexação, encadeado por hash, por nó, como fonte da verdade, com o SQLite reconstruído a partir dele como índice derivado ([ADR-002](/adr/002-sqlite-cache)).
+- **Replicação nó a nó** ([ADR-004](/adr/004-raiznet-native-replication)) — sync v1: pull HTTP entre peers configurados (LAN, VPN, IP público); sync v2: transporte de discagem-por-pubkey construído sobre uma base P2P em Rust já existente (iroh como candidato principal, validado em links reais de 4G/CGNAT rural antes da adoção), com relays operados pela comunidade — nunca um gateway privilegiado.
+- **Redes, filtros e catálogos** — topics, `NetworkManifest`, filtros de MAC componíveis, `CropCatalog` ([Redes e filtros](/protocol/networks)).
+- **Autenticação do endpoint local** — challenge-response do dono com a chave de Usuário ([API local](/reference/local-api)).
+- **Visão combinada do dono** — fusão das leituras pública + privada por `(device_pubkey, seq)` no endpoint local.
+- **Codificação canônica em Protobuf** — formato de fio binário a partir dos schemas em [Schemas Protobuf](/reference/proto-schemas); o JSON permanece por compatibilidade ([ADR-001](/adr/001-protobuf)).
+- **Endurecimento da ingestão** — verificação cruzada estrita entre a string raw assinada e os campos de conveniência do JSON.
+- **Malha de dispositivos ESP-NOW** — sensores a bateria fazendo relay através de vizinhos alimentados pela tomada.
 
-## Future
+## Futuro
 
-- **DeviceClaim / DeviceTransfer** — ownership chain events ([Device Lifecycle](/protocol/device-lifecycle)).
-- **Desktop app (Tauri)** bundling a full node, and a mobile app.
-- **Intelligence layer** — MCP server over the local endpoint, regional aggregations, collective crop calibration ([Collective Intelligence](/guide/intelligence)).
+- **DeviceClaim / DeviceTransfer** — eventos da cadeia de propriedade ([Ciclo de vida do dispositivo](/protocol/device-lifecycle)).
+- **App desktop (Tauri)** empacotando um nó completo, e um app mobile.
+- **Camada de inteligência** — servidor MCP sobre o endpoint local, agregações regionais, calibração coletiva de cultivos ([Inteligência coletiva](/guide/intelligence)).
 
-## Compatibility policy
+## Política de compatibilidade
 
-The contracts documented in the [Public API](/reference/public-api) and [Telemetry](/protocol/telemetry) pages are treated as frozen for the current firmware generation: changes that would break a device in the field (status codes, duplicate semantics, the raw string grammar) are made only behind explicit versioning.
+Os contratos documentados nas páginas [API pública](/reference/public-api) e [Telemetria](/protocol/telemetry) são tratados como congelados para a geração atual de firmware: mudanças que quebrariam um dispositivo em campo (códigos de status, semântica de duplicatas, a gramática da string raw) só são feitas atrás de versionamento explícito.

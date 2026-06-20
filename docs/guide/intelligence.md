@@ -1,74 +1,78 @@
-# Collective Intelligence
+---
+description: Como a Raiznet transforma dados de sensores em conhecimento agrícola — inferência local com LLMs, inteligência regional, calibração coletiva e pesquisa.
+---
 
-One of Raiznet's core purposes is transforming raw sensor data into actionable agricultural knowledge — not just for the individual grower, but for the entire network.
+# Inteligência coletiva
 
-Every device that publishes to a public network contributes to a growing shared dataset: what was planted, where, under what conditions, and what the outcome was. Over time, this dataset becomes a collective memory of what works in each region, for each crop, under each climate pattern.
+Um dos propósitos centrais da Raiznet é transformar dados brutos de sensores em conhecimento agrícola acionável — não só para o agricultor individual, mas para toda a rede.
 
-## The intelligence layer (planned)
+Cada dispositivo que publica em uma rede pública contribui para um conjunto de dados compartilhado e crescente: o que foi plantado, onde, sob quais condições e qual foi o resultado. Com o tempo, esse conjunto se torna uma memória coletiva do que funciona em cada região, para cada cultivo, sob cada padrão de clima.
 
-The intelligence layer is a future phase built on top of the existing data infrastructure. It does not require changes to the protocol or the storage model — the data is already there.
+## A camada de inteligência (planejada)
 
-### Local inference (privacy-preserving)
+A camada de inteligência é uma fase futura construída sobre a infraestrutura de dados já existente. Ela não exige mudanças no protocolo nem no modelo de armazenamento — os dados já estão lá.
 
-A grower running their own node can point any MCP-compatible LLM — including local models via [Ollama](https://ollama.com) — directly at their server's local endpoint. The model has access to:
+### Inferência local (preservando privacidade)
 
-- Full telemetry history (including private fields, decrypted locally)
-- Active Safra: crop type, planted date, expected harvest
-- Crop with adjusted ideal ranges
-- Historical outcomes (`yield_kg`, `harvested_at`)
+Um agricultor que roda o próprio nó pode apontar qualquer LLM compatível com MCP — inclusive modelos locais via [Ollama](https://ollama.com) — diretamente para o endpoint local do seu servidor. O modelo tem acesso a:
 
-Example queries the LLM can answer from local data alone:
-- "How is my lettuce doing compared to last month?"
-- "My pH has been drifting upward for 3 days — what should I adjust?"
-- "Based on my last 4 harvests, what is my average yield for this variety?"
-- "Given current ambient temperature, should I adjust my EC target?"
+- Histórico completo de telemetria (incluindo campos privados, descriptografados localmente)
+- Safra ativa: tipo de cultivo, data de plantio, colheita esperada
+- Cultivo com faixas ideais ajustadas
+- Resultados históricos (`yield_kg`, `harvested_at`)
 
-No data leaves the local network. Inference is fully offline.
+Exemplos de perguntas que o LLM pode responder só com dados locais:
+- "Como está minha alface comparada ao mês passado?"
+- "Meu pH vem subindo há 3 dias — o que devo ajustar?"
+- "Com base nas minhas últimas 4 colheitas, qual é minha produtividade média para essa variedade?"
+- "Dada a temperatura ambiente atual, devo ajustar minha meta de EC?"
 
-### Regional intelligence (public network)
+Nenhum dado sai da rede local. A inferência é totalmente offline.
 
-Nodes participating in a public network can query aggregated data across all devices in the same H3 region and crop type. This enables:
+### Inteligência regional (rede pública)
 
-- **Contextual benchmarking**: "Your EC is 2.4 — the median for lettuce in your region is 1.8."
-- **Anomaly detection**: flagging readings that deviate significantly from the regional pattern, distinguishing sensor drift from real crop stress.
-- **Harvest prediction refinement**: learning from the gap between estimated and actual `harvest_time_days` across many Safras in similar conditions, improving future estimates automatically.
+Nós que participam de uma rede pública podem consultar dados agregados de todos os dispositivos na mesma região H3 e tipo de cultivo. Isso habilita:
 
-### Collective Crop calibration
+- **Benchmarking contextual**: "Seu EC está em 2.4 — a mediana para alface na sua região é 1.8."
+- **Detecção de anomalias**: sinalizar leituras que desviam significativamente do padrão regional, distinguindo deriva de sensor de estresse real do cultivo.
+- **Refinamento da previsão de colheita**: aprender com a diferença entre o `harvest_time_days` estimado e o real ao longo de muitas Safras em condições semelhantes, melhorando estimativas futuras automaticamente.
 
-If growers in a region consistently operate outside a Crop's ideal ranges and still achieve good `yield_kg`, the ranges in that Crop are probably wrong for that region. This signal feeds naturally into the `CropCatalog` model: regional curators (cooperatives, research institutions) publish updated catalogs with calibrated ranges derived from observed outcomes.
+### Calibração coletiva de Cultivos
 
-The network generates the knowledge. The curators publish it. Growers activate the catalog. No central authority decides.
+Se agricultores de uma região operam consistentemente fora das faixas ideais de um Cultivo e ainda assim obtêm bom `yield_kg`, as faixas desse Cultivo provavelmente estão erradas para aquela região. Esse sinal alimenta naturalmente o modelo de `CropCatalog`: curadores regionais (cooperativas, instituições de pesquisa) publicam catálogos atualizados com faixas calibradas a partir dos resultados observados.
 
-### MCP server
+A rede gera o conhecimento. Os curadores o publicam. Os agricultores ativam o catálogo. Nenhuma autoridade central decide.
 
-A planned `@raiznet/mcp` package will expose the Raiznet API as an MCP (Model Context Protocol) server, making Raiznet data natively consumable by any MCP-compatible LLM client:
+### Servidor MCP
 
-| Tool | Description |
+Um pacote `@raiznet/mcp` planejado vai expor a API da Raiznet como um servidor MCP (Model Context Protocol), tornando os dados da Raiznet nativamente consumíveis por qualquer cliente LLM compatível com MCP:
+
+| Ferramenta | Descrição |
 |---|---|
-| `get_devices` | List devices known to this node |
-| `get_telemetry` | Fetch recent readings for a device |
-| `get_safra` | Get active planting lot and crop details |
-| `get_regional_stats` | Aggregated stats for an H3 cell and crop type |
-| `get_crop` | Ideal ranges for a Crop, adjusted for current conditions |
+| `get_devices` | Lista os dispositivos conhecidos por este nó |
+| `get_telemetry` | Busca leituras recentes de um dispositivo |
+| `get_safra` | Obtém o lote de plantio ativo e detalhes do cultivo |
+| `get_regional_stats` | Estatísticas agregadas para uma célula H3 e tipo de cultivo |
+| `get_crop` | Faixas ideais de um Cultivo, ajustadas para as condições atuais |
 
-The MCP server can run in two modes:
-- **Local mode** (over the local endpoint): full access including private fields, for the owner's personal LLM assistant.
-- **Public mode** (over the public endpoint): read-only access to public data, for any network participant or researcher.
+O servidor MCP pode rodar em dois modos:
+- **Modo local** (sobre o endpoint local): acesso completo incluindo campos privados, para o assistente LLM pessoal do dono.
+- **Modo público** (sobre o endpoint público): acesso somente-leitura aos dados públicos, para qualquer participante da rede ou pesquisador.
 
-## Academic research and knowledge publishing
+## Pesquisa acadêmica e publicação de conhecimento
 
-Raiznet is designed to be a research-grade data infrastructure. The combination of signed, tamper-evident data, precise geolocation (H3), structured crop outcomes (Safra), and an open protocol creates a dataset with properties that matter for scientific work: provenance, reproducibility, and accessibility without vendor lock-in.
+A Raiznet é projetada para ser uma infraestrutura de dados de qualidade científica. A combinação de dados assinados e à prova de adulteração, geolocalização precisa (H3), resultados estruturados de cultivo (Safra) e um protocolo aberto cria um conjunto de dados com propriedades que importam para o trabalho científico: proveniência, reprodutibilidade e acessibilidade sem lock-in de fornecedor.
 
-Planned future work includes:
+O trabalho futuro planejado inclui:
 
-- **Research partnerships**: making anonymized, aggregated Raiznet datasets available to universities, agricultural research institutions (such as Embrapa), and cooperatives for publication in peer-reviewed journals and technical reports.
-- **Content publishing on the network**: the `Material` data model is designed for distributing instructional and scientific content — cultivation guides, field study results, regional best practices — directly through the network, authored and signed by researchers, accessible offline.
-- **Open dataset releases**: periodic snapshots of public network data made available under open licenses for the broader research community, enabling work on topics such as regional climate adaptation, hydroponic optimization, and small-scale food system resilience.
+- **Parcerias de pesquisa**: disponibilizar conjuntos de dados da Raiznet anonimizados e agregados para universidades, instituições de pesquisa agrícola (como a Embrapa) e cooperativas, para publicação em periódicos revisados por pares e relatórios técnicos.
+- **Publicação de conteúdo na rede**: o modelo de dados `Material` é projetado para distribuir conteúdo instrucional e científico — guias de cultivo, resultados de estudos de campo, boas práticas regionais — diretamente pela rede, de autoria assinada por pesquisadores, acessível offline.
+- **Liberações de datasets abertos**: snapshots periódicos dos dados de redes públicas disponibilizados sob licenças abertas para a comunidade de pesquisa mais ampla, possibilitando trabalhos sobre temas como adaptação climática regional, otimização hidropônica e resiliência de sistemas alimentares de pequena escala.
 
-The goal is a feedback loop: growers generate data, researchers analyze it, findings return to the network as improved Crops and Materials, growers benefit. No intermediary captures the value.
+O objetivo é um ciclo de feedback: agricultores geram dados, pesquisadores os analisam, as descobertas retornam à rede como Cultivos e Materiais melhorados, os agricultores se beneficiam. Nenhum intermediário captura o valor.
 
-## Why this matters
+## Por que isso importa
 
-Agricultural knowledge has historically been locked in proprietary platforms, academic papers inaccessible to small growers, or the minds of individual agronomists. Raiznet's structure — open protocol, local-first, data sovereign, H3-indexed, outcome-tracked — creates the conditions for that knowledge to emerge from the network itself, owned by no one, available to everyone.
+O conhecimento agrícola historicamente esteve trancado em plataformas proprietárias, artigos acadêmicos inacessíveis a pequenos agricultores, ou na cabeça de agrônomos individuais. A estrutura da Raiznet — protocolo aberto, local-first, soberania de dados, indexada por H3, com resultados rastreados — cria as condições para que esse conhecimento emerja da própria rede, sem dono, disponível para todos.
 
-Running a node is not just contributing to the network's resilience. It is contributing to a growing collective understanding of how to grow food better.
+Rodar um nó não é só contribuir para a resiliência da rede. É contribuir para um entendimento coletivo crescente de como cultivar alimentos melhor.

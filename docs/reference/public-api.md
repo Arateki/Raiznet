@@ -1,10 +1,14 @@
-# Public API
+---
+description: A API pública da Raiznet — health, registro de dispositivos, listagem, consulta de telemetria e ingestão assinada, com formatos de requisição e resposta.
+---
 
-The public endpoint listens on `0.0.0.0:PUBLIC_PORT` (default `3000`). It is accessible to anyone — no authentication required. Its device routes query only `raiznet_public.db` and never return private data.
+# API pública
 
-This page documents the API **as implemented today**. The wire format is JSON; a canonical Protobuf encoding is planned (see [Roadmap](/guide/roadmap)).
+O endpoint público escuta em `0.0.0.0:PUBLIC_PORT` (padrão `3000`). É acessível a qualquer um — sem autenticação. Suas rotas de dispositivo consultam apenas `raiznet_public.db` e nunca retornam dados privados.
 
-## Base URL
+Esta página documenta a API **como implementada hoje**. O formato de fio é JSON; uma codificação canônica em Protobuf está planejada (veja [Roadmap](/guide/roadmap)).
+
+## URL base
 
 ```
 http://<host>:3000
@@ -16,9 +20,9 @@ http://<host>:3000
 
 ### `GET /health`
 
-Returns server status and current timestamp.
+Retorna o status do servidor e o timestamp atual.
 
-**Response `200`**
+**Resposta `200`**
 ```json
 {
   "status": "ok",
@@ -28,13 +32,13 @@ Returns server status and current timestamp.
 
 ---
 
-## Devices
+## Dispositivos
 
 ### `POST /v1/devices`
 
-Registers a device. The reference firmware calls this automatically during setup ("lazy registration").
+Registra um dispositivo. O firmware de referência chama isto automaticamente durante o setup ("registro preguiçoso").
 
-**Request body** (`application/json`)
+**Corpo da requisição** (`application/json`)
 ```json
 {
   "id": "c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a",
@@ -55,22 +59,22 @@ Registers a device. The reference firmware calls this automatically during setup
 }
 ```
 
-| Field | Type | Required | Notes |
+| Campo | Tipo | Obrigatório | Notas |
 |---|---|---|---|
-| `id` | string (64 hex) | yes | Device Ed25519 pubkey |
-| `mac` | string (12 hex) | yes | Lowercase, no colons |
-| `ownerPubkey` | string (64 hex) | yes | Owner's User pubkey |
-| `ownerName` | string | no | Used to upsert the owner in `users` |
-| `name` | string (min 1) | yes | Human-readable device name |
-| `type` | int `0..2` | no (default `0`) | `0` sensor_mains · `1` sensor_battery · `2` gateway |
-| `publishTo` | int `0..2` | no (default `1`) | `0` local_only · `1` public · `2` both |
-| `location` | int | no | H3 cell index (64-bit) |
-| `networks` | string[] | no (default `[]`) | Network topics |
-| `localServers` | string[] | no (default `[]`) | Local server addresses |
-| `privacyPolicy` | object | no | Per-field `FieldPolicy`; omitted fields default to `plain` |
-| `hardware` | object | no | `{ model, firmware_version }` |
+| `id` | string (64 hex) | sim | Pubkey Ed25519 do dispositivo |
+| `mac` | string (12 hex) | sim | Minúsculo, sem dois-pontos |
+| `ownerPubkey` | string (64 hex) | sim | Pubkey de Usuário do dono |
+| `ownerName` | string | não | Usado para fazer upsert do dono em `users` |
+| `name` | string (mín. 1) | sim | Nome legível do dispositivo |
+| `type` | int `0..2` | não (padrão `0`) | `0` sensor_mains · `1` sensor_battery · `2` gateway |
+| `publishTo` | int `0..2` | não (padrão `1`) | `0` local_only · `1` public · `2` both |
+| `location` | int | não | Índice da célula H3 (64 bits) |
+| `networks` | string[] | não (padrão `[]`) | Topics de rede |
+| `localServers` | string[] | não (padrão `[]`) | Endereços de servidores locais |
+| `privacyPolicy` | object | não | `FieldPolicy` por campo; campos omitidos assumem `plain` |
+| `hardware` | object | não | `{ model, firmware_version }` |
 
-**Response `201`**
+**Resposta `201`**
 ```json
 {
   "device": {
@@ -87,38 +91,38 @@ Registers a device. The reference firmware calls this automatically during setup
 }
 ```
 
-**Response `409`** — pubkey already registered. The reference firmware treats this as success.
+**Resposta `409`** — pubkey já registrada. O firmware de referência trata isto como sucesso.
 ```json
 { "error": "device_already_exists" }
 ```
 
-**Response `400`** — body failed schema validation.
+**Resposta `400`** — o corpo falhou na validação de schema.
 ```json
-{ "error": "validation_error", "details": [ /* zod issues */ ] }
+{ "error": "validation_error", "details": [ /* issues do zod */ ] }
 ```
 
-Side effect: the owner is upserted into `users` with `name = ownerName ?? ownerPubkey.slice(0, 12)`.
+Efeito colateral: o dono recebe upsert em `users` com `name = ownerName ?? ownerPubkey.slice(0, 12)`.
 
 ---
 
 ### `GET /v1/devices`
 
-Returns all devices in the public database. No pagination yet.
+Retorna todos os dispositivos do banco público. Ainda sem paginação.
 
-**Response `200`**
+**Resposta `200`**
 ```json
-{ "devices": [ /* same shape as the register response */ ] }
+{ "devices": [ /* mesmo formato da resposta de registro */ ] }
 ```
 
 ---
 
 ### `GET /v1/devices/:id`
 
-Returns a single device by its pubkey (hex).
+Retorna um único dispositivo pela sua pubkey (hex).
 
-**Response `200`** — `{ "device": { ... } }`
+**Resposta `200`** — `{ "device": { ... } }`
 
-**Response `404`**
+**Resposta `404`**
 ```json
 { "error": "Device not found" }
 ```
@@ -127,9 +131,9 @@ Returns a single device by its pubkey (hex).
 
 ### `GET /v1/devices/:id/telemetry`
 
-Returns the most recent readings, ordered by `timestamp DESC`, fixed `LIMIT 500`. No query parameters yet.
+Retorna as leituras mais recentes, ordenadas por `timestamp DESC`, com `LIMIT 500` fixo. Ainda sem parâmetros de query.
 
-**Response `200`**
+**Resposta `200`**
 ```json
 {
   "readings": [
@@ -148,23 +152,23 @@ Returns the most recent readings, ordered by `timestamp DESC`, fixed `LIMIT 500`
 }
 ```
 
-Each sensor field is one of:
+Cada campo de sensor é um de:
 
-| Shape | Meaning |
+| Formato | Significado |
 |---|---|
-| `{ "value": <number> }` | Stored in plain |
-| `{ "encrypted": "<hex>" }` | Stored encrypted — ciphertext+tag, **nonce is not exposed here** |
-| `null` | Absent in this reading (omitted by policy or not measured) |
+| `{ "value": <number> }` | Armazenado em claro |
+| `{ "encrypted": "<hex>" }` | Armazenado criptografado — ciphertext+tag, **o nonce não é exposto aqui** |
+| `null` | Ausente nesta leitura (omitido por política ou não medido) |
 
 ---
 
-## Telemetry ingestion
+## Ingestão de telemetria
 
 ### `POST /v1/telemetry`
 
-Receives a batch of 1 to 100 signed telemetry blocks.
+Recebe um lote de 1 a 100 blocos de telemetria assinados.
 
-**Request body** (`application/json`)
+**Corpo da requisição** (`application/json`)
 ```json
 {
   "blocks": [
@@ -179,24 +183,24 @@ Receives a batch of 1 to 100 signed telemetry blocks.
       "tempAmbient": { "plain": 24.5 },
       "humidity": { "plain": 60 },
       "signature": "2199c52836b4e4a314c1a051ca1f799624e9553ff6ae768d23d0f8287f68cc8c3405dc01f105a297769ff2a9fedc045ff0afefec3f47951cae2e87f059c71c08",
-      "raw": "<hex of the UTF-8 bytes of the signed raw string>"
+      "raw": "<hex dos bytes UTF-8 da string raw assinada>"
     }
   ]
 }
 ```
 
-::: warning seq and timestamp are strings
-`seq` and `timestamp` are serialized as **strings** (uint64-safe), not numbers. `keyVersion` is a number.
+::: warning seq e timestamp são strings
+`seq` e `timestamp` são serializados como **strings** (seguras para uint64), não como números. `keyVersion` é um número.
 :::
 
-Sensor fields are optional. Each one is either `{ "plain": <number> }` or `{ "cipher": "<hex>", "nonce": "<hex>" }`. The signature is Ed25519 (detached) over the bytes of the `raw` string — see [Telemetry](/protocol/telemetry) for how `raw` is built. The server verifies it against the **registered** device pubkey, not the one in the payload.
+Os campos de sensor são opcionais. Cada um é `{ "plain": <number> }` ou `{ "cipher": "<hex>", "nonce": "<hex>" }`. A assinatura é Ed25519 (destacada) sobre os bytes da string `raw` — veja [Telemetria](/protocol/telemetry) sobre como o `raw` é construído. O servidor a verifica contra a pubkey **registrada** do dispositivo, não a que está no payload.
 
-**Response `200`** — every block accepted
+**Resposta `200`** — todos os blocos aceitos
 ```json
 { "accepted": 1, "errors": [] }
 ```
 
-**Response `207`** — at least one block failed
+**Resposta `207`** — pelo menos um bloco falhou
 ```json
 {
   "accepted": 0,
@@ -206,18 +210,18 @@ Sensor fields are optional. Each one is either `{ "plain": <number> }` or `{ "ci
 }
 ```
 
-Per-block error messages (exact strings):
+Mensagens de erro por bloco (strings exatas):
 
-| Message | Cause |
+| Mensagem | Causa |
 |---|---|
-| `Device not found: <device_id_hex>` | Device is not registered in this endpoint's database |
-| `Invalid signature for device <device_id_hex>` | Ed25519 verification over `raw` failed |
+| `Device not found: <device_id_hex>` | O dispositivo não está registrado no banco deste endpoint |
+| `Invalid signature for device <device_id_hex>` | A verificação Ed25519 sobre o `raw` falhou |
 
-**Response `400`** — body without `blocks`, empty, or with more than 100 items.
+**Resposta `400`** — corpo sem `blocks`, vazio, ou com mais de 100 itens.
 
-### Ingestion semantics
+### Semântica de ingestão
 
-- **Duplicates are success.** Re-sending an already-stored `(deviceId, seq)` returns `200` with it counted in `accepted` — inserts use `INSERT OR IGNORE`. Clients are expected to re-send anything not confirmed with a `200`.
-- **Unknown device returns `207`, never `404`.** Register the device first via `POST /v1/devices`.
-- **No monotonicity check.** Old `seq` values that were never confirmed can be re-sent after a reconnection; deduplication is by primary key `(device_pubkey, seq)`.
-- A device with `publishTo: 0` (local_only) posting to the public endpoint is validated and counted as accepted, but **nothing is stored** in the public database.
+- **Duplicatas são sucesso.** Reenviar um `(deviceId, seq)` já armazenado retorna `200` com ele contado em `accepted` — as inserções usam `INSERT OR IGNORE`. Espera-se que os clientes reenviem tudo que não foi confirmado com um `200`.
+- **Dispositivo desconhecido retorna `207`, nunca `404`.** Registre o dispositivo primeiro via `POST /v1/devices`.
+- **Sem verificação de monotonicidade.** Valores de `seq` antigos que nunca foram confirmados podem ser reenviados após uma reconexão; a deduplicação é pela chave primária `(device_pubkey, seq)`.
+- Um dispositivo com `publishTo: 0` (local_only) que poste no endpoint público é validado e contado como aceito, mas **nada é armazenado** no banco público.

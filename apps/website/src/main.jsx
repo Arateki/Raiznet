@@ -10,6 +10,7 @@ import {
   langPath,
   localeFromPathname,
   localizedPathForLocale,
+  preferredLocaleFromNavigator,
   stripLangFromPath,
 } from './lib/i18n-routing.js';
 import { Seo, buildHomeSeo } from './lib/seo.jsx';
@@ -36,6 +37,15 @@ const links = {
   docsUrl: import.meta.env.VITE_RAIZNET_DOCS_URL || '/docs/',
   githubUrl: import.meta.env.VITE_RAIZNET_GITHUB_URL || 'https://github.com/arateki/raiznet',
 };
+
+// O link para a docs preserva o idioma ativo: PT vive na raiz (/docs/), os
+// demais em subpath (/docs/en/, ...). A docs também re-localiza pelo
+// raiznet-locale compartilhado, mas o link já correto cobre quem chega numa
+// rota /en sem preferência salva.
+function docsUrlForLang(lang) {
+  const base = (import.meta.env.VITE_RAIZNET_DOCS_URL || '/docs/').replace(/\/?$/, '/');
+  return lang === 'pt' ? base : `${base}${lang}/`;
+}
 
 function RootMark() {
   return (
@@ -67,7 +77,7 @@ function Icon({ name }) {
   );
 }
 
-function Header({ copy, locale, onToggleLocale, theme, onToggleTheme }) {
+function Header({ copy, locale, onToggleLocale, theme, onToggleTheme, docsUrl }) {
   const dark = theme === 'dark';
   const currentLocaleIndex = LOCALE_OPTIONS.findIndex((option) => option.code === locale);
   const currentLocale = LOCALE_OPTIONS[currentLocaleIndex] || LOCALE_OPTIONS[0];
@@ -85,7 +95,7 @@ function Header({ copy, locale, onToggleLocale, theme, onToggleTheme }) {
         <span>R A I Z N E T</span>
       </a>
       <nav className="nav-links" aria-label={copy.nav.label}>
-        <a href={links.docsUrl}><span>{copy.nav.docs}</span><small>{copy.navSub.docs}</small></a>
+        <a href={docsUrl}><span>{copy.nav.docs}</span><small>{copy.navSub.docs}</small></a>
         <a href={links.dashboardUrl}><span>{copy.nav.network}</span><small>{copy.navSub.network}</small></a>
         <a href="#download"><span>{copy.nav.download}</span><small>{copy.navSub.download}</small></a>
         <a href="#projects"><span>{copy.nav.safraSense}</span><small>{copy.navSub.safraSense}</small></a>
@@ -94,7 +104,7 @@ function Header({ copy, locale, onToggleLocale, theme, onToggleTheme }) {
         <span>{copy.nav.menu}</span>
         <select aria-label={copy.nav.menu} defaultValue="" onChange={handleMenuChange}>
           <option value="" disabled>{copy.nav.menu}</option>
-          <option value={links.docsUrl}>{copy.nav.docs}</option>
+          <option value={docsUrl}>{copy.nav.docs}</option>
           <option value={links.dashboardUrl}>{copy.nav.network}</option>
           <option value="#download">{copy.nav.download}</option>
           <option value="#projects">{copy.nav.safraSense}</option>
@@ -519,7 +529,7 @@ function HeroCard({ copy, slide, index }) {
   return <NetworkCard copy={copy} slide={slide} />;
 }
 
-function Hero({ copy }) {
+function Hero({ copy, docsUrl }) {
   const slides = copy.hero.slides;
   const [slide, setSlide] = React.useState(0);
   const [paused, setPaused] = React.useState(false);
@@ -550,7 +560,7 @@ function Hero({ copy }) {
           <div className="hero-actions">
             <a className="button primary" href={links.dashboardUrl}><Icon name="dashboard" />{copy.actions.dashboard}</a>
             <a className="button secondary" href="#download"><Icon name="download" />{copy.actions.download}</a>
-            <a className="button ghost" href={links.docsUrl}><Icon name="docs" />{copy.actions.docs}</a>
+            <a className="button ghost" href={docsUrl}><Icon name="docs" />{copy.actions.docs}</a>
           </div>
         </div>
         <div key={current.visualTitle} className="card-shell">
@@ -634,7 +644,7 @@ function Flow({ copy }) {
   );
 }
 
-function Download({ copy }) {
+function Download({ copy, docsUrl }) {
   return (
     <section className="download-section" id="download">
       <div>
@@ -644,7 +654,7 @@ function Download({ copy }) {
       </div>
       <div className="download-actions">
         <a className="download-row primary" href={links.githubUrl}><Icon name="download" /><span>{copy.download.github}<small>github.com/arateki/raiznet</small></span></a>
-        <a className="download-row" href={links.docsUrl}><Icon name="docs" /><span>{copy.download.guide}<small>{copy.navSub.docs}</small></span></a>
+        <a className="download-row" href={docsUrl}><Icon name="docs" /><span>{copy.download.guide}<small>{copy.navSub.docs}</small></span></a>
         <div className="terminal">{copy.download.commands.map((line) => <code key={line}>{line}</code>)}</div>
       </div>
     </section>
@@ -693,6 +703,44 @@ function updateBrowserUrlForLocale(locale) {
   return targetPath;
 }
 
+// "Ver em X?" no idioma sugerido (chave = locale completo).
+const SUGGEST_CTA = {
+  'pt-BR': 'Ver em Português?',
+  'en-US': 'View in English?',
+  'es-ES': '¿Ver en Español?',
+  'ja-JP': '日本語で表示しますか？',
+  'zh-CN': '查看中文版？',
+};
+
+// Sugere (sem redirecionar) o idioma do navegador quando NÃO há preferência
+// salva. Mantém a regra de SEO: a raiz nunca auto-troca de idioma; o banner
+// só aparece após a hidratação e o visitante decide. Compartilha as chaves
+// raiznet-locale / dismiss com a docs, então aceitar/dispensar vale nos dois.
+function LangSuggestion({ currentLocale, onAccept }) {
+  const [suggested, setSuggested] = React.useState(null);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.localStorage.getItem('raiznet-locale')) return;
+    if (window.localStorage.getItem('raiznet-locale-suggest-dismissed')) return;
+    const guess = preferredLocaleFromNavigator(navigator.languages);
+    if (!dictionaries[guess] || guess === currentLocale) return;
+    setSuggested(guess);
+  }, [currentLocale]);
+
+  if (!suggested) return null;
+  const dismiss = () => {
+    window.localStorage.setItem('raiznet-locale-suggest-dismissed', '1');
+    setSuggested(null);
+  };
+  return (
+    <div className="lang-suggest">
+      <span>{SUGGEST_CTA[suggested] || 'Switch language?'}</span>
+      <button className="lang-suggest__yes" onClick={() => onAccept(suggested)}>OK</button>
+      <button className="lang-suggest__no" onClick={dismiss} aria-label="dismiss">✕</button>
+    </div>
+  );
+}
+
 export function App({ initialLocale, initialTheme = 'light', routePath: initialRoutePath } = {}) {
   const [routePath, setRoutePath] = React.useState(() => initialRoutePath || getBrowserPath());
   const [locale, setLocale] = React.useState(() => {
@@ -709,6 +757,12 @@ export function App({ initialLocale, initialTheme = 'light', routePath: initialR
       return next;
     });
   };
+  const selectLocale = (code) => {
+    window.localStorage.setItem('raiznet-locale', code);
+    const nextPath = updateBrowserUrlForLocale(code);
+    setRoutePath(nextPath);
+    setLocale(code);
+  };
   const toggleLocale = () => {
     setLocale((value) => {
       const currentIndex = LOCALE_OPTIONS.findIndex((option) => option.code === value);
@@ -720,6 +774,7 @@ export function App({ initialLocale, initialTheme = 'light', routePath: initialR
     });
   };
   const copy = dictionaries[locale] || dictionaries[DEFAULT_LOCALE];
+  const docsUrl = docsUrlForLang(langFromLocale(locale));
   const seo = buildHomeSeo(copy, locale, routePath);
 
   React.useEffect(() => {
@@ -772,16 +827,17 @@ export function App({ initialLocale, initialTheme = 'light', routePath: initialR
     <div className="page-shell" data-theme={theme} data-locale={locale}>
       <Seo seo={seo} />
       <NatureBackground theme={theme} />
-      <Header copy={copy} locale={locale} onToggleLocale={toggleLocale} theme={theme} onToggleTheme={toggleTheme} />
+      <Header copy={copy} locale={locale} onToggleLocale={toggleLocale} theme={theme} onToggleTheme={toggleTheme} docsUrl={docsUrl} />
       <TopBand copy={copy} />
       <main>
-        <Hero copy={copy} />
+        <Hero copy={copy} docsUrl={docsUrl} />
         <Events copy={copy} />
         <Projects copy={copy} />
         <Flow copy={copy} />
-        <Download copy={copy} />
+        <Download copy={copy} docsUrl={docsUrl} />
       </main>
       <footer>{copy.footer.madeBy}</footer>
+      <LangSuggestion currentLocale={locale} onAccept={selectLocale} />
     </div>
   );
 }

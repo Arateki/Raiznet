@@ -1,99 +1,103 @@
-# Device Lifecycle
+---
+description: O ciclo de vida de um dispositivo Raiznet — estados, provisionamento por portal cativo, DeviceClaim e DeviceTransfer, perda de hardware e rotação de chaves.
+---
 
-A device in Raiznet is any ESP32 that has been provisioned with an Ed25519 keypair and a privacy policy. Its identity is its public key — not its MAC, not its name.
+# Ciclo de vida do dispositivo
 
-## States
+Um dispositivo na Raiznet é qualquer ESP32 que foi provisionado com um par de chaves Ed25519 e uma política de privacidade. Sua identidade é sua chave pública — não o MAC, não o nome.
+
+## Estados
 
 ```
-[manufactured] → [provisioned] → [active] → [inactive] → [lost]
-                                     ↑            ↓
-                                     └────────────┘
+[fabricado] → [provisionado] → [active] → [inactive] → [lost]
+                                   ↑            ↓
+                                   └────────────┘
 ```
 
-| State | Meaning |
+| Estado | Significado |
 |---|---|
-| `active` | Device is reporting telemetry normally |
-| `inactive` | Device has not reported for a configured period |
-| `lost` | Owner marked the device as unrecoverable (hardware destroyed or stolen) |
+| `active` | O dispositivo está reportando telemetria normalmente |
+| `inactive` | O dispositivo não reporta há um período configurado |
+| `lost` | O dono marcou o dispositivo como irrecuperável (hardware destruído ou roubado) |
 
-## Provisioning (as implemented)
+## Provisionamento (como implementado)
 
-The reference firmware provisions itself through a **captive portal**:
+O firmware de referência provisiona a si mesmo por meio de um **portal cativo**:
 
-1. On first boot (or after a reset), the ESP32 creates a temporary Wi-Fi access point.
-2. The owner connects to it; the captive portal opens an **Identity Setup** flow:
-   - The device generates its own Ed25519 keypair from the hardware TRNG and stores it in NVS — the private key never leaves the device.
-   - The portal generates a new BIP-39 mnemonic (12 words) for the **owner identity**, in the owner's language (PT, EN, ES), or imports an existing one. The owner writes the phrase down.
-3. The owner configures `publish_to`, the server address(es), and the Wi-Fi credentials.
-4. The ESP32 writes everything to NVS and reboots in production mode.
-5. **Lazy registration:** the device calls `POST /v1/devices` on its configured server during setup, sending its pubkey, MAC, owner pubkey, and initial privacy policy. A `409` (already registered) counts as success.
+1. No primeiro boot (ou após um reset), o ESP32 cria um ponto de acesso Wi-Fi temporário.
+2. O dono se conecta a ele; o portal cativo abre um fluxo de **Identity Setup**:
+   - O dispositivo gera seu próprio par de chaves Ed25519 a partir do TRNG do hardware e o armazena na NVS — a chave privada nunca sai do dispositivo.
+   - O portal gera um novo mnemônico BIP-39 (12 palavras) para a **identidade do dono**, no idioma do dono (PT, EN, ES), ou importa um existente. O dono anota a frase.
+3. O dono configura o `publish_to`, o(s) endereço(s) do servidor e as credenciais de Wi-Fi.
+4. O ESP32 grava tudo na NVS e reinicia em modo de produção.
+5. **Registro preguiçoso (lazy):** o dispositivo chama `POST /v1/devices` no servidor configurado durante o setup, enviando sua pubkey, MAC, pubkey do dono e política de privacidade inicial. Um `409` (já registrado) conta como sucesso.
 
-## Provisioning via app <Badge type="warning" text="planned" />
+## Provisionamento via app <Badge type="warning" text="planejado" />
 
-The app-driven flow adds on top: privacy policy per field, network selection, H3 location picking on a map, and pushing the active Safra's Crop to the device.
+O fluxo conduzido pelo app adiciona por cima: política de privacidade por campo, seleção de rede, escolha da localização H3 em um mapa e envio do Cultivo da Safra ativa para o dispositivo.
 
 ## DeviceClaim <Badge type="warning" text="design" />
 
-Published in the owner's public event log when a device is provisioned:
+Publicado no log de eventos público do dono quando um dispositivo é provisionado:
 
 ```
 device_pubkey: bytes(32)
 device_mac: bytes(6)
 claimed_at: uint64
-signature: bytes(64)   // signed by owner's User key
+signature: bytes(64)   // assinado pela chave de Usuário do dono
 ```
 
-Any peer can validate the ownership chain: device telemetry is signed by the device key; ownership of that key is declared in the DeviceClaim signed by the User key.
+Qualquer peer pode validar a cadeia de propriedade: a telemetria do dispositivo é assinada pela chave do dispositivo; a propriedade dessa chave é declarada no DeviceClaim assinado pela chave de Usuário.
 
-## Ownership transfer (sale) <Badge type="warning" text="design" />
+## Transferência de propriedade (venda) <Badge type="warning" text="design" />
 
-1. Seller opens "transfer device" in the app, enters the buyer's User pubkey.
-2. Seller signs a `DeviceTransfer` event.
-3. Buyer receives the request in their app and signs confirming acceptance.
-4. The final event (both signatures) is published in the buyer's public event log.
-5. The network recognizes the new `owner_pubkey` and accepts configuration changes only from the new owner.
+1. O vendedor abre "transferir dispositivo" no app e informa a pubkey de Usuário do comprador.
+2. O vendedor assina um evento `DeviceTransfer`.
+3. O comprador recebe a solicitação no seu app e assina confirmando a aceitação.
+4. O evento final (ambas as assinaturas) é publicado no log de eventos público do comprador.
+5. A rede reconhece o novo `owner_pubkey` e aceita mudanças de configuração apenas do novo dono.
 
 ```
 device_pubkey: bytes(32)
 from_user_pubkey: bytes(32)
 to_user_pubkey: bytes(32)
 transferred_at: uint64
-signature_from: bytes(64)   // seller
-signature_to: bytes(64)     // buyer
+signature_from: bytes(64)   // vendedor
+signature_to: bytes(64)     // comprador
 ```
 
-Historical readings remain signed by the device key. The old `DeviceClaim` by the seller stays in the log as a valid record of the period they were the owner.
+As leituras históricas permanecem assinadas pela chave do dispositivo. O antigo `DeviceClaim` do vendedor continua no log como um registro válido do período em que ele era o dono.
 
-## Hardware loss (burned device)
+## Perda de hardware (dispositivo queimado)
 
-There is no revocation flow. If the device is destroyed:
+Não há fluxo de revogação. Se o dispositivo for destruído:
 
-1. Owner marks it as `lost` in the app (local state only).
-2. Buys a new ESP32, provisions it as a brand new device (new pubkey, new MAC).
-3. If visual continuity in graphs is desired, the app can display the old and new device as a merged series with a visual marker at the transition point.
-4. Historical data from the old device remains on the owner's server, queryable separately.
+1. O dono o marca como `lost` no app (apenas estado local).
+2. Compra um novo ESP32 e o provisiona como um dispositivo totalmente novo (nova pubkey, novo MAC).
+3. Se quiser continuidade visual nos gráficos, o app pode exibir o dispositivo antigo e o novo como uma série mesclada, com um marcador visual no ponto de transição.
+4. Os dados históricos do dispositivo antigo permanecem no servidor do dono, consultáveis separadamente.
 
-The device's private key was lost with the hardware — this is desirable. Cloning a device would require duplicating the private key, which is impossible without physical access to the flash.
+A chave privada do dispositivo foi perdida com o hardware — isso é desejável. Clonar um dispositivo exigiria duplicar a chave privada, o que é impossível sem acesso físico à flash.
 
-## Symmetric key rotation
+## Rotação da chave simétrica
 
-Each device has a symmetric key used for `ENCRYPTED` fields. The key version is tracked in `Device.encryption_key_version` and in every `TelemetryBlock`.
+Cada dispositivo tem uma chave simétrica usada para campos `ENCRYPTED`. A versão da chave é rastreada em `Device.encryption_key_version` e em cada `TelemetryBlock`.
 
-Rotation flow:
-1. Owner initiates rotation in the app.
-2. App generates a new symmetric key, increments the version.
-3. Sends the new key to the ESP32 at the next connection.
-4. ESP32 uses the new key for all subsequent readings.
-5. Old keys are kept in the owner's app keyring for decrypting historical data.
+Fluxo de rotação:
+1. O dono inicia a rotação no app.
+2. O app gera uma nova chave simétrica e incrementa a versão.
+3. Envia a nova chave para o ESP32 na próxima conexão.
+4. O ESP32 usa a nova chave para todas as leituras subsequentes.
+5. As chaves antigas ficam no chaveiro do app do dono para descriptografar dados históricos.
 
-Peers who previously received encrypted blobs cannot decrypt them with the new key — and vice versa. Rotation limits exposure if a key leaks, at the cost of losing decryption access for any third party (e.g. an agronomist) who held a copy of the old key.
+Peers que receberam blobs criptografados anteriormente não conseguem descriptografá-los com a nova chave — e vice-versa. A rotação limita a exposição se uma chave vazar, ao custo de perder o acesso de descriptografia para qualquer terceiro (ex.: um agrônomo) que tinha uma cópia da chave antiga.
 
-## Crop updates
+## Atualizações de Cultivo
 
-The ESP32 stores the active Crop locally in flash. The app sends updates when the device connects to the server. If offline, the device continues using the stored version until it reconnects.
+O ESP32 armazena o Cultivo ativo localmente na flash. O app envia atualizações quando o dispositivo se conecta ao servidor. Se estiver offline, o dispositivo continua usando a versão armazenada até reconectar.
 
-Crop update flow:
-1. Network or owner publishes an updated Crop in a CropCatalog.
-2. Server downloads the update from the catalog.
-3. At next device connection, server pushes the updated Crop to the ESP32.
-4. ESP32 writes to flash and uses the new values from the next reading cycle.
+Fluxo de atualização de Cultivo:
+1. A rede ou o dono publica um Cultivo atualizado em um CropCatalog.
+2. O servidor baixa a atualização do catálogo.
+3. Na próxima conexão do dispositivo, o servidor envia o Cultivo atualizado ao ESP32.
+4. O ESP32 grava na flash e usa os novos valores a partir do próximo ciclo de leitura.

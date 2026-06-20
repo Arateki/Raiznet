@@ -1,10 +1,14 @@
-# Telemetry
+---
+description: O contrato de fio da telemetria Raiznet — bloco JSON, a string raw assinada, campos criptografados AES-256-GCM, schema SQLite, lotes e buffering.
+---
 
-Telemetry is the core data type in Raiznet: the stream of sensor readings flowing from ESP32 devices to servers. This page specifies the wire contract **as implemented** — it is what you need to build a Raiznet-compatible device.
+# Telemetria
 
-## The telemetry block
+Telemetria é o tipo de dado central da Raiznet: o fluxo de leituras de sensores que vai dos dispositivos ESP32 aos servidores. Esta página especifica o contrato de fio **como implementado** — é o que você precisa para construir um dispositivo compatível com a Raiznet.
 
-One block is one set of readings from one device at one point in time:
+## O bloco de telemetria
+
+Um bloco é um conjunto de leituras de um dispositivo em um instante no tempo:
 
 ```json
 {
@@ -22,75 +26,75 @@ One block is one set of readings from one device at one point in time:
 }
 ```
 
-| Field | Type | Notes |
+| Campo | Tipo | Notas |
 |---|---|---|
-| `deviceId` | string, 64 hex | Device Ed25519 pubkey |
-| `seq` | **string** | Monotonic counter per device (uint64 as string) |
-| `timestamp` | **string** | Best-effort device clock, Unix ms (uint64 as string) |
-| `keyVersion` | number | Symmetric key version for encrypted fields (reference firmware sends `0`) |
-| sensor fields | object | Optional; `ph`, `ec`, `waterLevel`, `tempWater`, `tempAmbient`, `humidity` |
-| `signature` | string, 128 hex | Ed25519 detached signature over the bytes of `raw` |
-| `raw` | string, hex | Hex of the UTF-8 bytes of the signed raw string (below) |
+| `deviceId` | string, 64 hex | Pubkey Ed25519 do dispositivo |
+| `seq` | **string** | Contador monotônico por dispositivo (uint64 como string) |
+| `timestamp` | **string** | Relógio do dispositivo (best-effort), Unix ms (uint64 como string) |
+| `keyVersion` | number | Versão da chave simétrica para campos criptografados (o firmware de referência envia `0`) |
+| campos de sensor | object | Opcionais; `ph`, `ec`, `waterLevel`, `tempWater`, `tempAmbient`, `humidity` |
+| `signature` | string, 128 hex | Assinatura Ed25519 destacada sobre os bytes de `raw` |
+| `raw` | string, hex | Hex dos bytes UTF-8 da string raw assinada (abaixo) |
 
-Each sensor field is either plain or encrypted:
+Cada campo de sensor é plain ou encrypted:
 
 ```json
 "ph": { "plain": 6.2 }
 "ph": { "cipher": "5731612f87cc0d953260cd9674bc34ffe5f3caea", "nonce": "222222222222222222222222" }
 ```
 
-Fields the device did not measure (or whose disposition is `omit` for this destination) are simply absent.
+Campos que o dispositivo não mediu (ou cuja disposição é `omit` para este destino) simplesmente ficam ausentes.
 
-## The signed raw string
+## A string raw assinada
 
-The Ed25519 signature does **not** cover the JSON — it covers a deterministic, pipe-delimited ASCII string the device builds before serializing:
+A assinatura Ed25519 **não** cobre o JSON — ela cobre uma string ASCII determinística, delimitada por pipe, que o dispositivo monta antes de serializar:
 
 ```
 <device_pubkey_hex>|<seq>|<timestamp_ms>|<key_version>[|ec=<v>][|ph=<v>][|waterLevel=<v>][|tempAmbient=<v>][|humidity=<v>]
 ```
 
-Example (this exact string verifies against the signature in the block above):
+Exemplo (esta string exata verifica contra a assinatura do bloco acima):
 
 ```
 c5785e1865b708938aff8161d573006496663b1aa10834e396dc566869a2c66a|1|1700000000000|0|ec=1800|ph=6.20|waterLevel=80|tempAmbient=24.50|humidity=60.00
 ```
 
-Rules:
+Regras:
 
-- Field order is **fixed**: `ec`, `ph`, `waterLevel`, `tempAmbient`, `humidity`. Absent fields are skipped entirely. (`tempWater` exists in the schema but is not emitted by the reference firmware.)
-- Values are rendered with **fixed decimal places**: `ec` 0, `ph` 2, `waterLevel` 0, `tempAmbient` 2, `humidity` 2. Note `ph=6.20` in the raw becomes the number `6.2` in JSON — comparisons must be numeric.
-- Only **plain** fields appear in the raw string. Encrypted fields travel solely as `cipher`/`nonce` in the JSON.
-- The signature is Ed25519 detached (RFC 8032, deterministic) over the UTF-8 bytes of the string. On the wire, `raw` is the hex encoding of those bytes.
-- The server verifies against the **registered** device pubkey, not the `deviceId` claimed in the payload.
+- A ordem dos campos é **fixa**: `ec`, `ph`, `waterLevel`, `tempAmbient`, `humidity`. Campos ausentes são pulados inteiramente. (`tempWater` existe no schema mas não é emitido pelo firmware de referência.)
+- Os valores são renderizados com **casas decimais fixas**: `ec` 0, `ph` 2, `waterLevel` 0, `tempAmbient` 2, `humidity` 2. Note que `ph=6.20` no raw vira o número `6.2` no JSON — as comparações devem ser numéricas.
+- Apenas campos **plain** aparecem na string raw. Campos criptografados trafegam exclusivamente como `cipher`/`nonce` no JSON.
+- A assinatura é Ed25519 destacada (RFC 8032, determinística) sobre os bytes UTF-8 da string. No fio, `raw` é a codificação hex desses bytes.
+- O servidor verifica contra a pubkey **registrada** do dispositivo, não contra o `deviceId` declarado no payload.
 
-::: warning Keep raw and JSON consistent
-Today the server verifies only the signature over `raw`. A strict cross-check that the JSON `plain` values match the raw string is part of the hardening roadmap — compliant devices must always send both consistent.
+::: warning Mantenha raw e JSON consistentes
+Hoje o servidor verifica apenas a assinatura sobre `raw`. Uma verificação cruzada estrita de que os valores `plain` do JSON casam com a string raw faz parte do roadmap de endurecimento — dispositivos em conformidade devem sempre enviar ambos consistentes.
 :::
 
-## Encrypted fields (AES-256-GCM)
+## Campos criptografados (AES-256-GCM)
 
-For a field with `encrypted` disposition:
+Para um campo com disposição `encrypted`:
 
-- plaintext = the value as **float32 big-endian** (4 bytes);
-- nonce = 12 random bytes, fresh per field;
-- `cipher` = `ciphertext ‖ tag` (16-byte GCM tag appended);
-- key = the device's 32-byte symmetric key, versioned by `keyVersion`.
+- plaintext = o valor como **float32 big-endian** (4 bytes);
+- nonce = 12 bytes aleatórios, novo a cada campo;
+- `cipher` = `ciphertext ‖ tag` (tag GCM de 16 bytes anexada);
+- key = a chave simétrica de 32 bytes do dispositivo, versionada por `keyVersion`.
 
-The server never decrypts — it stores `cipher`/`nonce` opaquely. Decryption happens in the owner's app, which holds the symmetric keyring (`{ version → key }`). Encrypted values never enter network aggregations.
+O servidor nunca descriptografa — ele armazena `cipher`/`nonce` de forma opaca. A descriptografia acontece no app do dono, que guarda o chaveiro simétrico (`{ versão → chave }`). Valores criptografados nunca entram em agregações da rede.
 
-## Server-side processing
+## Processamento no servidor
 
-For each block, in order:
+Para cada bloco, em ordem:
 
-1. **Device lookup** in the destination database (`public` endpoint → `raiznet_public.db`, `local` endpoint → `raiznet_private.db`). Unknown device → per-block error `Device not found: <hex>`.
-2. **Signature verification** over the `raw` bytes against the registered pubkey. Failure → `Invalid signature for device <hex>`.
-3. **Disposition resolution** per field from the device's privacy policy: `per_destination[<server_pubkey_hex>] ?? default_disposition`. A field missing from the policy resolves to `omit`.
-4. **Projection to columns**: `plain` value with `plain` disposition → `_plain` column; `cipher`/`nonce` with `encrypted` disposition → `_cipher`/`_nonce` columns; any mismatch between what the device sent and what the policy allows → stored as NULL, silently.
-5. **Insert** with `INSERT OR IGNORE` keyed by `(device_pubkey, seq)`, with `received_at` set to the server clock. Whether the row goes to the public or private database depends on the endpoint and the device's `publishTo` — see [Local API](/reference/local-api).
+1. **Busca do dispositivo** no banco de destino (endpoint `public` → `raiznet_public.db`, endpoint `local` → `raiznet_private.db`). Dispositivo desconhecido → erro por bloco `Device not found: <hex>`.
+2. **Verificação da assinatura** sobre os bytes de `raw` contra a pubkey registrada. Falha → `Invalid signature for device <hex>`.
+3. **Resolução da disposição** por campo a partir da política de privacidade do dispositivo: `per_destination[<server_pubkey_hex>] ?? default_disposition`. Um campo ausente da política resolve para `omit`.
+4. **Projeção para colunas**: valor `plain` com disposição `plain` → coluna `_plain`; `cipher`/`nonce` com disposição `encrypted` → colunas `_cipher`/`_nonce`; qualquer divergência entre o que o dispositivo enviou e o que a política permite → armazenado como NULL, silenciosamente.
+5. **Inserção** com `INSERT OR IGNORE` chaveada por `(device_pubkey, seq)`, com `received_at` definido pelo relógio do servidor. Se a linha vai para o banco público ou privado depende do endpoint e do `publishTo` do dispositivo — veja [API local](/reference/local-api).
 
-## SQLite schema
+## Schema SQLite
 
-Both databases use the same wide-table schema. Each sensor has three columns; NULL in both `_plain` and `_cipher` means the field was absent in that reading.
+Ambos os bancos usam o mesmo schema de tabela larga. Cada sensor tem três colunas; NULL tanto em `_plain` quanto em `_cipher` significa que o campo estava ausente naquela leitura.
 
 ```sql
 CREATE TABLE telemetry (
@@ -112,30 +116,30 @@ CREATE TABLE telemetry (
 CREATE INDEX idx_telemetry_time ON telemetry (device_pubkey, timestamp);
 ```
 
-Fixed columns allow fast aggregated SQL queries without JSON parsing. Adding a new sensor type requires a schema migration (three new columns) — the accepted trade-off for query performance.
+Colunas fixas permitem consultas SQL agregadas rápidas sem parsear JSON. Adicionar um novo tipo de sensor exige uma migração de schema (três colunas novas) — o trade-off aceito em prol da performance de consulta.
 
-## Batching
+## Lotes (batching)
 
-`POST /v1/telemetry` accepts 1 to 100 blocks per request. Each block is processed independently:
+`POST /v1/telemetry` aceita de 1 a 100 blocos por requisição. Cada bloco é processado de forma independente:
 
-- all blocks OK → `200 { "accepted": N, "errors": [] }`;
-- any block failed → `207` with per-block errors (the original `seq` string is echoed back);
-- malformed body (no `blocks`, empty, or > 100) → `400`.
+- todos os blocos OK → `200 { "accepted": N, "errors": [] }`;
+- algum bloco falhou → `207` com erros por bloco (a string `seq` original é ecoada de volta);
+- corpo malformado (sem `blocks`, vazio, ou > 100) → `400`.
 
-**Duplicates are success**: a block whose `(deviceId, seq)` already exists is counted as accepted. The device re-sends everything not confirmed with `200`, and idempotent inserts make that safe.
+**Duplicatas são sucesso**: um bloco cujo `(deviceId, seq)` já existe é contado como aceito. O dispositivo reenvia tudo que não foi confirmado com `200`, e as inserções idempotentes tornam isso seguro.
 
-## Device-side buffering
+## Buffering no dispositivo
 
-The reference firmware (`firmware/safraSense`):
+O firmware de referência (`firmware/safraSense`):
 
-- reads sensors every **60 s** (`TELEMETRY_INTERVAL_MS`, debug-friendly default);
-- keeps the last **50** readings in a RAM ring buffer (`TELEMETRY_BUFFER_SIZE`);
-- reserves `seq` in blocks of **100** (`TELEMETRY_SEQ_BLOCK_SIZE`), persisting only the next block start to NVS — reboots may leave small `seq` gaps but never duplicate;
-- registers itself via `POST /v1/devices` during setup (a `409` response counts as success);
-- re-sends unconfirmed readings on every cycle until the server answers `200`.
+- lê os sensores a cada **60 s** (`TELEMETRY_INTERVAL_MS`, padrão amigável a debug);
+- mantém as últimas **50** leituras num ring buffer de RAM (`TELEMETRY_BUFFER_SIZE`);
+- reserva `seq` em blocos de **100** (`TELEMETRY_SEQ_BLOCK_SIZE`), persistindo apenas o início do próximo bloco na NVS — reboots podem deixar pequenas lacunas no `seq` mas nunca duplicam;
+- registra a si mesmo via `POST /v1/devices` durante o setup (uma resposta `409` conta como sucesso);
+- reenvia as leituras não confirmadas a cada ciclo até o servidor responder `200`.
 
-Moving the buffer to flash (to survive deep sleep and power loss) is on the roadmap.
+Mover o buffer para a flash (para sobreviver ao deep sleep e à perda de energia) está no roadmap.
 
-## Planned: canonical binary format
+## Planejado: formato binário canônico
 
-The Protobuf schemas in [Proto Schemas](/reference/proto-schemas) define the planned canonical encoding for events and telemetry. JSON will remain supported for the current firmware generation and debugging.
+Os schemas Protobuf em [Schemas Protobuf](/reference/proto-schemas) definem a codificação canônica planejada para eventos e telemetria. O JSON permanecerá suportado para a geração atual de firmware e para depuração.

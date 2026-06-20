@@ -1,10 +1,14 @@
-# Proto Schemas
+---
+description: Os schemas Protobuf planejados da Raiznet (ADR-001) — telemetry.proto, device.proto e user.proto — referência de nomes, números de campo e convenções.
+---
 
-::: info Planned canonical format
-These schemas define the **planned** canonical binary encoding ([ADR-001](/adr/001-protobuf)). The wire format in production today is JSON with a signed raw string — see [Telemetry](/protocol/telemetry). Code generation is not active yet.
+# Schemas Protobuf
+
+::: info Formato canônico planejado
+Estes schemas definem a codificação binária canônica **planejada** ([ADR-001](/adr/001-protobuf)). O formato de fio em produção hoje é JSON com uma string raw assinada — veja [Telemetria](/protocol/telemetry). A geração de código ainda não está ativa.
 :::
 
-All `.proto` files live in `packages/protocol/proto/`. They are the reference for field names, numbers, and enum values — the JSON wire format and the SQLite schema follow them.
+Todos os arquivos `.proto` vivem em `packages/protocol/proto/`. Eles são a referência para nomes de campo, números e valores de enum — o formato de fio JSON e o schema SQLite os seguem.
 
 ## telemetry.proto
 
@@ -13,8 +17,8 @@ syntax = "proto3";
 package raiznet;
 
 message EncryptedBlob {
-  bytes cipher = 1;  // ciphertext + 16-byte AES-GCM auth tag
-  bytes nonce  = 2;  // 12-byte GCM nonce
+  bytes cipher = 1;  // ciphertext + tag de autenticação AES-GCM de 16 bytes
+  bytes nonce  = 2;  // nonce GCM de 12 bytes
 }
 
 message SensorField {
@@ -31,7 +35,7 @@ message TelemetryBlock {
   uint64 received_at  = 4;
   uint32 key_version  = 5;
 
-  // Field numbers 10–15: 1-byte Protobuf tags (efficient for high-frequency data)
+  // Números de campo 10–15: tags Protobuf de 1 byte (eficiente para dados de alta frequência)
   SensorField ph           = 10;
   SensorField ec           = 11;
   SensorField water_level  = 12;
@@ -39,9 +43,9 @@ message TelemetryBlock {
   SensorField temp_ambient = 14;
   SensorField humidity     = 15;
 
-  // 16–29 reserved for future sensor types
+  // 16–29 reservados para tipos de sensor futuros
 
-  bytes signature = 30;  // Ed25519 over canonical encoding of fields 1–15
+  bytes signature = 30;  // Ed25519 sobre a codificação canônica dos campos 1–15
 }
 
 message TelemetryBatch {
@@ -49,14 +53,14 @@ message TelemetryBatch {
 }
 ```
 
-### Field number rationale
+### Razão dos números de campo
 
-Protobuf encodes field numbers 1–15 in a single byte (tag + wire type). Numbers 16 and above require two bytes. Sensor readings (fields 10–15) are in the 1-byte range to minimize packet size for high-frequency or battery-constrained devices.
+O Protobuf codifica os números de campo 1–15 em um único byte (tag + wire type). Números 16 e acima exigem dois bytes. As leituras de sensor (campos 10–15) estão na faixa de 1 byte para minimizar o tamanho do pacote em dispositivos de alta frequência ou com restrição de bateria.
 
-Field 30 for the signature is intentionally outside the 1-byte range — it is large (64 bytes) and fixed cost, so the tag size is irrelevant.
+O campo 30 para a assinatura está intencionalmente fora da faixa de 1 byte — ele é grande (64 bytes) e de custo fixo, então o tamanho da tag é irrelevante.
 
-::: warning Signature scope today
-In the current JSON wire format the signature covers the [pipe-delimited raw string](/protocol/telemetry#the-signed-raw-string), not a Protobuf encoding. The canonical-bytes rule for the binary format will be specified when codegen is activated.
+::: warning Escopo da assinatura hoje
+No formato de fio JSON atual, a assinatura cobre a [string raw delimitada por pipe](/protocol/telemetry#a-string-raw-assinada), não uma codificação Protobuf. A regra de bytes canônicos para o formato binário será especificada quando o codegen for ativado.
 :::
 
 ---
@@ -76,7 +80,7 @@ enum Disposition {
 message FieldPolicy {
   Disposition              default_disposition = 1;
   map<string, Disposition> per_destination     = 2;
-  // key: server pubkey (hex) or network topic string
+  // chave: pubkey do servidor (hex) ou string do topic de rede
 }
 
 enum PublishTo {
@@ -117,10 +121,10 @@ message Device {
   bytes         owner_pubkey          = 3;
   string        name                  = 4;
   DeviceType    type                  = 5;
-  uint64        location              = 6;  // H3 cell index (64-bit)
+  uint64        location              = 6;  // índice da célula H3 (64 bits)
   PublishTo     publish_to            = 7;
-  repeated string networks            = 8;  // network topic strings
-  repeated string local_servers       = 9;  // server addresses for local delivery
+  repeated string networks            = 8;  // strings de topic de rede
+  repeated string local_servers       = 9;  // endereços de servidor para entrega local
   uint32        encryption_key_version = 10;
   PrivacyPolicy privacy_policy        = 11;
   Hardware      hardware              = 12;
@@ -145,7 +149,7 @@ message Contact {
 }
 
 message User {
-  bytes   id         = 1;  // Ed25519 pubkey (32 bytes)
+  bytes   id         = 1;  // pubkey Ed25519 (32 bytes)
   string  name       = 2;
   Contact contact    = 3;
   uint64  created_at = 4;
@@ -154,13 +158,13 @@ message User {
 
 ---
 
-## Encoding conventions
+## Convenções de codificação
 
-| Type | Encoding |
+| Tipo | Codificação |
 |---|---|
-| `bytes(32)` pubkeys | Raw bytes in Protobuf; hex string in JSON |
-| `bytes(6)` MAC | Raw bytes in Protobuf; lowercase hex string in JSON (no colons) |
-| Timestamps | `uint64` Unix milliseconds |
-| H3 cell | `uint64` raw cell index |
-| Float sensor values | `float` (32-bit IEEE 754) |
-| Encrypted blobs | `bytes` ciphertext + appended 16-byte auth tag; `bytes` 12-byte nonce separate |
+| pubkeys `bytes(32)` | Bytes crus no Protobuf; string hex no JSON |
+| MAC `bytes(6)` | Bytes crus no Protobuf; string hex minúscula no JSON (sem dois-pontos) |
+| Timestamps | `uint64` Unix em milissegundos |
+| Célula H3 | `uint64` índice cru da célula |
+| Valores float de sensor | `float` (IEEE 754 de 32 bits) |
+| Blobs criptografados | `bytes` ciphertext + tag de autenticação de 16 bytes anexada; `bytes` nonce de 12 bytes separado |

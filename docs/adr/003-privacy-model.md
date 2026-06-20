@@ -1,19 +1,23 @@
-# ADR 003 — Per-field privacy model with map-based policy
+---
+description: ADR 003 — modelo de privacidade por campo com FieldPolicy baseada em mapa (default_disposition + per_destination) e disposições OMIT, PLAIN e ENCRYPTED.
+---
 
-**Status:** Accepted  
-**Date:** 2026-04
+# ADR 003 — Modelo de privacidade por campo com política baseada em mapa
 
-## Context
+**Status:** Aceito  
+**Data:** 2026-04
 
-Raiznet devices may have sensors whose readings are sensitive (e.g. crop health data a grower doesn't want competitors to see) while other readings from the same device are intentionally public (e.g. ambient temperature for regional maps).
+## Contexto
 
-Two requirements drove the design:
-1. Privacy must be configurable at the **field level**, not just per-device.
-2. The policy must support **per-destination overrides** without requiring the user to configure two separate logical devices.
+Dispositivos Raiznet podem ter sensores cujas leituras são sensíveis (ex.: dados de saúde do cultivo que o agricultor não quer que concorrentes vejam) enquanto outras leituras do mesmo dispositivo são intencionalmente públicas (ex.: temperatura ambiente para mapas regionais).
 
-## Decision
+Dois requisitos guiaram o design:
+1. A privacidade precisa ser configurável no **nível do campo**, não apenas por dispositivo.
+2. A política precisa suportar **overrides por destino** sem exigir que o usuário configure dois dispositivos lógicos separados.
 
-Each sensor field has a `FieldPolicy`:
+## Decisão
+
+Cada campo de sensor tem uma `FieldPolicy`:
 
 ```protobuf
 message FieldPolicy {
@@ -22,40 +26,40 @@ message FieldPolicy {
 }
 ```
 
-`default_disposition` applies to any destination not explicitly listed in `per_destination`. The map key is either a server pubkey (hex) or a network topic string.
+`default_disposition` se aplica a qualquer destino não listado explicitamente em `per_destination`. A chave do mapa é uma pubkey de servidor (hex) ou uma string de topic de rede.
 
-Three dispositions:
+Três disposições:
 
-| Disposition | Effect |
+| Disposição | Efeito |
 |---|---|
-| `OMIT` | Field is not sent to this destination |
-| `PLAIN` | Field travels in clear |
-| `ENCRYPTED` | Field is AES-256-GCM encrypted with the device's symmetric key |
+| `OMIT` | O campo não é enviado a este destino |
+| `PLAIN` | O campo trafega em claro |
+| `ENCRYPTED` | O campo é criptografado com AES-256-GCM pela chave simétrica do dispositivo |
 
-## Rationale
+## Justificativa
 
-**Single device, multiple policies.** The map approach avoids the need for "two logical devices" as a workaround. One device can be `PLAIN` on the local server, `ENCRYPTED` on the public network, and `OMIT` to a specific third-party server — all from one configuration.
+**Um dispositivo, múltiplas políticas.** A abordagem de mapa evita a necessidade de "dois dispositivos lógicos" como gambiarra. Um dispositivo pode ser `PLAIN` no servidor local, `ENCRYPTED` na rede pública e `OMIT` para um servidor terceiro específico — tudo a partir de uma configuração.
 
-**UI layering.** The map model supports three levels of user-facing granularity, all backed by the same data structure:
-- *Same for all*: `default_disposition` set, map empty.
-- *Public vs local*: two entries grouping by destination class.
-- *Per destination (advanced)*: one entry per server pubkey or topic.
+**Camadas de UI.** O modelo de mapa suporta três níveis de granularidade voltados ao usuário, todos sustentados pela mesma estrutura de dados:
+- *Igual para todos*: `default_disposition` definido, mapa vazio.
+- *Público vs local*: duas entradas agrupando por classe de destino.
+- *Por destino (avançado)*: uma entrada por pubkey de servidor ou topic.
 
-**`ENCRYPTED` for remote owner access.** The `ENCRYPTED` disposition solves a specific case: the owner wants to follow their sensor from outside the LAN without exposing values to the public network. The cipher blob travels through the public network normally; peers store it but cannot read it. The owner's app decrypts locally using the device's symmetric key (derived from the BIP-39 seed).
+**`ENCRYPTED` para acesso remoto do dono.** A disposição `ENCRYPTED` resolve um caso específico: o dono quer acompanhar seu sensor de fora da LAN sem expor os valores à rede pública. O blob cifrado trafega pela rede pública normalmente; os peers o armazenam mas não conseguem lê-lo. O app do dono descriptografa localmente usando a chave simétrica do dispositivo (derivada da seed BIP-39).
 
-**Security by isolation, not by query.** The two-database architecture (`raiznet_public.db` / `raiznet_private.db`) enforces isolation at the connection level. The `OMIT` / `PLAIN` / `ENCRYPTED` model is the policy layer; the database separation is the enforcement layer. Both are required.
+**Segurança por isolamento, não por consulta.** A arquitetura de dois bancos (`raiznet_public.db` / `raiznet_private.db`) impõe o isolamento no nível da conexão. O modelo `OMIT` / `PLAIN` / `ENCRYPTED` é a camada de política; a separação dos bancos é a camada de imposição. Ambas são necessárias.
 
-**Replication is always total.** Filters (MAC curation lists) never affect what is stored — they control what appears in API responses. This keeps the network robust and avoids fragmentation.
+**A replicação é sempre total.** Os filtros (listas de curadoria de MAC) nunca afetam o que é armazenado — eles controlam o que aparece nas respostas da API. Isso mantém a rede robusta e evita fragmentação.
 
 ## Trade-offs
 
-- The `per_destination` map grows with the number of destinations configured. In practice, most users will use the default (map empty) or at most two entries.
-- Changing a policy does not affect already-published data. Peers who have downloaded plain readings retain them — there is no "unpublish" mechanism on an append-only log.
-- `ENCRYPTED` fields are opaque to aggregations. Network-level metrics (averages by H3 cell, regional charts) can only use `PLAIN` fields. This is a deliberate privacy guarantee, not a bug.
+- O mapa `per_destination` cresce com o número de destinos configurados. Na prática, a maioria dos usuários usará o padrão (mapa vazio) ou no máximo duas entradas.
+- Mudar uma política não afeta dados já publicados. Peers que baixaram leituras em claro as mantêm — não há mecanismo de "despublicar" em um log somente-anexação.
+- Campos `ENCRYPTED` são opacos para agregações. Métricas no nível da rede (médias por célula H3, gráficos regionais) só podem usar campos `PLAIN`. Isso é uma garantia de privacidade deliberada, não um bug.
 
-## Consequences
+## Consequências
 
-- `packages/protocol/proto/device.proto` defines `FieldPolicy`, `Disposition`, and `PrivacyPolicy`.
-- `apps/server/src/domain/telemetry.ts` resolves the effective disposition per field: `per_destination[serverPubkeyHex] ?? default_disposition` (topic-level overrides land with networks).
-- `packages/crypto/src/symmetric.ts` owns AES-256-GCM field encryption and decryption.
-- The owner's app is responsible for maintaining the device's symmetric keyring (`{ version → key }`) and decrypting `ENCRYPTED` fields received from any endpoint.
+- `packages/protocol/proto/device.proto` define `FieldPolicy`, `Disposition` e `PrivacyPolicy`.
+- `apps/server/src/domain/telemetry.ts` resolve a disposição efetiva por campo: `per_destination[serverPubkeyHex] ?? default_disposition` (overrides no nível de topic entram com as redes).
+- `packages/crypto/src/symmetric.ts` é dono da criptografia e descriptografia de campos com AES-256-GCM.
+- O app do dono é responsável por manter o chaveiro simétrico do dispositivo (`{ versão → chave }`) e descriptografar campos `ENCRYPTED` recebidos de qualquer endpoint.

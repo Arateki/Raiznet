@@ -1929,3 +1929,37 @@ footer {
     padding-top: 50px;
   }
 }
+
+/* Banner de sugestão de idioma (detecção por navigator, sem auto-redirect) */
+.lang-suggest {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  background: var(--cream);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  font-size: 0.9rem;
+}
+.lang-suggest__yes {
+  background: var(--leaf);
+  color: var(--cream);
+  border: 0;
+  border-radius: 7px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+.lang-suggest__no {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+}

@@ -1,60 +1,64 @@
-# Architecture
+---
+description: As três camadas da Raiznet — sensores ESP32 na borda, nós servidores na malha e clientes de visualização — e o que roda hoje versus o que está em design.
+---
 
-Raiznet is organized in three layers. This page distinguishes what runs **today** from what is **in design** — see the [Roadmap](/guide/roadmap) for the full picture.
+# Arquitetura
 
-## Edge layer — ESP32 sensors
+A Raiznet é organizada em três camadas. Esta página distingue o que roda **hoje** do que está **em design** — veja o [Roadmap](/guide/roadmap) para o quadro completo.
 
-All devices run the same base firmware. The mode is determined by configuration, not hardware:
+## Camada de borda — sensores ESP32
 
-| Mode | Power | Behavior |
+Todos os dispositivos rodam o mesmo firmware base. O modo é determinado por configuração, não por hardware:
+
+| Modo | Energia | Comportamento |
 |---|---|---|
-| `sensor_mains` | Wall power | Always on, keeps Wi-Fi active; future ESP-NOW relay for neighbors |
-| `sensor_battery` | Battery | Sleeps most of the time, wakes on schedule |
-| `gateway` | Wall power | Relay only — bridges ESP-NOW devices to Wi-Fi (planned) |
+| `sensor_mains` | Tomada | Sempre ligado, mantém o Wi-Fi ativo; futuro relay ESP-NOW para vizinhos |
+| `sensor_battery` | Bateria | Dorme a maior parte do tempo, acorda no horário agendado |
+| `gateway` | Tomada | Apenas relay — faz a ponte de dispositivos ESP-NOW para o Wi-Fi (planejado) |
 
-Every device has the same identity model: an Ed25519 keypair born at provisioning (hardware TRNG), stored in flash, used to sign every telemetry packet. The reference firmware also generates the owner identity from a BIP-39 mnemonic in its captive portal — see [Device Lifecycle](/protocol/device-lifecycle).
+Todo dispositivo tem o mesmo modelo de identidade: um par de chaves Ed25519 nascido no provisionamento (TRNG do hardware), guardado na flash, usado para assinar cada pacote de telemetria. O firmware de referência também gera a identidade do dono a partir de um mnemônico BIP-39 no seu portal cativo — veja [Ciclo de vida do dispositivo](/protocol/device-lifecycle).
 
-## Mesh layer — server nodes
+## Camada de malha — nós servidores
 
-Each server is a peer. There is no "main server". What a node does **today**:
+Cada servidor é um par (peer). Não existe "servidor principal". O que um nó faz **hoje**:
 
-- Receives signed telemetry over HTTP (`POST /v1/telemetry`) and validates every signature
-- Applies the per-field [privacy policy](/protocol/privacy) at ingestion
-- Stores readings in **two local SQLite databases** (public / private)
-- Exposes the HTTP API on two ports: one public, one local
+- Recebe telemetria assinada via HTTP (`POST /v1/telemetry`) e valida cada assinatura
+- Aplica a [política de privacidade](/protocol/privacy) por campo na ingestão
+- Armazena as leituras em **dois bancos SQLite locais** (público / privado)
+- Expõe a API HTTP em duas portas: uma pública, uma local
 
-**In design** ([ADR-004](/adr/004-raiznet-native-replication)): nodes will persist public data as a signed append-only event log and replicate it peer-to-peer with other nodes in the same [network](/protocol/networks) — first between configured peers over HTTP, then via a dial-by-pubkey transport with community-runnable relays. Replication is not implemented yet — today, nodes are independent.
+**Em design** ([ADR-004](/adr/004-raiznet-native-replication)): os nós passarão a persistir os dados públicos como um log de eventos assinado e somente-anexação, replicando-o ponto a ponto com outros nós da mesma [rede](/protocol/networks) — primeiro entre peers configurados via HTTP, depois por um transporte de discagem-por-pubkey com relays operados pela comunidade. A replicação ainda não está implementada — hoje, os nós são independentes.
 
-A server can run anywhere Node.js runs: VPS, Raspberry Pi, Mini PC, Android via Termux. A Rust reimplementation of the node (`raiznetd`) is underway to target very small ARM boards with a static binary — see the [Roadmap](/guide/roadmap).
+Um servidor pode rodar em qualquer lugar onde o Node.js roda: VPS, Raspberry Pi, Mini PC, Android via Termux. Uma reimplementação do nó em Rust (`raiznetd`) está em andamento para mirar placas ARM muito pequenas com um binário estático — veja o [Roadmap](/guide/roadmap).
 
-### Dual endpoints on one process
+### Endpoints duplos em um processo
 
-A single server process exposes two HTTP interfaces:
+Um único processo de servidor expõe duas interfaces HTTP:
 
-| Endpoint | Default port | Bind | Devices routes hit | Auth |
+| Endpoint | Porta padrão | Bind | Rotas de devices acessam | Auth |
 |---|---|---|---|---|
-| Public | `:3000` | `0.0.0.0` | `raiznet_public.db` | None (public data only) |
-| Local | `:3001` | `127.0.0.1` | `raiznet_private.db` | None yet — **planned:** owner challenge-response |
+| Público | `:3000` | `0.0.0.0` | `raiznet_public.db` | Nenhuma (só dados públicos) |
+| Local | `:3001` | `127.0.0.1` | `raiznet_private.db` | Ainda nenhuma — **planejado:** challenge-response do dono |
 
 ::: warning
-Until owner authentication ships, the local endpoint's only protection is its loopback bind. Reach it remotely via Tailscale/VPN — never expose it directly.
+Até a autenticação do dono entrar, a única proteção do endpoint local é o seu bind de loopback. Acesse-o remotamente via Tailscale/VPN — nunca o exponha diretamente.
 :::
 
-### Two databases
+### Dois bancos de dados
 
-| Database | Fed by | Contains | Served by |
+| Banco | Alimentado por | Contém | Servido por |
 |---|---|---|---|
-| `raiznet_public.db` | Public ingest (replication planned) | Devices and readings publishable to networks | Public endpoint |
-| `raiznet_private.db` | Local ingest only | `local_only` devices + fields kept off the public side | Local endpoint only |
+| `raiznet_public.db` | Ingestão pública (replicação planejada) | Dispositivos e leituras publicáveis em redes | Endpoint público |
+| `raiznet_private.db` | Apenas ingestão local | Dispositivos `local_only` + campos mantidos fora do lado público | Apenas endpoint local |
 
-**Security by isolation:** a query on the public endpoint cannot return private data because the private database connection is simply not available to it. Isolation is enforced at the database level, not the API layer.
+**Segurança por isolamento:** uma consulta no endpoint público não consegue retornar dados privados porque a conexão com o banco privado simplesmente não está disponível para ela. O isolamento é imposto no nível do banco, não na camada de API.
 
-## Client layer
+## Camada de cliente
 
-| Client | Description | Status |
+| Cliente | Descrição | Status |
 |---|---|---|
-| CLI | Operations and debugging tool | In repo |
-| Web dashboard | Visualization UI | In repo |
-| Public gateway | A node exposed on the internet — just another peer, no privileged data | Planned |
-| Desktop app (Tauri) | Bundles a full node + UI, works offline | Future phase |
-| Mobile app | React Native or Capacitor | Future phase |
+| CLI | Ferramenta de operação e depuração | No repositório |
+| Dashboard web | Interface de visualização | No repositório |
+| Gateway público | Um nó exposto na internet — apenas mais um peer, sem dados privilegiados | Planejado |
+| App desktop (Tauri) | Empacota um nó completo + UI, funciona offline | Fase futura |
+| App mobile | React Native ou Capacitor | Fase futura |

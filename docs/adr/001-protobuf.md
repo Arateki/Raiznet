@@ -1,49 +1,53 @@
-# ADR 001 — Protobuf as wire format
+---
+description: ADR 001 — Protobuf como formato de fio canônico da Raiznet, compartilhado entre Node.js e ESP32; aceito, com implementação adiada (hoje o fio é JSON).
+---
 
-**Status:** Accepted — implementation deferred  
-**Date:** 2026-04
+# ADR 001 — Protobuf como formato de fio
 
-::: info Update (2026-06)
-The wire format in production is **JSON** with a [signed raw string](/protocol/telemetry#the-signed-raw-string); the `.proto` schemas exist but code generation is not active. Protobuf remains the target canonical format and will land together with the event log — JSON stays supported for the current firmware generation.
+**Status:** Aceito — implementação adiada  
+**Data:** 2026-04
+
+::: info Atualização (2026-06)
+O formato de fio em produção é **JSON** com uma [string raw assinada](/protocol/telemetry#a-string-raw-assinada); os schemas `.proto` existem mas a geração de código não está ativa. O Protobuf continua sendo o formato canônico-alvo e entrará junto com o log de eventos — o JSON permanece suportado para a geração atual de firmware.
 :::
 
-## Context
+## Contexto
 
-Raiznet needs a serialization format that works on both ESP32 firmware (C++, memory-constrained) and Node.js servers (TypeScript). The format must be compact, schema-enforced, and maintainable across two very different runtimes.
+A Raiznet precisa de um formato de serialização que funcione tanto no firmware ESP32 (C++, com restrição de memória) quanto nos servidores Node.js (TypeScript). O formato precisa ser compacto, com schema imposto e mantível em dois runtimes muito diferentes.
 
-Candidates evaluated:
+Candidatos avaliados:
 
-| Format | Node.js | ESP32 | Schema | Binary |
+| Formato | Node.js | ESP32 | Schema | Binário |
 |---|---|---|---|---|
-| JSON | Native | ArduinoJson | No | No |
-| MessagePack | `msgpackr` | `msgpack-c` | No | Yes |
-| CBOR | `cbor-x` | `tinycbor` | No | Yes |
-| Protobuf | `@bufbuild/protobuf` | `nanopb` | Yes | Yes |
+| JSON | Nativo | ArduinoJson | Não | Não |
+| MessagePack | `msgpackr` | `msgpack-c` | Não | Sim |
+| CBOR | `cbor-x` | `tinycbor` | Não | Sim |
+| Protobuf | `@bufbuild/protobuf` | `nanopb` | Sim | Sim |
 
-## Decision
+## Decisão
 
-**Protobuf (Protocol Buffers v3)** with:
-- `@bufbuild/protobuf` + `@bufbuild/protoc-gen-es` on Node.js
-- `nanopb` on ESP32
+**Protobuf (Protocol Buffers v3)** com:
+- `@bufbuild/protobuf` + `@bufbuild/protoc-gen-es` no Node.js
+- `nanopb` no ESP32
 
-`.proto` schemas live in `packages/protocol/proto/` and are shared between both runtimes. TypeScript code is generated at build time via `protoc-gen-es`.
+Os schemas `.proto` vivem em `packages/protocol/proto/` e são compartilhados entre os dois runtimes. O código TypeScript é gerado em tempo de build via `protoc-gen-es`.
 
-## Rationale
+## Justificativa
 
-- **Shared schema**: one `.proto` file is the single source of truth. Changes to the schema are reflected in generated code on both sides — no hand-maintained structs.
-- **Binary compactness**: smaller packets than JSON, important for battery-powered ESP32s sending over Wi-Fi.
-- **Type safety**: generated TypeScript types are precise and eliminate the need for manual parsing.
-- **nanopb maturity**: well-established Protobuf implementation for embedded C, no dynamic memory allocation, works within ESP32 constraints.
-- **Field number stability**: Protobuf's forward/backward compatibility guarantees allow schema evolution without breaking existing nodes running older firmware.
+- **Schema compartilhado**: um arquivo `.proto` é a única fonte da verdade. Mudanças no schema se refletem no código gerado dos dois lados — sem structs mantidas à mão.
+- **Compactação binária**: pacotes menores que JSON, importante para ESP32s a bateria enviando por Wi-Fi.
+- **Segurança de tipos**: os tipos TypeScript gerados são precisos e eliminam a necessidade de parsing manual.
+- **Maturidade do nanopb**: implementação Protobuf bem estabelecida para C embarcado, sem alocação dinâmica de memória, funcionando dentro das restrições do ESP32.
+- **Estabilidade dos números de campo**: as garantias de compatibilidade para frente/para trás do Protobuf permitem a evolução do schema sem quebrar nós existentes rodando firmware mais antigo.
 
 ## Trade-offs
 
-- Protobuf is not human-readable. Debugging raw packets requires a decoder.
-- nanopb requires defining maximum sizes for repeated and string fields at compile time.
-- Adding a new sensor type requires updating the `.proto` file, regenerating code, and deploying both server and firmware updates.
+- O Protobuf não é legível por humanos. Depurar pacotes crus exige um decodificador.
+- O nanopb exige definir tamanhos máximos para campos repetidos e de string em tempo de compilação.
+- Adicionar um novo tipo de sensor exige atualizar o arquivo `.proto`, regenerar o código e implantar atualizações tanto do servidor quanto do firmware.
 
-## Consequences
+## Consequências
 
-- The canonical binary encoding (ESP32 → server, node → event log) will use Protobuf.
-- The HTTP API keeps JSON for browser, CLI, and current-firmware compatibility.
-- The `packages/protocol` package owns all `.proto` files and (future) generated code. No other package defines its own wire format.
+- A codificação binária canônica (ESP32 → servidor, nó → log de eventos) usará Protobuf.
+- A API HTTP mantém JSON para compatibilidade com navegador, CLI e firmware atual.
+- O pacote `packages/protocol` é dono de todos os arquivos `.proto` e do (futuro) código gerado. Nenhum outro pacote define seu próprio formato de fio.

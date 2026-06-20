@@ -1,79 +1,83 @@
-# Identity
+---
+description: Identidade na Raiznet — pares de chaves Ed25519 para usuários, servidores e dispositivos, hierarquia de chaves, derivação BIP-39 e backup da seed.
+---
 
-Every participant in Raiznet — users, servers, and devices — is identified by an Ed25519 keypair. There is no central authority.
+# Identidade
 
-## Key hierarchy
+Todo participante da Raiznet — usuários, servidores e dispositivos — é identificado por um par de chaves Ed25519. Não há autoridade central.
+
+## Hierarquia de chaves
 
 ```
-User seed phrase (BIP-39, 12 words)
-  └─ User keypair  (Ed25519)
-       └─ DeviceClaim  (signs device pubkeys)
-            └─ Device keypair  (Ed25519, born at provisioning)
-                  signs every telemetry packet
+Seed phrase do Usuário (BIP-39, 12 palavras)
+  └─ Par de chaves do Usuário  (Ed25519)
+       └─ DeviceClaim  (assina pubkeys de dispositivos)
+            └─ Par de chaves do Dispositivo  (Ed25519, nasce no provisionamento)
+                  assina cada pacote de telemetria
 ```
 
-The **User key** is the root of authority. It signs ownership claims over devices and network manifests. It is never used to sign telemetry — that is the device's role.
+A **chave de Usuário** é a raiz de autoridade. Ela assina reivindicações de propriedade sobre dispositivos e manifestos de rede. Nunca é usada para assinar telemetria — esse é o papel do dispositivo.
 
-The **Device key** is born with the hardware at provisioning and lives in the ESP32's flash. If the device is destroyed or lost, the key is gone. There is no recovery path by design — a new device is provisioned as a new identity.
+A **chave de Dispositivo** nasce com o hardware no provisionamento e vive na flash do ESP32. Se o dispositivo for destruído ou perdido, a chave se vai. Não há caminho de recuperação por design — um novo dispositivo é provisionado como uma nova identidade.
 
-## User key generation
+## Geração da chave de Usuário
 
 ```ts
 import { generateMnemonic, mnemonicToSeedSync } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { keyPair } from 'hypercore-crypto';
 
-const mnemonic = generateMnemonic(wordlist, 128); // 12 words
+const mnemonic = generateMnemonic(wordlist, 128); // 12 palavras
 const seed = Buffer.from(mnemonicToSeedSync(mnemonic)).subarray(0, 32);
 const { publicKey, secretKey } = keyPair(seed);
 ```
 
-The seed phrase is derived deterministically: the same 12 words always produce the same keypair. This means:
-- Recovering the seed phrase recovers all User keys.
-- Device symmetric keys can be derived deterministically from the User seed + device pubkey, so recovering the seed also recovers the ability to decrypt all encrypted telemetry fields.
+A seed phrase é derivada deterministicamente: as mesmas 12 palavras sempre produzem o mesmo par de chaves. Isso significa:
+- Recuperar a seed phrase recupera todas as chaves de Usuário.
+- As chaves simétricas dos dispositivos podem ser derivadas deterministicamente da seed do Usuário + pubkey do dispositivo, então recuperar a seed também recupera a capacidade de descriptografar todos os campos de telemetria criptografados.
 
-## Server identity
+## Identidade do servidor
 
-On first boot, the server generates a new BIP-39 seed and writes it to `DATA_DIR/identity.mnemonic` with permissions `0600`. The file is the only persistent secret. Back it up — it is the node's identity, and once networks ship it is what signs `NetworkManifest` events, filters, and catalogs.
+No primeiro boot, o servidor gera uma nova seed BIP-39 e a grava em `DATA_DIR/identity.mnemonic` com permissões `0600`. O arquivo é o único segredo persistente. Faça backup dele — é a identidade do nó, e quando as redes entrarem é o que assina eventos `NetworkManifest`, filtros e catálogos.
 
-The server's public key is logged at startup:
+A chave pública do servidor é registrada no log na inicialização:
 
 ```json
 {"pubkey":"641ffb278dc6...","msg":"raiznet server started"}
 ```
 
-## Device provisioning
+## Provisionamento do dispositivo
 
-At setup:
+No setup:
 
-1. The device generates its keypair from the hardware TRNG (32 random bytes) and stores it in flash (NVS). The private key never leaves the device.
-2. The owner identity is generated or imported in the device's captive portal as a BIP-39 mnemonic — see [Device Lifecycle](/protocol/device-lifecycle).
-3. **Planned:** the User signs a `DeviceClaim` event published to their public event log, so any reading can be validated against the ownership chain.
+1. O dispositivo gera seu par de chaves a partir do TRNG do hardware (32 bytes aleatórios) e o armazena na flash (NVS). A chave privada nunca sai do dispositivo.
+2. A identidade do dono é gerada ou importada no portal cativo do dispositivo como um mnemônico BIP-39 — veja [Ciclo de vida do dispositivo](/protocol/device-lifecycle).
+3. **Planejado:** o Usuário assina um evento `DeviceClaim` publicado no seu log de eventos público, para que qualquer leitura possa ser validada contra a cadeia de propriedade.
 
-::: info Owner key derivation in the reference firmware
-The reference firmware currently derives the owner's Ed25519 seed as **SHA-256 of the mnemonic string**, not via the full BIP-39/PBKDF2 derivation used by the server (`@raiznet/crypto`). The same phrase therefore produces different keys in the two paths. A canonical rule will be fixed by ADR before owner-seed import ships in the apps — until then, treat the firmware-generated owner key as device-scoped.
+::: info Derivação da chave do dono no firmware de referência
+O firmware de referência hoje deriva a seed Ed25519 do dono como **SHA-256 da string do mnemônico**, e não pela derivação BIP-39/PBKDF2 completa usada pelo servidor (`@raiznet/crypto`). A mesma frase, portanto, produz chaves diferentes nos dois caminhos. Uma regra canônica será fixada por ADR antes de a importação de seed do dono entrar nos apps — até lá, trate a chave de dono gerada pelo firmware como restrita ao dispositivo.
 :::
 
-## Ownership transfer
+## Transferência de propriedade
 
-Selling or transferring a device uses a `DeviceTransfer` event with dual signatures (seller + buyer). Both sign the same struct containing the device pubkey, the two user pubkeys, and a timestamp. The network updates its view of `owner_pubkey` after seeing a valid transfer.
+Vender ou transferir um dispositivo usa um evento `DeviceTransfer` com assinaturas duplas (vendedor + comprador). Ambos assinam a mesma estrutura contendo a pubkey do dispositivo, as duas pubkeys de usuário e um timestamp. A rede atualiza sua visão de `owner_pubkey` após ver uma transferência válida.
 
-## BIP-39 and backup
+## BIP-39 e backup
 
-The seed phrase is the master secret. It should be:
+A seed phrase é o segredo mestre. Ela deve ser:
 
-- Written on paper and stored in a safe place.
-- Never stored in a cloud service or sent over unencrypted channels.
-- Shown to the user only once, at generation time, with a confirmation step.
+- Escrita em papel e guardada em local seguro.
+- Nunca armazenada em serviço de nuvem nem enviada por canais não criptografados.
+- Mostrada ao usuário apenas uma vez, no momento da geração, com uma etapa de confirmação.
 
-There is no centralized recovery. This is a fundamental design choice, not a limitation.
+Não há recuperação centralizada. Esta é uma escolha fundamental de design, não uma limitação.
 
-## Challenge-response authentication <Badge type="warning" text="planned" />
+## Autenticação por challenge-response <Badge type="warning" text="planejado" />
 
-The local endpoint (`127.0.0.1:LOCAL_PORT`) will require the owner to prove possession of their User private key (not implemented yet — see [Local API](/reference/local-api)):
+O endpoint local (`127.0.0.1:LOCAL_PORT`) exigirá que o dono prove a posse da sua chave privada de Usuário (ainda não implementado — veja [API local](/reference/local-api)):
 
-1. Client calls `GET /v1/auth/challenge` → receives 32 random bytes.
-2. Client signs those bytes with their User secret key.
-3. Client sends the signature to `POST /v1/auth/verify` → receives a session token (or the server validates per-request).
+1. O cliente chama `GET /v1/auth/challenge` → recebe 32 bytes aleatórios.
+2. O cliente assina esses bytes com sua chave secreta de Usuário.
+3. O cliente envia a assinatura para `POST /v1/auth/verify` → recebe um token de sessão (ou o servidor valida por requisição).
 
-This will prevent unauthorized access to the owner's private data even if someone gains access to the server's local network. Until it ships, the local endpoint relies on its `127.0.0.1` bind — do not expose it.
+Isso impedirá o acesso não autorizado aos dados privados do dono mesmo que alguém ganhe acesso à rede local do servidor. Até entrar, o endpoint local depende do seu bind em `127.0.0.1` — não o exponha.

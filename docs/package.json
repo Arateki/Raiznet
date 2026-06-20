@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "build": "vitepress build && node scripts/validate-seo.mjs",
+    "preview": "vitepress preview",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "vitepress": "^1.6.3"
+    "vitepress": "^1.6.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@fontsource/inter": "^5.2.8"
   }
 }
