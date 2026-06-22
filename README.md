@@ -46,8 +46,6 @@ Sensores ESP32 instalados em torres, estufas ou canteiros enviam leituras de pH,
 
 Além do monitoramento, a Raiznet é projetada como infraestrutura de dados de qualidade científica: cada leitura é assinada, imutável, geolocalizada e vinculada ao resultado real da safra. Isso cria as condições para que LLMs — inclusive modelos locais rodando no próprio servidor do agricultor — extraiam conhecimento acionável diretamente dos dados da rede, sem intermediários e sem que os dados saiam do controle do dono.
 
----
-
 ## Princípios
 
 **Local-first.** A rede funciona sem internet. Um sensor e um notebook no mesmo Wi-Fi já formam uma Raiznet válida.
