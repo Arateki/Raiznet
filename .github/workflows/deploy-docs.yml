@@ -1,5 +1,11 @@
 name: Deploy Raiznet Docs
 
+# Secrets necessários (Settings → Secrets and variables → Actions):
+#   T3_SSH_HOST  - host/IP da T3 nano
+#   T3_SSH_USER  - usuário SSH com permissão de escrita no T3_DIR
+#   T3_SSH_KEY   - chave privada SSH (conteúdo do arquivo, ex. id_ed25519)
+#   T3_SSH_PORT  - (opcional) porta SSH; default 22
+
 on:
   push:
     branches: ["main"]
@@ -10,11 +16,15 @@ on:
   workflow_dispatch:
 
 env:
-  DEPLOY_DIR: /opt/home-server/websites/raiznet/docs/dist
+  HOME_SERVER_DIR: /opt/home-server/websites/raiznet/docs/dist
+  T3_DIR: /var/www/raiznet/docs/dist
 
 jobs:
-  deploy-docs:
-    runs-on: self-hosted
+  # ==========================================
+  # BUILD na computação gratuita do GitHub
+  # ==========================================
+  build:
+    runs-on: ubuntu-latest
     environment: production
     steps:
       - name: Checkout repo
@@ -37,7 +47,62 @@ jobs:
       - name: Build docs
         run: pnpm --filter @raiznet/docs build
 
+      - name: Upload docs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-dist
+          path: docs/.vitepress/dist/
+          retention-days: 1
+
+  # ==========================================
+  # DEPLOY no home-server (runner self-hosted, rsync local)
+  # ==========================================
+  deploy-home-server:
+    needs: build
+    runs-on: self-hosted
+    environment: production
+    steps:
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-dist
+          path: dist
+
       - name: Deploy docs
         run: |
-          mkdir -p "$DEPLOY_DIR"
-          rsync -a --delete docs/.vitepress/dist/ "$DEPLOY_DIR/"
+          mkdir -p "$HOME_SERVER_DIR"
+          rsync -a --delete dist/ "$HOME_SERVER_DIR/"
+
+  # ==========================================
+  # DEPLOY na T3 nano (SSH + rsync a partir do runner do GitHub)
+  # ==========================================
+  deploy-t3:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download docs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docs-dist
+          path: dist
+
+      - name: Setup SSH
+        env:
+          T3_SSH_PORT: ${{ secrets.T3_SSH_PORT }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.T3_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${T3_SSH_PORT:-22}" "${{ secrets.T3_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy docs to T3
+        env:
+          T3_SSH_PORT: ${{ secrets.T3_SSH_PORT }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "${T3_SSH_PORT:-22}" \
+            "${{ secrets.T3_SSH_USER }}@${{ secrets.T3_SSH_HOST }}" \
+            "mkdir -p '$T3_DIR'"
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p ${T3_SSH_PORT:-22}" \
+            dist/ "${{ secrets.T3_SSH_USER }}@${{ secrets.T3_SSH_HOST }}:$T3_DIR/"
