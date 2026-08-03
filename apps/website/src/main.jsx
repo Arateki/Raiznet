@@ -144,6 +144,13 @@ function NatureBackground({ theme }) {
     const context = canvas.getContext('2d');
     if (!context) return undefined;
 
+    // Toggle de teste: abrir com ?leaves=off desliga a animação das folhas
+    // (canvas fica em branco, sem requestAnimationFrame) para medir o custo
+    // do efeito isoladamente em celulares fracos.
+    if (new URLSearchParams(window.location.search).get('leaves') === 'off') {
+      return undefined;
+    }
+
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let animationId = 0;
     let width = 0;
